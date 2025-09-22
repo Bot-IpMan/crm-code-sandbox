@@ -140,6 +140,10 @@ The system comes pre-loaded with sample data to demonstrate functionality:
 - 3 Tasks with different priorities
 - 3 Activities showing interaction history
 
+## 📚 Additional Guides
+
+- [Покрокова інструкція зі створення CRM-системи в Obsidian](docs/obsidian-crm-guide.md) — україномовний посібник із налаштування сховища Obsidian як CRM для агентства конкурентної розвідки.
+
 ## 💡 Usage Examples
 
 ### Adding a New Contact
