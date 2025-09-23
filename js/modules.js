@@ -1612,8 +1612,261 @@ async function deleteLead(id) {
     }
 }
 
-// Placeholder functions for additional module forms
-async function showOpportunityForm(oppId = null) { showToast('Opportunity form - to be implemented', 'info'); }
+// Additional module forms
+async function showOpportunityForm(oppId = null) {
+    const isEdit = Boolean(oppId);
+    let opportunity = {};
+
+    if (isEdit) {
+        showLoading();
+        try {
+            const response = await fetch(`tables/opportunities/${oppId}`);
+            if (!response.ok) {
+                throw new Error('Failed to fetch opportunity');
+            }
+            opportunity = await response.json();
+        } catch (error) {
+            console.error('Error loading opportunity:', error);
+            showToast('Failed to load opportunity details', 'error');
+            hideLoading();
+            return;
+        }
+        hideLoading();
+    }
+
+    let companies = [];
+    try {
+        const response = await fetch('tables/companies?limit=1000');
+        if (response.ok) {
+            const data = await response.json();
+            companies = Array.isArray(data.data) ? data.data : [];
+        }
+    } catch (error) {
+        console.warn('Unable to fetch companies for opportunity form:', error);
+    }
+
+    const stageOptions = ['Qualification', 'Needs Analysis', 'Proposal', 'Negotiation', 'Closed Won', 'Closed Lost'];
+    if (opportunity.stage && !stageOptions.includes(opportunity.stage)) {
+        stageOptions.unshift(opportunity.stage);
+    }
+
+    const stageProbabilityDefaults = {
+        'Qualification': 20,
+        'Needs Analysis': 35,
+        'Proposal': 55,
+        'Negotiation': 75,
+        'Closed Won': 100,
+        'Closed Lost': 0
+    };
+
+    const selectedStage = opportunity.stage || 'Qualification';
+    const expectedCloseDate = opportunity.expected_close_date
+        ? new Date(opportunity.expected_close_date).toISOString().split('T')[0]
+        : '';
+
+    const probabilityValue = opportunity.probability ?? (stageProbabilityDefaults[selectedStage] ?? '');
+    const companyOptionsHtml = companies
+        .map(company => `<option value="${company.name || ''}"></option>`)
+        .join('');
+
+    showModal(isEdit ? 'Edit Opportunity' : 'Add New Opportunity', `
+        <form id="opportunityForm" class="space-y-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Opportunity Name *</label>
+                    <input type="text" name="name" value="${opportunity.name || ''}" required
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Stage</label>
+                    <select name="stage" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        ${stageOptions.map(stage => `<option value="${stage}" ${selectedStage === stage ? 'selected' : ''}>${stage}</option>`).join('')}
+                    </select>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Value (USD)</label>
+                    <input type="number" min="0" step="1000" name="value" value="${opportunity.value ?? ''}"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="50000">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Probability (%)</label>
+                    <input type="number" name="probability" min="0" max="100" step="1" value="${probabilityValue === '' ? '' : probabilityValue}"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="60">
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Expected Close Date</label>
+                    <input type="date" name="expected_close_date" value="${expectedCloseDate}"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Assigned To</label>
+                    <input type="text" name="assigned_to" value="${opportunity.assigned_to || currentUser || ''}"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Team member">
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Company</label>
+                <input type="text" name="company_name" list="opportunityCompanyOptions" value="${opportunity.company_name || ''}"
+                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Linked company">
+                <datalist id="opportunityCompanyOptions">
+                    ${companyOptionsHtml}
+                </datalist>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Next Step</label>
+                <textarea name="next_step" rows="3"
+                          class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          placeholder="What needs to happen next?">${opportunity.next_step || ''}</textarea>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Description</label>
+                <textarea name="description" rows="4"
+                          class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          placeholder="Additional context for this opportunity">${opportunity.description || ''}</textarea>
+            </div>
+
+            <div class="flex justify-end space-x-3 pt-6 border-t border-gray-200">
+                <button type="button" onclick="closeModal()" class="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50">
+                    Cancel
+                </button>
+                <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                    ${isEdit ? 'Update Opportunity' : 'Create Opportunity'}
+                </button>
+            </div>
+        </form>
+    `);
+
+    const form = document.getElementById('opportunityForm');
+    form.addEventListener('submit', async function(event) {
+        event.preventDefault();
+        await saveOpportunity(oppId, new FormData(form));
+    });
+
+    const stageSelect = form.querySelector('select[name="stage"]');
+    const probabilityInput = form.querySelector('input[name="probability"]');
+
+    const updateProbabilityForStage = () => {
+        if (!stageSelect || !probabilityInput) {
+            return;
+        }
+
+        const stage = stageSelect.value;
+        if (stage === 'Closed Won') {
+            probabilityInput.value = '100';
+            probabilityInput.setAttribute('readonly', 'readonly');
+        } else if (stage === 'Closed Lost') {
+            probabilityInput.value = '0';
+            probabilityInput.setAttribute('readonly', 'readonly');
+        } else {
+            probabilityInput.removeAttribute('readonly');
+            if (!probabilityInput.value || probabilityInput.value === '0' || probabilityInput.value === '100') {
+                const defaultValue = stageProbabilityDefaults[stage];
+                if (defaultValue !== undefined) {
+                    probabilityInput.value = defaultValue;
+                }
+            }
+        }
+    };
+
+    stageSelect?.addEventListener('change', updateProbabilityForStage);
+    updateProbabilityForStage();
+}
+
+async function saveOpportunity(oppId, formData) {
+    const data = {};
+    for (const [key, value] of formData.entries()) {
+        if (typeof value === 'string') {
+            const trimmed = value.trim();
+            if (trimmed) {
+                data[key] = trimmed;
+            }
+        } else if (value !== undefined && value !== null) {
+            data[key] = value;
+        }
+    }
+
+    if (!data.name) {
+        showToast('Opportunity name is required', 'error');
+        return;
+    }
+
+    if (!data.stage) {
+        data.stage = 'Qualification';
+    }
+
+    if (typeof data.value === 'string') {
+        const numericValue = Number(data.value.replace(/[^0-9.\-]/g, ''));
+        if (Number.isFinite(numericValue)) {
+            data.value = numericValue;
+        } else {
+            delete data.value;
+        }
+    }
+
+    if (typeof data.probability === 'string') {
+        const numericProbability = Number(data.probability);
+        if (Number.isFinite(numericProbability)) {
+            data.probability = Math.min(100, Math.max(0, Math.round(numericProbability)));
+        } else {
+            delete data.probability;
+        }
+    }
+
+    if (data.stage === 'Closed Won') {
+        data.probability = 100;
+    } else if (data.stage === 'Closed Lost') {
+        data.probability = 0;
+    }
+
+    if (data.expected_close_date) {
+        const parsedDate = new Date(data.expected_close_date);
+        if (Number.isNaN(parsedDate.getTime())) {
+            delete data.expected_close_date;
+        }
+    }
+
+    const nowIso = new Date().toISOString();
+    data.updated_at = nowIso;
+    if (!oppId) {
+        data.created_at = nowIso;
+        data.created_by = currentUser;
+    }
+
+    showLoading();
+    try {
+        const method = oppId ? 'PUT' : 'POST';
+        const url = oppId ? `tables/opportunities/${oppId}` : 'tables/opportunities';
+
+        const response = await fetch(url, {
+            method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+
+        if (!response.ok) {
+            throw new Error('Save failed');
+        }
+
+        showToast(oppId ? 'Opportunity updated successfully' : 'Opportunity created successfully', 'success');
+        closeModal();
+        await loadOpportunities();
+    } catch (error) {
+        console.error('Error saving opportunity:', error);
+        showToast('Failed to save opportunity', 'error');
+    } finally {
+        hideLoading();
+    }
+}
+
 async function showTaskForm(taskId = null) { showToast('Task form - to be implemented', 'info'); }
 async function showActivityForm(activityId = null) { showToast('Activity form - to be implemented', 'info'); }
 
