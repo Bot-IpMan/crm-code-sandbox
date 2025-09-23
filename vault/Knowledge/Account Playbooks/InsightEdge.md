@@ -24,8 +24,8 @@ InsightEdge Consulting прагне швидких і практичних ін�
 3. Щоквартально оновлювати battlecards та матеріали для продажів.
 
 ## Матеріали
-- [[Documents/InsightEdge/Contract 2024.md]]
-- [[Documents/InsightEdge/Scope Outline.md]]
+- [[Documents/Clients/InsightEdge Consulting/Contracts/2024-05-06 – InsightEdge – Annual Service Agreement]]
+- [[Documents/Clients/InsightEdge Consulting/Scopes/2024-05-05 – InsightEdge – Competitive Intelligence Scope]]
 - [[Tasks/Налагодити звіт для InsightEdge.md]]
 
 ## Ризики та можливості

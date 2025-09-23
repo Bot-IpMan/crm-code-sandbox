@@ -86,6 +86,10 @@ SORT due asc
 - InsightEdge просить налаштувати автоматичні сповіщення щодо запуску нових продуктів конкурентів у США.
 - Важливі конкуренти для клієнта: [[Competitors/MarketPulse – SaaS]] (для відстеження кейсів залучення клієнтів).
 
+## Документи та вкладення
+- Основна угода:: [[Documents/Clients/InsightEdge Consulting/Contracts/2024-05-06 – InsightEdge – Annual Service Agreement]].
+- Чернетка scope:: [[Documents/Clients/InsightEdge Consulting/Scopes/2024-05-05 – InsightEdge – Competitive Intelligence Scope]].
+- ![[Documents/Clients/InsightEdge Consulting/Scopes/2024-05-05 – InsightEdge – Competitive Intelligence Scope#Основні компоненти]]
+
 ## Додаткові ресурси
-- Шерингова папка документів: [[Documents/InsightEdge/Contract 2024.md]], [[Documents/InsightEdge/Scope Outline.md]].
 - Внутрішній гайдовий матеріал: [[Knowledge/Account Playbooks/InsightEdge.md]].

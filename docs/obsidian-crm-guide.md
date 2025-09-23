@@ -211,6 +211,29 @@ SORT close_date asc
 - **Використовуйте глобальний пошук** Obsidian для швидкого доступу до документів.
 - **Організуйте обмін**: відкривайте файли у провіднику або зберігайте посилання на Google Drive, Dropbox тощо.[^1]
 
+Приклад структури клієнтської папки в `Documents/`:
+
+```
+Documents/
+├── Clients/
+│   └── InsightEdge Consulting/
+│       ├── Contracts/
+│       │   └── 2024-05-06 – InsightEdge – Annual Service Agreement.md
+│       └── Scopes/
+│           └── 2024-05-05 – InsightEdge – Competitive Intelligence Scope.md
+```
+
+У робочих нотатках клієнта додайте блок «Документи», щоб бачити прев’ю ключових файлів:
+
+```
+## Документи
+- Основна угода:: [[Documents/Clients/InsightEdge Consulting/Contracts/2024-05-06 – InsightEdge – Annual Service Agreement]]
+- Чернетка scope:: [[Documents/Clients/InsightEdge Consulting/Scopes/2024-05-05 – InsightEdge – Competitive Intelligence Scope]]
+- ![[Documents/Clients/InsightEdge Consulting/Scopes/2024-05-05 – InsightEdge – Competitive Intelligence Scope#Основні компоненти]]
+```
+
+Так ви зможете швидко переходити до файлів та переглядати їх зміст без відкриття сторонніх застосунків.
+
 ---
 
 ## Крок 7. База знань і конкурентна розвідка
