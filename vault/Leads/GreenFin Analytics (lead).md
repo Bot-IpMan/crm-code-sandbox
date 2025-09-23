@@ -24,6 +24,28 @@ related_competitors:
 
 # GreenFin Analytics (lead)
 
+## Дашборд ліда
+```dataviewjs
+const page = dv.current();
+const formatDate = value => value ? dv.date(value).toISODate() : "—";
+const probability = page.probability != null ? `${Math.round(page.probability * 100)}%` : "—";
+const owner = page.owner ? dv.fileLink(page.owner) : "—";
+const tasks = dv.pages('"Tasks"')
+  .where(p => p.related_to && p.related_to.some(r => r.path === page.file.path) && p.status !== "done");
+const deals = dv.array(page.deals ?? []).map(link => dv.fileLink(link)).join(", ") || "—";
+dv.table(["Показник", "Значення"], [
+  ["Статус ліда", page.status ?? "—"],
+  ["Стадія воронки", page.stage ?? page.status ?? "—"],
+  ["Потенціал, $", page.potential_value ?? "—"],
+  ["Ймовірність", probability],
+  ["Власник", owner],
+  ["Наступний крок до", formatDate(page.next_step_due)],
+  ["Останній контакт", formatDate(page.last_contact)],
+  ["Пов'язані угоди", deals],
+  ["Активні задачі", tasks.length]
+]);
+```
+
 ## Профіль ліда
 GreenFin Analytics — фінтех-платформа, яка надає ESG-аналітику для банків і фондів. Команда зацікавлена у відстеженні конкурентів та моніторингу регуляторних змін в ЄС.
 
@@ -34,6 +56,12 @@ GreenFin Analytics — фінтех-платформа, яка надає ESG-а
 - Email:: [denis.orlov@greenfin.io](mailto:denis.orlov@greenfin.io)
 - LinkedIn:: https://www.linkedin.com/company/greenfin-analytics
 - Zoom-кімната для наступного демо:: [https://zoom.us/j/6677889900?pwd=finproposal](https://zoom.us/j/6677889900?pwd=finproposal)
+
+## Швидкі дії
+- ✉️ [Email](mailto:denis.orlov@greenfin.io)
+- ☎️ [Дзвінок](tel:+498944556677)
+- 🎥 [Zoom-демо](https://zoom.us/j/6677889900?pwd=finproposal)
+- 🔗 [LinkedIn](https://www.linkedin.com/company/greenfin-analytics)
 
 ## Кваліфікація
 - Джерело ліда: ESG webinar (квітень 2024).
@@ -52,6 +80,14 @@ GreenFin Analytics — фінтех-платформа, яка надає ESG-а
 - Поточна задача:: Створити tailored proof-of-value дашборд до 2024-05-13.
 - Наступний запланований контакт:: 2024-05-14 — демо функціональності Regulatory Radar.
 - Формат взаємодії: Zoom-зустріч + спільний перегляд дашборду.
+
+## Активні задачі
+```dataview
+TABLE status, due, owner
+FROM "Tasks"
+WHERE contains(related_to, this.file.link) AND status != "done"
+SORT due asc
+```
 
 ## Лог взаємодій
 - 2024-05-06 — Надіслано пропозицію і шаблон звіту, запланували демо (див. [[Daily Notes/2024-05-06#Журнал подій]]).

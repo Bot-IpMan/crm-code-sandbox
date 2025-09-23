@@ -25,6 +25,28 @@ deals:
 
 # UrbanX Mobility (lead)
 
+## Дашборд ліда
+```dataviewjs
+const page = dv.current();
+const formatDate = value => value ? dv.date(value).toISODate() : "—";
+const probability = page.probability != null ? `${Math.round(page.probability * 100)}%` : "—";
+const owner = page.owner ? dv.fileLink(page.owner) : "—";
+const tasks = dv.pages('"Tasks"')
+  .where(p => p.related_to && p.related_to.some(r => r.path === page.file.path) && p.status !== "done");
+const deals = dv.array(page.deals ?? []).map(link => dv.fileLink(link)).join(", ") || "—";
+dv.table(["Показник", "Значення"], [
+  ["Статус ліда", page.status ?? "—"],
+  ["Стадія воронки", page.stage ?? page.status ?? "—"],
+  ["Потенціал, $", page.potential_value ?? "—"],
+  ["Ймовірність", probability],
+  ["Власник", owner],
+  ["Наступний крок до", formatDate(page.next_step_due)],
+  ["Останній контакт", formatDate(page.last_contact)],
+  ["Пов'язані угоди", deals],
+  ["Активні задачі", tasks.length]
+]);
+```
+
 ## Профіль ліда
 UrbanX Mobility — розробник MaaS-рішень для міських операторів транспорту. Компанія шукає партнера для регулярного моніторингу конкурентів, тендерів та інновацій у сфері міської мобільності.
 
@@ -35,6 +57,12 @@ UrbanX Mobility — розробник MaaS-рішень для міських �
 - Email:: [oksana.honchar@urbanxmobility.com](mailto:oksana.honchar@urbanxmobility.com)
 - LinkedIn:: https://www.linkedin.com/company/urbanx-mobility
 - Zoom для переговорів:: [zoommtg://zoom.us/j/3344556677?pwd=urbanx](zoommtg://zoom.us/j/3344556677?pwd=urbanx)
+
+## Швидкі дії
+- ✉️ [Email](mailto:oksana.honchar@urbanxmobility.com)
+- ☎️ [Дзвінок](tel:+442071234567)
+- 🎥 [Zoom-переговори](zoommtg://zoom.us/j/3344556677?pwd=urbanx)
+- 🔗 [LinkedIn](https://www.linkedin.com/company/urbanx-mobility)
 
 ## Кваліфікація
 - Джерело ліда: стенд на FutureCities Expo (Берлін, березень 2024).
@@ -53,6 +81,14 @@ UrbanX Mobility — розробник MaaS-рішень для міських �
 - Поточна задача:: Підготувати оновлену фінансову модель ROI до 2024-05-08.
 - Наступний запланований контакт:: 2024-05-09 — фінальна сесія переговорів.
 - Формат взаємодії: Zoom-переговори + юридичний review документів.
+
+## Активні задачі
+```dataview
+TABLE status, due, owner
+FROM "Tasks"
+WHERE contains(related_to, this.file.link) AND status != "done"
+SORT due asc
+```
 
 ## Лог взаємодій
 - 2024-05-03 — Надіслали оновлену пропозицію з деталями Scout Program, погодили фінальний call.
