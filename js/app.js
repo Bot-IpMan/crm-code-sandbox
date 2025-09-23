@@ -4,6 +4,29 @@
  */
 
 // Global variables and configuration
+const FONT_FAMILIES = {
+    'Inter': "'Inter', sans-serif",
+    'Roboto': "'Roboto', sans-serif",
+    'Open Sans': "'Open Sans', sans-serif",
+    'Georgia': "'Georgia', serif",
+    'Courier New': "'Courier New', monospace"
+};
+
+const FONT_SIZES = {
+    small: '14px',
+    medium: '16px',
+    large: '18px',
+    extraLarge: '20px'
+};
+
+const DEFAULT_FONT_SETTINGS = {
+    family: 'Inter',
+    size: 'medium'
+};
+
+const FONT_FAMILY_STORAGE_KEY = 'appFontFamily';
+const FONT_SIZE_STORAGE_KEY = 'appFontSize';
+
 let currentView = 'dashboard';
 let currentUser = 'Admin User';
 let charts = {};
@@ -15,16 +38,19 @@ document.addEventListener('DOMContentLoaded', function() {
 
 function initializeApp() {
     console.log('Initializing ProCRM...');
-    
+
     // Setup event listeners
     setupEventListeners();
-    
+
     // Initialize mobile menu
     initializeMobileMenu();
-    
+
+    // Initialize UI settings
+    initializeSettingsPanel();
+
     // Load dashboard by default
     showDashboard();
-    
+
     // Setup global search
     setupGlobalSearch();
     
@@ -87,13 +113,80 @@ function initializeMobileMenu() {
 function setupGlobalSearch() {
     const searchInput = document.getElementById('globalSearch');
     let searchTimeout;
-    
+
     searchInput.addEventListener('input', function(e) {
         clearTimeout(searchTimeout);
         searchTimeout = setTimeout(() => {
             performGlobalSearch(e.target.value);
         }, 300);
     });
+}
+
+function initializeSettingsPanel() {
+    const fontFamilySelect = document.getElementById('fontFamilySelect');
+    const fontSizeSelect = document.getElementById('fontSizeSelect');
+
+    if (!fontFamilySelect || !fontSizeSelect) {
+        return;
+    }
+
+    const savedFontFamily = getStoredPreference(FONT_FAMILY_STORAGE_KEY);
+    const savedFontSize = getStoredPreference(FONT_SIZE_STORAGE_KEY);
+
+    const initialFontFamily = (savedFontFamily && FONT_FAMILIES[savedFontFamily]) ? savedFontFamily : DEFAULT_FONT_SETTINGS.family;
+    const initialFontSize = (savedFontSize && FONT_SIZES[savedFontSize]) ? savedFontSize : DEFAULT_FONT_SETTINGS.size;
+
+    applyFontSettings(initialFontFamily, initialFontSize);
+
+    fontFamilySelect.value = initialFontFamily;
+    fontSizeSelect.value = initialFontSize;
+
+    setStoredPreference(FONT_FAMILY_STORAGE_KEY, initialFontFamily);
+    setStoredPreference(FONT_SIZE_STORAGE_KEY, initialFontSize);
+
+    fontFamilySelect.addEventListener('change', event => {
+        const newFontFamily = event.target.value;
+        applyFontSettings(newFontFamily, fontSizeSelect.value);
+        setStoredPreference(FONT_FAMILY_STORAGE_KEY, newFontFamily);
+    });
+
+    fontSizeSelect.addEventListener('change', event => {
+        const newFontSize = event.target.value;
+        applyFontSettings(fontFamilySelect.value, newFontSize);
+        setStoredPreference(FONT_SIZE_STORAGE_KEY, newFontSize);
+    });
+}
+
+function applyFontSettings(fontFamilyKey, fontSizeKey) {
+    setAppFontFamily(fontFamilyKey);
+    setAppFontSize(fontSizeKey);
+}
+
+function setAppFontFamily(fontFamilyKey) {
+    const fontFamily = FONT_FAMILIES[fontFamilyKey] || FONT_FAMILIES[DEFAULT_FONT_SETTINGS.family];
+    document.documentElement.style.setProperty('--app-font-family', fontFamily);
+}
+
+function setAppFontSize(fontSizeKey) {
+    const fontSize = FONT_SIZES[fontSizeKey] || FONT_SIZES[DEFAULT_FONT_SETTINGS.size];
+    document.documentElement.style.setProperty('--app-font-size', fontSize);
+}
+
+function getStoredPreference(key) {
+    try {
+        return localStorage.getItem(key);
+    } catch (error) {
+        console.warn('Unable to read preference', key, error);
+        return null;
+    }
+}
+
+function setStoredPreference(key, value) {
+    try {
+        localStorage.setItem(key, value);
+    } catch (error) {
+        console.warn('Unable to save preference', key, error);
+    }
 }
 
 async function performGlobalSearch(query) {
