@@ -968,18 +968,327 @@ async function generateReport(type) {
     }
 }
 
-// Placeholder functions for form modals (would need full implementation)
-async function showCompanyForm(companyId = null) { showToast('Company form - to be implemented', 'info'); }
+// Company management helpers
+async function showCompanyForm(companyId = null) {
+    const isEdit = Boolean(companyId);
+    let company = {};
+
+    if (isEdit) {
+        showLoading();
+        try {
+            const response = await fetch(`tables/companies/${companyId}`);
+            if (!response.ok) {
+                throw new Error('Failed to fetch company');
+            }
+            company = await response.json();
+        } catch (error) {
+            console.error('Error loading company:', error);
+            showToast('Failed to load company details', 'error');
+            return;
+        } finally {
+            hideLoading();
+        }
+    }
+
+    const statusOptions = ['Active', 'Customer', 'Prospect', 'Partner', 'Inactive'];
+    if (company.status && !statusOptions.includes(company.status)) {
+        statusOptions.unshift(company.status);
+    }
+
+    const sizeOptions = ['Startup', 'Small (1-50)', 'Medium (51-200)', 'Large (201-1000)', 'Enterprise (1000+)'];
+    if (company.size && !sizeOptions.includes(company.size)) {
+        sizeOptions.unshift(company.size);
+    }
+
+    const selectedStatus = company.status || 'Active';
+
+    showModal(isEdit ? 'Edit Company' : 'Add New Company', `
+        <form id="companyForm" class="space-y-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Company Name *</label>
+                    <input type="text" name="name" value="${company.name || ''}" required
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Industry</label>
+                    <input type="text" name="industry" value="${company.industry || ''}"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Company Size</label>
+                    <select name="size" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        <option value="">Select size...</option>
+                        ${sizeOptions.map(size => `<option value="${size}" ${company.size === size ? 'selected' : ''}>${size}</option>`).join('')}
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Status</label>
+                    <select name="status" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        ${statusOptions.map(status => `<option value="${status}" ${selectedStatus === status ? 'selected' : ''}>${status}</option>`).join('')}
+                    </select>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Website</label>
+                    <input type="url" name="website" value="${company.website || ''}"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="https://example.com">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                    <input type="email" name="email" value="${company.email || ''}"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Phone</label>
+                    <input type="tel" name="phone" value="${company.phone || ''}"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Annual Revenue (USD)</label>
+                    <input type="number" min="0" step="1000" name="annual_revenue" value="${company.annual_revenue ?? ''}"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="250000">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">CRM Owner</label>
+                    <input type="text" name="owner" value="${company.owner || currentUser || ''}"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Account owner">
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">City</label>
+                    <input type="text" name="city" value="${company.city || ''}"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">State / Region</label>
+                    <input type="text" name="state" value="${company.state || ''}"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Country</label>
+                    <input type="text" name="country" value="${company.country || ''}"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Notes</label>
+                <textarea name="notes" rows="4" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Internal notes about this company">${company.notes || ''}</textarea>
+            </div>
+
+            <div class="flex justify-end space-x-3 pt-6 border-t border-gray-200">
+                <button type="button" onclick="closeModal()" class="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50">
+                    Cancel
+                </button>
+                <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                    ${isEdit ? 'Update Company' : 'Create Company'}
+                </button>
+            </div>
+        </form>
+    `);
+
+    document.getElementById('companyForm').addEventListener('submit', async function(event) {
+        event.preventDefault();
+        await saveCompany(companyId, new FormData(this));
+    });
+}
+
+async function saveCompany(companyId, formData) {
+    const data = {};
+    for (const [key, value] of formData.entries()) {
+        if (typeof value === 'string') {
+            const trimmed = value.trim();
+            if (trimmed) {
+                data[key] = trimmed;
+            }
+        } else if (value !== undefined && value !== null) {
+            data[key] = value;
+        }
+    }
+
+    if (!data.name) {
+        showToast('Company name is required', 'error');
+        return;
+    }
+
+    if (typeof data.annual_revenue === 'string') {
+        const numericRevenue = Number(data.annual_revenue.replace(/[^0-9.\-]/g, ''));
+        if (Number.isFinite(numericRevenue)) {
+            data.annual_revenue = numericRevenue;
+        } else {
+            delete data.annual_revenue;
+        }
+    }
+
+    const nowIso = new Date().toISOString();
+    data.updated_at = nowIso;
+    if (!companyId) {
+        data.created_at = nowIso;
+        data.created_by = currentUser;
+    }
+
+    showLoading();
+    try {
+        const method = companyId ? 'PUT' : 'POST';
+        const url = companyId ? `tables/companies/${companyId}` : 'tables/companies';
+
+        const response = await fetch(url, {
+            method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+
+        if (!response.ok) {
+            throw new Error('Save failed');
+        }
+
+        showToast(companyId ? 'Company updated successfully' : 'Company created successfully', 'success');
+        closeModal();
+        await loadCompanies();
+    } catch (error) {
+        console.error('Error saving company:', error);
+        showToast('Failed to save company', 'error');
+    } finally {
+        hideLoading();
+    }
+}
+
+async function viewCompany(id) {
+    showLoading();
+    try {
+        const response = await fetch(`tables/companies/${id}`);
+        if (!response.ok) {
+            throw new Error('Not found');
+        }
+        const company = await response.json();
+
+        const details = [
+            { label: 'Industry', value: company.industry || '—' },
+            { label: 'Size', value: company.size || '—' },
+            { label: 'Status', value: company.status || '—' },
+            { label: 'Phone', value: company.phone || '—' },
+            { label: 'Email', value: company.email || '—' },
+            { label: 'Website', value: company.website ? `<a href="${company.website}" target="_blank" class="text-blue-600 hover:text-blue-700">${company.website}</a>` : '—' },
+            { label: 'City', value: company.city || '—' },
+            { label: 'State / Region', value: company.state || '—' },
+            { label: 'Country', value: company.country || '—' },
+            { label: 'Annual Revenue', value: formatCurrency(company.annual_revenue) },
+            { label: 'Owner', value: company.owner || '—' },
+            { label: 'Notes', value: company.notes || '—' },
+            { label: 'Created At', value: formatDate(company.created_at) },
+            { label: 'Last Updated', value: formatDate(company.updated_at) }
+        ];
+
+        const detailHtml = details.map(detail => `
+            <div class="p-4 bg-gray-50 rounded-lg">
+                <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide">${detail.label}</p>
+                <p class="mt-2 text-sm text-gray-800">${detail.value}</p>
+            </div>
+        `).join('');
+
+        showModal('Company Details', `
+            <div class="space-y-6">
+                <div class="flex flex-col md:flex-row md:items-start md:justify-between md:space-x-6 space-y-4 md:space-y-0">
+                    <div>
+                        <h4 class="text-2xl font-semibold text-gray-800">${company.name || 'Unnamed Company'}</h4>
+                        <div class="mt-2 flex items-center space-x-2 text-sm text-gray-600">
+                            <span class="px-2 py-1 rounded-full ${getStatusClass(company.status)}">${company.status || '—'}</span>
+                            ${company.owner ? `<span>Owned by <span class="font-medium text-gray-700">${company.owner}</span></span>` : ''}
+                        </div>
+                    </div>
+                    <div class="flex space-x-3">
+                        <button onclick="showCompanyForm('${company.id}')" class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100">
+                            Edit
+                        </button>
+                        <button onclick="deleteCompany('${company.id}')" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">
+                            Delete
+                        </button>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    ${detailHtml}
+                </div>
+            </div>
+        `);
+    } catch (error) {
+        console.error('Error viewing company:', error);
+        showToast('Failed to load company', 'error');
+    } finally {
+        hideLoading();
+    }
+}
+
+async function editCompany(id) {
+    await showCompanyForm(id);
+}
+
+async function deleteCompany(id) {
+    const confirmed = confirm('Are you sure you want to delete this company?');
+    if (!confirmed) {
+        return;
+    }
+
+    showLoading();
+    try {
+        const response = await fetch(`tables/companies/${id}`, { method: 'DELETE' });
+        if (!response.ok) {
+            throw new Error('Delete failed');
+        }
+        showToast('Company deleted successfully', 'success');
+        closeModal();
+        await loadCompanies();
+    } catch (error) {
+        console.error('Error deleting company:', error);
+        showToast('Failed to delete company', 'error');
+    } finally {
+        hideLoading();
+    }
+}
+
+async function exportCompanies() {
+    showLoading();
+    try {
+        const response = await fetch('tables/companies?limit=10000');
+        if (!response.ok) {
+            throw new Error('Failed to export');
+        }
+        const data = await response.json();
+        const companies = data.data || [];
+
+        if (companies.length === 0) {
+            showToast('No companies available to export', 'warning');
+            return;
+        }
+
+        const csv = convertToCSV(companies);
+        downloadCSV(csv, 'companies.csv');
+        showToast('Companies exported successfully', 'success');
+    } catch (error) {
+        console.error('Error exporting companies:', error);
+        showToast('Failed to export companies', 'error');
+    } finally {
+        hideLoading();
+    }
+}
+
+// Placeholder functions for additional module forms
 async function showLeadForm(leadId = null) { showToast('Lead form - to be implemented', 'info'); }
 async function showOpportunityForm(oppId = null) { showToast('Opportunity form - to be implemented', 'info'); }
 async function showTaskForm(taskId = null) { showToast('Task form - to be implemented', 'info'); }
 async function showActivityForm(activityId = null) { showToast('Activity form - to be implemented', 'info'); }
 
-// Placeholder view functions
-async function viewCompany(id) { showToast('View company - to be implemented', 'info'); }
-async function editCompany(id) { showToast('Edit company - to be implemented', 'info'); }
-async function deleteCompany(id) { showToast('Delete company - to be implemented', 'info'); }
-async function exportCompanies() { showToast('Export companies - to be implemented', 'info'); }
+// Placeholder view functions for other modules
 
 async function viewLead(id) { showToast('View lead - to be implemented', 'info'); }
 async function editLead(id) { showToast('Edit lead - to be implemented', 'info'); }
