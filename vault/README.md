@@ -14,6 +14,7 @@
 | `Daily Notes/` | Оперативні записи та журнал дня з беклінками | `YYYY-MM-DD` | `#daily`, `#log` | `type: daily`, `focus`, `wins`, `blocked` |
 | `Documents/` | Договори, брифінги, презентації та вкладення | назви файлів або нотаток документа | `#doc`, `#asset`, `#template` | `type: document`, `category`, `owner`, `client` |
 | `Knowledge/` | Внутрішня wiki, методології, дослідження ринку | `Тема` або `Стаття` | `#knowledge`, `#playbook`, `#research` | `type: knowledge`, `topic`, `tags`, `updated` |
+| `Reports/` | Аналітика, дашборди та оглядові звіти | `Report – Тема` або `Weekly Review – Дата` | `#report`, `#review` | `type: report`, `title`, `stale_client_threshold`, `engagement_weights` |
 
 > **Порада.** Якщо команда оперує як «Campaigns», створіть в межах `Projects/` підпапки (`Campaigns/`, `Deals/`) або використайте тег `#campaign` для розрізнення.
 
