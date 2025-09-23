@@ -24,6 +24,28 @@ deals:
 
 # InsightEdge Consulting (lead)
 
+## Дашборд ліда
+```dataviewjs
+const page = dv.current();
+const formatDate = value => value ? dv.date(value).toISODate() : "—";
+const probability = page.probability != null ? `${Math.round(page.probability * 100)}%` : "—";
+const owner = page.owner ? dv.fileLink(page.owner) : "—";
+const tasks = dv.pages('"Tasks"')
+  .where(p => p.related_to && p.related_to.some(r => r.path === page.file.path) && p.status !== "done");
+const deals = dv.array(page.deals ?? []).map(link => dv.fileLink(link)).join(", ") || "—";
+dv.table(["Показник", "Значення"], [
+  ["Статус ліда", page.status ?? "—"],
+  ["Стадія воронки", page.stage ?? page.status ?? "—"],
+  ["Потенціал, $", page.potential_value ?? "—"],
+  ["Ймовірність", probability],
+  ["Власник", owner],
+  ["Наступний крок до", formatDate(page.next_step_due)],
+  ["Останній контакт", formatDate(page.last_contact)],
+  ["Пов'язані угоди", deals],
+  ["Активні задачі", tasks.length]
+]);
+```
+
 ## Профіль ліда
 InsightEdge Consulting звернулися за повним супроводом конкурентної розвідки після рекомендації партнера Strategy Guild. Основна потреба — безперервний моніторинг конкурентів у сегменті професійних послуг та впровадження раннього попередження про ринкові зміни.
 
@@ -34,6 +56,12 @@ InsightEdge Consulting звернулися за повним супроводо
 - Email:: [maria.kovalenko@insightedge.com](mailto:maria.kovalenko@insightedge.com)
 - LinkedIn:: https://www.linkedin.com/company/insightedge-consulting
 - Zoom-кімната для демо:: [zoommtg://zoom.us/join?action=join&confno=4422110099&pwd=demo](zoommtg://zoom.us/join?action=join&confno=4422110099&pwd=demo)
+
+## Швидкі дії
+- ✉️ [Email](mailto:maria.kovalenko@insightedge.com)
+- ☎️ [Дзвінок](tel:+380442223344)
+- 🎥 [Zoom-демо](zoommtg://zoom.us/join?action=join&confno=4422110099&pwd=demo)
+- 🔗 [LinkedIn](https://www.linkedin.com/company/insightedge-consulting)
 
 ## Кваліфікація
 - Джерело ліда: Referral від партнера [[Knowledge/Partners/Strategy Guild]].
@@ -52,6 +80,14 @@ InsightEdge Consulting звернулися за повним супроводо
 - Поточна задача:: [[Tasks/Налагодити звіт для InsightEdge.md]]
 - Наступний запланований контакт:: 2024-05-13 (strategic planning workshop).
 - Формат взаємодії: Zoom-зустріч + follow-up лист із планом запуску.
+
+## Активні задачі
+```dataview
+TABLE status, due, owner
+FROM "Tasks"
+WHERE contains(related_to, this.file.link) AND status != "done"
+SORT due asc
+```
 
 ## Лог взаємодій
 - 2024-05-06 — Підписано контракт, підтверджено старт проєкту (див. [[Daily Notes/2024-05-06#Журнал подій]]).

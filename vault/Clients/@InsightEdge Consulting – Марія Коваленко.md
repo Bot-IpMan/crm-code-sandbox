@@ -24,17 +24,18 @@ deals:
 ## Дашборд клієнта
 ```dataviewjs
 const page = dv.current();
+const formatDate = value => value ? dv.date(value).toISODate() : "—";
+const responsibles = dv.array(page.responsibles ?? []).map(link => dv.fileLink(link)).join(", ") || "—";
 const tasks = dv.pages('"Tasks"')
   .where(p => p.related_to && p.related_to.some(r => r.path === page.file.path) && p.status !== "done");
-const responsibles = page.responsibles ? dv.array(page.responsibles).map(r => dv.fileLink(r)) : [];
-dv.table([
-  "Показник",
-  "Значення"
-], [
+const deals = dv.array(page.deals ?? []).map(link => dv.fileLink(link)).join(", ") || "—";
+dv.table(["Показник", "Значення"], [
   ["Статус клієнта", page.status ?? "—"],
-  ["Дата останнього контакту", page.last_contact ?? "—"],
+  ["Останній контакт", formatDate(page.last_contact)],
+  ["Наступний перегляд", formatDate(page.next_review)],
   ["Активні задачі", tasks.length],
-  ["Відповідальні", responsibles.length ? responsibles.join(", ") : "—"]
+  ["Відповідальні", responsibles],
+  ["Угоди", deals]
 ]);
 ```
 
@@ -48,6 +49,13 @@ InsightEdge Consulting — консалтингова компанія, що в�
 - Телефон офісу:: [tel:+380442223300](tel:+380442223300)
 - Запланувати Zoom:: [zoommtg://zoom.us/join?action=join&confno=9988776655&pwd=insight](zoommtg://zoom.us/join?action=join&confno=9988776655&pwd=insight)
 - CRM профіль:: https://insightedge.com/partner-portal
+
+## Швидкі дії
+- ✉️ [Email](mailto:client-success@insightedge.com)
+- ☎️ [Дзвінок](tel:+380442223300)
+- 🎥 [Zoom-зустріч](zoommtg://zoom.us/join?action=join&confno=9988776655&pwd=insight)
+- 🔗 [LinkedIn](https://www.linkedin.com/company/insightedge-consulting)
+- 🌐 [Портал клієнта](https://insightedge.com/partner-portal)
 
 ## Проєкти та угоди
 - [[Projects/Deal – InsightEdge Retainer]] — Річний контракт на конкурентну розвідку (статус: negotiation).
