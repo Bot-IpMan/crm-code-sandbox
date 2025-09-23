@@ -74,13 +74,27 @@ async function showCompanies() {
     setupCompanyFilters();
 }
 
-async function loadCompanies(page = 1, search = '', status = '', size = '') {
+async function loadCompanies(page = 1, search, status, size) {
     showLoading();
     try {
-        let url = `tables/companies?page=${page}&limit=20`;
-        if (search) url += `&search=${encodeURIComponent(search)}`;
-        
-        const response = await fetch(url);
+        const searchInput = document.getElementById('companySearch');
+        const statusSelect = document.getElementById('companyStatusFilter');
+        const sizeSelect = document.getElementById('companySizeFilter');
+
+        const searchValue = search !== undefined ? search : (searchInput?.value ?? '');
+        const statusValue = status !== undefined ? status : (statusSelect?.value ?? '');
+        const sizeValue = size !== undefined ? size : (sizeSelect?.value ?? '');
+
+        const params = new URLSearchParams({
+            page: String(page),
+            limit: '20'
+        });
+
+        if (searchValue.trim()) params.append('search', searchValue.trim());
+        if (statusValue) params.append('status', statusValue);
+        if (sizeValue) params.append('size', sizeValue);
+
+        const response = await fetch(`tables/companies?${params.toString()}`);
         const data = await response.json();
         
         displayCompanies(data.data || []);
@@ -236,15 +250,32 @@ async function showLeads() {
     setupLeadFilters();
 }
 
-async function loadLeads(page = 1) {
+async function loadLeads(page = 1, search, status, priority) {
     showLoading();
     try {
-        const response = await fetch(`tables/leads?page=${page}&limit=20`);
+        const searchInput = document.getElementById('leadSearch');
+        const statusSelect = document.getElementById('leadStatusFilter');
+        const prioritySelect = document.getElementById('leadPriorityFilter');
+
+        const searchValue = search !== undefined ? search : (searchInput?.value ?? '');
+        const statusValue = status !== undefined ? status : (statusSelect?.value ?? '');
+        const priorityValue = priority !== undefined ? priority : (prioritySelect?.value ?? '');
+
+        const params = new URLSearchParams({
+            page: String(page),
+            limit: '20'
+        });
+
+        if (searchValue.trim()) params.append('search', searchValue.trim());
+        if (statusValue) params.append('status', statusValue);
+        if (priorityValue) params.append('priority', priorityValue);
+
+        const response = await fetch(`tables/leads?${params.toString()}`);
         const data = await response.json();
-        
+
         displayLeads(data.data || []);
         displayPagination('leads', data, page);
-        
+
     } catch (error) {
         console.error('Error loading leads:', error);
         showToast('Failed to load leads', 'error');
@@ -313,7 +344,7 @@ function setupLeadFilters() {
     const applyFilters = () => {
         clearTimeout(filterTimeout);
         filterTimeout = setTimeout(() => {
-            loadLeads(1);
+            loadLeads(1, searchInput.value, statusFilter.value, priorityFilter.value);
         }, 300);
     };
     
@@ -536,14 +567,42 @@ async function showTasks() {
     setupTaskFilters();
 }
 
-async function loadTasks() {
+async function loadTasks(page = 1, search, status, priority, type) {
     showLoading();
     try {
-        const response = await fetch('tables/tasks?limit=50');
+        const searchInput = document.getElementById('taskSearch');
+        const statusSelect = document.getElementById('taskStatusFilter');
+        const prioritySelect = document.getElementById('taskPriorityFilter');
+        const typeSelect = document.getElementById('taskTypeFilter');
+
+        const searchValue = search !== undefined ? search : (searchInput?.value ?? '');
+        const statusValue = status !== undefined ? status : (statusSelect?.value ?? '');
+        const priorityValue = priority !== undefined ? priority : (prioritySelect?.value ?? '');
+        const typeValue = type !== undefined ? type : (typeSelect?.value ?? '');
+
+        const params = new URLSearchParams({
+            page: String(page),
+            limit: '50'
+        });
+
+        if (searchValue.trim()) params.append('search', searchValue.trim());
+        if (statusValue) params.append('status', statusValue);
+        if (priorityValue) params.append('priority', priorityValue);
+        if (typeValue) params.append('type', typeValue);
+
+        const response = await fetch(`tables/tasks?${params.toString()}`);
         const data = await response.json();
-        
+
         displayTasks(data.data || []);
-        
+        const paginationContainer = document.getElementById('tasksPagination');
+        if (paginationContainer) {
+            if (typeof data.total === 'number' && typeof data.limit === 'number') {
+                displayPagination('tasks', data, page);
+            } else {
+                paginationContainer.innerHTML = '';
+            }
+        }
+
     } catch (error) {
         console.error('Error loading tasks:', error);
         showToast('Failed to load tasks', 'error');
@@ -625,7 +684,7 @@ function setupTaskFilters() {
     const applyFilters = () => {
         clearTimeout(filterTimeout);
         filterTimeout = setTimeout(() => {
-            loadTasks();
+            loadTasks(1, searchInput.value, statusFilter.value, priorityFilter.value, typeFilter.value);
         }, 300);
     };
     
