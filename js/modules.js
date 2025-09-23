@@ -910,7 +910,7 @@ async function completeTask(taskId) {
             body: JSON.stringify({
                 status: 'Completed',
                 completed_date: new Date().toISOString(),
-                updated_at: Date.now()
+                updated_at: new Date().toISOString()
             })
         });
         
@@ -1867,7 +1867,292 @@ async function saveOpportunity(oppId, formData) {
     }
 }
 
-async function showTaskForm(taskId = null) { showToast('Task form - to be implemented', 'info'); }
+async function showTaskForm(taskId = null) {
+    const isEdit = Boolean(taskId);
+    let task = {};
+
+    if (isEdit) {
+        showLoading();
+        try {
+            const response = await fetch(`tables/tasks/${taskId}`);
+            if (!response.ok) {
+                throw new Error('Failed to fetch task');
+            }
+            task = await response.json();
+        } catch (error) {
+            console.error('Error loading task:', error);
+            showToast('Failed to load task details', 'error');
+            hideLoading();
+            return;
+        }
+        hideLoading();
+    }
+
+    const parseListResponse = async response => {
+        if (!response || !response.ok) {
+            return [];
+        }
+        const payload = await response.json();
+        if (Array.isArray(payload)) {
+            return payload;
+        }
+        if (Array.isArray(payload.data)) {
+            return payload.data;
+        }
+        return [];
+    };
+
+    let leads = [];
+    let opportunities = [];
+    let companies = [];
+    let contacts = [];
+
+    try {
+        const [leadsResponse, opportunitiesResponse, companiesResponse, contactsResponse] = await Promise.all([
+            fetch('tables/leads?limit=1000'),
+            fetch('tables/opportunities?limit=1000'),
+            fetch('tables/companies?limit=1000'),
+            fetch('tables/contacts?limit=1000')
+        ]);
+
+        [leads, opportunities, companies, contacts] = await Promise.all([
+            parseListResponse(leadsResponse),
+            parseListResponse(opportunitiesResponse),
+            parseListResponse(companiesResponse),
+            parseListResponse(contactsResponse)
+        ]);
+    } catch (error) {
+        console.warn('Unable to fetch related records for task form:', error);
+    }
+
+    const statusOptions = ['Not Started', 'In Progress', 'Completed', 'Cancelled'];
+    if (task.status && !statusOptions.includes(task.status)) {
+        statusOptions.unshift(task.status);
+    }
+
+    const priorityOptions = ['Low', 'Medium', 'High', 'Critical'];
+    if (task.priority && !priorityOptions.includes(task.priority)) {
+        priorityOptions.unshift(task.priority);
+    }
+
+    const typeOptions = ['Task', 'Call', 'Email', 'Meeting', 'Follow-up', 'Proposal', 'Demo', 'Planning', 'Documentation', 'Research', 'Other'];
+    if (task.type && !typeOptions.includes(task.type)) {
+        typeOptions.unshift(task.type);
+    }
+
+    const selectedStatus = task.status || 'Not Started';
+    const selectedPriority = task.priority || 'Medium';
+    const selectedType = task.type || 'Task';
+    const selectedRelated = task.related_to || '';
+    const dueDate = task.due_date ? new Date(task.due_date).toISOString().split('T')[0] : '';
+
+    let hasSelectedRelatedOption = false;
+
+    const buildGroupOptions = (label, items, labelBuilder) => {
+        if (!Array.isArray(items) || items.length === 0) {
+            return '';
+        }
+        const options = items.map(item => {
+            const value = item.id;
+            const optionLabel = labelBuilder(item);
+            const isSelected = value === selectedRelated;
+            if (isSelected) {
+                hasSelectedRelatedOption = true;
+            }
+            return `<option value="${value}" ${isSelected ? 'selected' : ''}>${optionLabel}</option>`;
+        }).join('');
+
+        return options ? `<optgroup label="${label}">${options}</optgroup>` : '';
+    };
+
+    const opportunityOptionsHtml = buildGroupOptions('Opportunities', opportunities, opportunity => {
+        const name = opportunity.name || 'Untitled Opportunity';
+        const companySuffix = opportunity.company_name ? ` – ${opportunity.company_name}` : '';
+        return `${name}${companySuffix}`;
+    });
+
+    const leadOptionsHtml = buildGroupOptions('Leads', leads, lead => {
+        const name = lead.title || 'Untitled Lead';
+        const companySuffix = lead.company_name ? ` – ${lead.company_name}` : '';
+        return `${name}${companySuffix}`;
+    });
+
+    const companyOptionsHtml = buildGroupOptions('Companies', companies, company => company.name || 'Unnamed Company');
+
+    const contactOptionsHtml = buildGroupOptions('Contacts', contacts, contact => {
+        const name = [contact.first_name, contact.last_name].filter(Boolean).join(' ') || contact.email || contact.phone || 'Contact';
+        const companySuffix = contact.company_name ? ` – ${contact.company_name}` : '';
+        return `${name}${companySuffix}`;
+    });
+
+    let relatedOptionsHtml = [
+        opportunityOptionsHtml,
+        leadOptionsHtml,
+        companyOptionsHtml,
+        contactOptionsHtml
+    ].filter(Boolean).join('');
+
+    if (selectedRelated && !hasSelectedRelatedOption) {
+        relatedOptionsHtml = `<option value="${selectedRelated}" selected>Current link (${selectedRelated})</option>` + relatedOptionsHtml;
+    }
+
+    showModal(isEdit ? 'Edit Task' : 'Add New Task', `
+        <form id="taskForm" class="space-y-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Task Title *</label>
+                    <input type="text" name="title" value="${task.title || ''}" required
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                           placeholder="Follow up with client">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Task Type</label>
+                    <select name="type" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        ${typeOptions.map(type => `<option value="${type}" ${selectedType === type ? 'selected' : ''}>${type}</option>`).join('')}
+                    </select>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Priority</label>
+                    <select name="priority" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        ${priorityOptions.map(priority => `<option value="${priority}" ${selectedPriority === priority ? 'selected' : ''}>${priority}</option>`).join('')}
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Status</label>
+                    <select name="status" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        ${statusOptions.map(status => `<option value="${status}" ${selectedStatus === status ? 'selected' : ''}>${status}</option>`).join('')}
+                    </select>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Due Date</label>
+                    <input type="date" name="due_date" value="${dueDate}"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Assigned To</label>
+                    <input type="text" name="assigned_to" value="${task.assigned_to || currentUser || ''}"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                           placeholder="Team member">
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Related Record</label>
+                <select name="related_to" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    <option value="">Not linked</option>
+                    ${relatedOptionsHtml}
+                </select>
+                <p class="mt-1 text-xs text-gray-500">Link the task to a lead, opportunity, company or contact to keep context together.</p>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Description</label>
+                <textarea name="description" rows="4"
+                          class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          placeholder="Add more details about the task">${task.description || ''}</textarea>
+            </div>
+
+            <div class="flex justify-end space-x-3">
+                <button type="button" onclick="closeModal()" class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100">
+                    Cancel
+                </button>
+                <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                    ${isEdit ? 'Update Task' : 'Create Task'}
+                </button>
+            </div>
+        </form>
+    `);
+
+    const form = document.getElementById('taskForm');
+    form.addEventListener('submit', async event => {
+        event.preventDefault();
+        await saveTask(taskId, new FormData(form));
+    });
+}
+
+async function saveTask(taskId, formData) {
+    const data = {};
+    for (const [key, value] of formData.entries()) {
+        if (typeof value === 'string') {
+            const trimmed = value.trim();
+            if (trimmed) {
+                data[key] = trimmed;
+            }
+        } else if (value !== undefined && value !== null) {
+            data[key] = value;
+        }
+    }
+
+    if (!data.title) {
+        showToast('Task title is required', 'error');
+        return;
+    }
+
+    if (!data.type) {
+        data.type = 'Task';
+    }
+
+    if (!data.priority) {
+        data.priority = 'Medium';
+    }
+
+    if (!data.status) {
+        data.status = 'Not Started';
+    }
+
+    if (!data.assigned_to && currentUser) {
+        data.assigned_to = currentUser;
+    }
+
+    if (data.due_date) {
+        const parsedDate = new Date(data.due_date);
+        if (Number.isNaN(parsedDate.getTime())) {
+            delete data.due_date;
+        }
+    }
+
+    if (data.related_to === '') {
+        delete data.related_to;
+    }
+
+    const nowIso = new Date().toISOString();
+    data.updated_at = nowIso;
+    if (!taskId) {
+        data.created_at = nowIso;
+        data.created_by = currentUser;
+    }
+
+    showLoading();
+    try {
+        const method = taskId ? 'PUT' : 'POST';
+        const url = taskId ? `tables/tasks/${taskId}` : 'tables/tasks';
+        const response = await fetch(url, {
+            method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+
+        if (!response.ok) {
+            throw new Error('Save failed');
+        }
+
+        showToast(taskId ? 'Task updated successfully' : 'Task created successfully', 'success');
+        closeModal();
+        await loadTasks();
+    } catch (error) {
+        console.error('Error saving task:', error);
+        showToast('Failed to save task', 'error');
+    } finally {
+        hideLoading();
+    }
+}
+
 async function showActivityForm(activityId = null) { showToast('Activity form - to be implemented', 'info'); }
 
 // Placeholder view functions for other modules
@@ -1876,8 +2161,32 @@ async function viewOpportunity(id) { showToast('View opportunity - to be impleme
 async function editOpportunity(id) { showToast('Edit opportunity - to be implemented', 'info'); }
 async function deleteOpportunity(id) { showToast('Delete opportunity - to be implemented', 'info'); }
 
-async function editTask(id) { showToast('Edit task - to be implemented', 'info'); }
-async function deleteTask(id) { showToast('Delete task - to be implemented', 'info'); }
+async function editTask(id) {
+    await showTaskForm(id);
+}
+
+async function deleteTask(id) {
+    const confirmed = confirm('Are you sure you want to delete this task?');
+    if (!confirmed) {
+        return;
+    }
+
+    showLoading();
+    try {
+        const response = await fetch(`tables/tasks/${id}`, { method: 'DELETE' });
+        if (!response.ok) {
+            throw new Error('Delete failed');
+        }
+        showToast('Task deleted successfully', 'success');
+        closeModal();
+        await loadTasks();
+    } catch (error) {
+        console.error('Error deleting task:', error);
+        showToast('Failed to delete task', 'error');
+    } finally {
+        hideLoading();
+    }
+}
 
 async function editActivity(id) { showToast('Edit activity - to be implemented', 'info'); }
 async function deleteActivity(id) { showToast('Delete activity - to be implemented', 'info'); }
