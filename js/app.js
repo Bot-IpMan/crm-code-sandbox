@@ -350,13 +350,27 @@ async function showContacts() {
     setupContactFilters();
 }
 
-async function loadContacts(page = 1, search = '', status = '', source = '') {
+async function loadContacts(page = 1, search, status, source) {
     showLoading();
     try {
-        let url = `tables/contacts?page=${page}&limit=20`;
-        if (search) url += `&search=${encodeURIComponent(search)}`;
-        
-        const response = await fetch(url);
+        const searchInput = document.getElementById('contactSearch');
+        const statusSelect = document.getElementById('statusFilter');
+        const sourceSelect = document.getElementById('sourceFilter');
+
+        const searchValue = search !== undefined ? search : (searchInput?.value ?? '');
+        const statusValue = status !== undefined ? status : (statusSelect?.value ?? '');
+        const sourceValue = source !== undefined ? source : (sourceSelect?.value ?? '');
+
+        const params = new URLSearchParams({
+            page: String(page),
+            limit: '20'
+        });
+
+        if (searchValue.trim()) params.append('search', searchValue.trim());
+        if (statusValue) params.append('status', statusValue);
+        if (sourceValue) params.append('source', sourceValue);
+
+        const response = await fetch(`tables/contacts?${params.toString()}`);
         const data = await response.json();
         
         displayContacts(data.data || []);
@@ -854,7 +868,19 @@ function loadEntityPage(entityType, page) {
             loadContacts(page);
             break;
         case 'companies':
-            // loadCompanies(page);
+            if (typeof loadCompanies === 'function') {
+                loadCompanies(page);
+            }
+            break;
+        case 'leads':
+            if (typeof loadLeads === 'function') {
+                loadLeads(page);
+            }
+            break;
+        case 'tasks':
+            if (typeof loadTasks === 'function') {
+                loadTasks(page);
+            }
             break;
         // Add other entity types
     }
