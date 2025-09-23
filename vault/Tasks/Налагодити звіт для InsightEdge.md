@@ -23,7 +23,7 @@ created: 2024-05-06
 
 ## Контекст
 - Походження: клієнтський запит після підписання угоди.
-- Повʼязані документи:: [[Documents/InsightEdge/Scope Outline.md]]
+- Повʼязані документи:: [[Documents/Clients/InsightEdge Consulting/Scopes/2024-05-05 – InsightEdge – Competitive Intelligence Scope]]
 - Попередні рішення або домовленості: погоджено структуру звіту на kickoff-зустрічі 2024-05-06.
 
 ## План виконання
