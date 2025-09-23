@@ -50,14 +50,34 @@ function setupEventListeners() {
 function initializeMobileMenu() {
     const mobileMenuBtn = document.getElementById('mobileMenuBtn');
     const sidebar = document.getElementById('sidebar');
-    const mainContent = document.getElementById('mainContent');
-    
-    mobileMenuBtn.addEventListener('click', function() {
+    const lgBreakpoint = 1024;
+
+    if (!mobileMenuBtn || !sidebar) {
+        return;
+    }
+
+    const syncSidebarWithViewport = () => {
+        if (window.innerWidth < lgBreakpoint) {
+            sidebar.classList.add('-translate-x-full');
+        } else {
+            sidebar.classList.remove('-translate-x-full');
+        }
+    };
+
+    // Ensure the sidebar visibility matches the current viewport size
+    syncSidebarWithViewport();
+    window.addEventListener('resize', syncSidebarWithViewport);
+
+    mobileMenuBtn.addEventListener('click', function(event) {
+        event.stopPropagation();
         sidebar.classList.toggle('-translate-x-full');
     });
-    
-    // Close mobile menu when clicking outside
+
+    // Close mobile menu when clicking outside, only on mobile viewports
     document.addEventListener('click', function(e) {
+        if (window.innerWidth >= lgBreakpoint) {
+            return;
+        }
         if (!sidebar.contains(e.target) && !mobileMenuBtn.contains(e.target)) {
             sidebar.classList.add('-translate-x-full');
         }
