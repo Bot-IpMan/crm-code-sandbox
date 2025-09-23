@@ -1282,17 +1282,342 @@ async function exportCompanies() {
     }
 }
 
+async function showLeadForm(leadId = null) {
+    const isEdit = Boolean(leadId);
+    let lead = {};
+
+    if (isEdit) {
+        showLoading();
+        try {
+            const response = await fetch(`tables/leads/${leadId}`);
+            if (!response.ok) {
+                throw new Error('Failed to fetch lead');
+            }
+            lead = await response.json();
+        } catch (error) {
+            console.error('Error loading lead:', error);
+            showToast('Failed to load lead details', 'error');
+            hideLoading();
+            return;
+        }
+        hideLoading();
+    }
+
+    let companies = [];
+    try {
+        const response = await fetch('tables/companies?limit=1000');
+        if (response.ok) {
+            const data = await response.json();
+            companies = Array.isArray(data.data) ? data.data : [];
+        }
+    } catch (error) {
+        console.warn('Unable to fetch companies for lead form:', error);
+    }
+
+    const statusOptions = ['New', 'Contacted', 'Qualified', 'Proposal', 'Negotiation', 'Won', 'Lost'];
+    if (lead.status && !statusOptions.includes(lead.status)) {
+        statusOptions.unshift(lead.status);
+    }
+
+    const priorityOptions = ['Low', 'Medium', 'High', 'Critical'];
+    if (lead.priority && !priorityOptions.includes(lead.priority)) {
+        priorityOptions.unshift(lead.priority);
+    }
+
+    const sourceOptions = ['Website', 'Referral', 'Email Campaign', 'Conference', 'Cold Call', 'Social Media', 'Partner', 'Advertisement', 'Event', 'Other'];
+    if (lead.source && !sourceOptions.includes(lead.source)) {
+        sourceOptions.unshift(lead.source);
+    }
+
+    const selectedStatus = lead.status || 'New';
+    const selectedPriority = lead.priority || 'Medium';
+    const selectedSource = lead.source || '';
+    const expectedCloseDate = lead.expected_close_date
+        ? new Date(lead.expected_close_date).toISOString().split('T')[0]
+        : '';
+
+    const companyOptionsHtml = companies
+        .map(company => `<option value="${company.name || ''}"></option>`)
+        .join('');
+
+    showModal(isEdit ? 'Edit Lead' : 'Add New Lead', `
+        <form id="leadForm" class="space-y-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Lead Title *</label>
+                    <input type="text" name="title" value="${lead.title || ''}" required
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Status</label>
+                    <select name="status" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        ${statusOptions.map(status => `<option value="${status}" ${selectedStatus === status ? 'selected' : ''}>${status}</option>`).join('')}
+                    </select>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Value (USD)</label>
+                    <input type="number" min="0" step="100" name="value" value="${lead.value ?? ''}"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="25000">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Priority</label>
+                    <select name="priority" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        ${priorityOptions.map(priority => `<option value="${priority}" ${selectedPriority === priority ? 'selected' : ''}>${priority}</option>`).join('')}
+                    </select>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Probability (%)</label>
+                    <input type="number" name="probability" min="0" max="100" step="1" value="${lead.probability ?? ''}"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="50">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Expected Close Date</label>
+                    <input type="date" name="expected_close_date" value="${expectedCloseDate}"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Assigned To</label>
+                    <input type="text" name="assigned_to" value="${lead.assigned_to || currentUser || ''}"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Team member">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Lead Source</label>
+                    <select name="source" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        <option value="">Select source...</option>
+                        ${sourceOptions.map(source => `<option value="${source}" ${selectedSource === source ? 'selected' : ''}>${source}</option>`).join('')}
+                    </select>
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Company</label>
+                <input type="text" name="company_name" list="leadCompanyOptions" value="${lead.company_name || ''}"
+                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Linked company">
+                <datalist id="leadCompanyOptions">
+                    ${companyOptionsHtml}
+                </datalist>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Description</label>
+                <textarea name="description" rows="4"
+                          class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          placeholder="Summary of the opportunity">${lead.description || ''}</textarea>
+            </div>
+
+            <div class="flex justify-end space-x-3 pt-6 border-t border-gray-200">
+                <button type="button" onclick="closeModal()" class="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50">
+                    Cancel
+                </button>
+                <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                    ${isEdit ? 'Update Lead' : 'Create Lead'}
+                </button>
+            </div>
+        </form>
+    `);
+
+    const form = document.getElementById('leadForm');
+    form.addEventListener('submit', async function(event) {
+        event.preventDefault();
+        await saveLead(leadId, new FormData(form));
+    });
+}
+
+async function saveLead(leadId, formData) {
+    const data = {};
+    for (const [key, value] of formData.entries()) {
+        if (typeof value === 'string') {
+            const trimmed = value.trim();
+            if (trimmed) {
+                data[key] = trimmed;
+            }
+        } else if (value !== undefined && value !== null) {
+            data[key] = value;
+        }
+    }
+
+    if (!data.title) {
+        showToast('Lead title is required', 'error');
+        return;
+    }
+
+    if (!data.status) {
+        data.status = 'New';
+    }
+
+    if (!data.priority) {
+        data.priority = 'Medium';
+    }
+
+    if (typeof data.value === 'string') {
+        const numericValue = Number(data.value.replace(/[^0-9.\-]/g, ''));
+        if (Number.isFinite(numericValue)) {
+            data.value = numericValue;
+        } else {
+            delete data.value;
+        }
+    }
+
+    if (typeof data.probability === 'string') {
+        const numericProbability = Number(data.probability);
+        if (Number.isFinite(numericProbability)) {
+            data.probability = Math.min(100, Math.max(0, Math.round(numericProbability)));
+        } else {
+            delete data.probability;
+        }
+    }
+
+    if (data.expected_close_date) {
+        const parsedDate = new Date(data.expected_close_date);
+        if (Number.isNaN(parsedDate.getTime())) {
+            delete data.expected_close_date;
+        }
+    }
+
+    const nowIso = new Date().toISOString();
+    data.updated_at = nowIso;
+    if (!leadId) {
+        data.created_at = nowIso;
+        data.created_by = currentUser;
+    }
+
+    showLoading();
+    try {
+        const method = leadId ? 'PUT' : 'POST';
+        const url = leadId ? `tables/leads/${leadId}` : 'tables/leads';
+
+        const response = await fetch(url, {
+            method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+
+        if (!response.ok) {
+            throw new Error('Save failed');
+        }
+
+        showToast(leadId ? 'Lead updated successfully' : 'Lead created successfully', 'success');
+        closeModal();
+        await loadLeads();
+    } catch (error) {
+        console.error('Error saving lead:', error);
+        showToast('Failed to save lead', 'error');
+    } finally {
+        hideLoading();
+    }
+}
+
+async function viewLead(id) {
+    showLoading();
+    try {
+        const response = await fetch(`tables/leads/${id}`);
+        if (!response.ok) {
+            throw new Error('Not found');
+        }
+        const lead = await response.json();
+
+        const expectedClose = lead.expected_close_date
+            ? new Date(lead.expected_close_date).toLocaleDateString()
+            : 'Not set';
+
+        const detailItems = [
+            { label: 'Value', value: formatCurrency(lead.value) },
+            { label: 'Company', value: lead.company_name || '—' },
+            { label: 'Assigned To', value: lead.assigned_to || '—' },
+            { label: 'Lead Source', value: lead.source || '—' },
+            { label: 'Expected Close', value: expectedClose },
+            { label: 'Probability', value: lead.probability !== undefined ? `${lead.probability}%` : 'Not set' },
+            { label: 'Created At', value: formatDate(lead.created_at) },
+            { label: 'Last Updated', value: formatDate(lead.updated_at) }
+        ];
+
+        const detailHtml = detailItems.map(item => `
+            <div class="p-4 bg-gray-50 rounded-lg">
+                <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide">${item.label}</p>
+                <p class="mt-2 text-sm text-gray-800">${item.value}</p>
+            </div>
+        `).join('');
+
+        const badges = `
+            <div class="mt-2 flex flex-wrap gap-2 text-sm text-gray-600">
+                <span class="px-2 py-1 rounded-full ${getStatusClass(lead.status)}">${lead.status || '—'}</span>
+                <span class="px-2 py-1 rounded-full ${getPriorityClass(lead.priority)}">${lead.priority || '—'}</span>
+                ${lead.probability !== undefined ? `<span class="px-2 py-1 rounded-full bg-blue-100 text-blue-800">${lead.probability}% probability</span>` : ''}
+            </div>
+        `;
+
+        showModal('Lead Details', `
+            <div class="space-y-6">
+                <div class="flex flex-col md:flex-row md:items-start md:justify-between md:space-x-6 space-y-4 md:space-y-0">
+                    <div>
+                        <h4 class="text-2xl font-semibold text-gray-800">${lead.title || 'Untitled Lead'}</h4>
+                        ${badges}
+                    </div>
+                    <div class="flex space-x-3">
+                        <button onclick="showLeadForm('${lead.id}')" class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100">
+                            Edit
+                        </button>
+                        <button onclick="deleteLead('${lead.id}')" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">
+                            Delete
+                        </button>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    ${detailHtml}
+                </div>
+                ${lead.description ? `<div class="p-4 bg-gray-50 rounded-lg"><p class="text-sm text-gray-700 whitespace-pre-line">${lead.description}</p></div>` : ''}
+            </div>
+        `);
+    } catch (error) {
+        console.error('Error viewing lead:', error);
+        showToast('Failed to load lead', 'error');
+    } finally {
+        hideLoading();
+    }
+}
+
+async function editLead(id) {
+    await showLeadForm(id);
+}
+
+async function deleteLead(id) {
+    const confirmed = confirm('Are you sure you want to delete this lead?');
+    if (!confirmed) {
+        return;
+    }
+
+    showLoading();
+    try {
+        const response = await fetch(`tables/leads/${id}`, { method: 'DELETE' });
+        if (!response.ok) {
+            throw new Error('Delete failed');
+        }
+        showToast('Lead deleted successfully', 'success');
+        closeModal();
+        await loadLeads();
+    } catch (error) {
+        console.error('Error deleting lead:', error);
+        showToast('Failed to delete lead', 'error');
+    } finally {
+        hideLoading();
+    }
+}
+
 // Placeholder functions for additional module forms
-async function showLeadForm(leadId = null) { showToast('Lead form - to be implemented', 'info'); }
 async function showOpportunityForm(oppId = null) { showToast('Opportunity form - to be implemented', 'info'); }
 async function showTaskForm(taskId = null) { showToast('Task form - to be implemented', 'info'); }
 async function showActivityForm(activityId = null) { showToast('Activity form - to be implemented', 'info'); }
 
 // Placeholder view functions for other modules
-
-async function viewLead(id) { showToast('View lead - to be implemented', 'info'); }
-async function editLead(id) { showToast('Edit lead - to be implemented', 'info'); }
-async function deleteLead(id) { showToast('Delete lead - to be implemented', 'info'); }
 
 async function viewOpportunity(id) { showToast('View opportunity - to be implemented', 'info'); }
 async function editOpportunity(id) { showToast('Edit opportunity - to be implemented', 'info'); }
