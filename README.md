@@ -15,6 +15,7 @@ A comprehensive, fully-featured Customer Relationship Management (CRM) system de
 - **Task Management**: Task assignment with due dates, priorities, and status tracking
 - **Activity Tracking**: Timeline view of all business interactions and communications
 - **Reporting System**: Data export and visualization with multiple chart types
+- **Vault Files**: Docked file explorer to browse the CRM vault and create new folders or notes
 
 #### Technical Features
 - **Responsive Design**: Mobile-friendly interface using Tailwind CSS
