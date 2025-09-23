@@ -17,6 +17,7 @@ lifetime_value: 42000
 hubspot_id: IE-2024-01
 deals:
   - [[Projects/Deal – InsightEdge Retainer]]
+engagement_score: 78
 ---
 
 # InsightEdge Consulting — акаунт Марії Коваленко
