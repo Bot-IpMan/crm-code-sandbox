@@ -521,14 +521,18 @@
 
         const base = window.location?.href || 'http://localhost/';
         const url = new URL(request, base);
-        const pathParts = url.pathname.replace(/^\/+/, '').split('/');
-        if (pathParts[0] !== API_PREFIX) {
+        const pathParts = url.pathname
+            .replace(/^\/+/, '')
+            .split('/')
+            .filter(Boolean);
+        const apiIndex = pathParts.indexOf(API_PREFIX);
+        if (apiIndex === -1) {
             return createJsonResponse({ message: 'Not found' }, 404);
         }
 
-        const entity = pathParts[1];
-        const recordId = pathParts[2];
-        if (!mockDatabase[entity]) {
+        const entity = pathParts[apiIndex + 1];
+        const recordId = pathParts[apiIndex + 2];
+        if (!entity || !mockDatabase[entity]) {
             return createJsonResponse({ message: 'Unknown entity' }, 404);
         }
 
