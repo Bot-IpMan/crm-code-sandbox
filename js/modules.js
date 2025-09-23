@@ -1867,6 +1867,142 @@ async function saveOpportunity(oppId, formData) {
     }
 }
 
+function normalizeRelatedFieldValue(value) {
+    if (value === undefined || value === null) {
+        return '';
+    }
+    if (typeof value === 'string') {
+        return value;
+    }
+    if (typeof value === 'object') {
+        return value.id || value.value || value.path || '';
+    }
+    return String(value);
+}
+
+async function fetchRelatedRecordsForLinking() {
+    const parseListResponse = async response => {
+        if (!response || !response.ok) {
+            return [];
+        }
+        try {
+            const payload = await response.json();
+            if (Array.isArray(payload)) {
+                return payload;
+            }
+            if (Array.isArray(payload.data)) {
+                return payload.data;
+            }
+            return [];
+        } catch (error) {
+            console.warn('Unable to parse related records response:', error);
+            return [];
+        }
+    };
+
+    try {
+        const [leadsResponse, opportunitiesResponse, companiesResponse, contactsResponse] = await Promise.all([
+            fetch('tables/leads?limit=1000'),
+            fetch('tables/opportunities?limit=1000'),
+            fetch('tables/companies?limit=1000'),
+            fetch('tables/contacts?limit=1000')
+        ]);
+
+        const [leads, opportunities, companies, contacts] = await Promise.all([
+            parseListResponse(leadsResponse),
+            parseListResponse(opportunitiesResponse),
+            parseListResponse(companiesResponse),
+            parseListResponse(contactsResponse)
+        ]);
+
+        return { leads, opportunities, companies, contacts };
+    } catch (error) {
+        console.warn('Unable to fetch related records for linking:', error);
+        return { leads: [], opportunities: [], companies: [], contacts: [] };
+    }
+}
+
+async function buildRelatedRecordOptions(selectedValue) {
+    const normalizedSelected = normalizeRelatedFieldValue(selectedValue);
+    const { leads, opportunities, companies, contacts } = await fetchRelatedRecordsForLinking();
+    let hasSelectedOption = false;
+
+    const createOption = (value, label) => {
+        if (value === undefined || value === null || !label) {
+            return '';
+        }
+        const optionValue = String(value);
+        const isSelected = normalizedSelected && optionValue === normalizedSelected;
+        if (isSelected) {
+            hasSelectedOption = true;
+        }
+        return `<option value="${optionValue}" ${isSelected ? 'selected' : ''}>${label}</option>`;
+    };
+
+    const buildGroupOptions = (label, items, labelBuilder) => {
+        if (!Array.isArray(items) || items.length === 0) {
+            return '';
+        }
+        const options = items
+            .map(item => createOption(item.id, labelBuilder(item)))
+            .filter(Boolean)
+            .join('');
+        return options ? `<optgroup label="${label}">${options}</optgroup>` : '';
+    };
+
+    const opportunityOptionsHtml = buildGroupOptions('Opportunities', opportunities, opportunity => {
+        const name = opportunity?.name || 'Untitled Opportunity';
+        const companySuffix = opportunity?.company_name ? ` – ${opportunity.company_name}` : '';
+        return `${name}${companySuffix}`;
+    });
+
+    const leadOptionsHtml = buildGroupOptions('Leads', leads, lead => {
+        const title = lead?.title || 'Untitled Lead';
+        const companySuffix = lead?.company_name ? ` – ${lead.company_name}` : '';
+        return `${title}${companySuffix}`;
+    });
+
+    const companyOptionsHtml = buildGroupOptions('Companies', companies, company => company?.name || 'Unnamed Company');
+
+    const contactOptionsHtml = buildGroupOptions('Contacts', contacts, contact => {
+        const fullName = [contact?.first_name, contact?.last_name].filter(Boolean).join(' ');
+        const fallback = contact?.email || contact?.phone || 'Contact';
+        const name = fullName || fallback;
+        const companySuffix = contact?.company_name ? ` – ${contact.company_name}` : '';
+        return `${name}${companySuffix}`;
+    });
+
+    let relatedOptionsHtml = [
+        opportunityOptionsHtml,
+        leadOptionsHtml,
+        companyOptionsHtml,
+        contactOptionsHtml
+    ].filter(Boolean).join('');
+
+    if (normalizedSelected && !hasSelectedOption) {
+        relatedOptionsHtml = `<option value="${normalizedSelected}" selected>Current link (${normalizedSelected})</option>` + relatedOptionsHtml;
+    }
+
+    return relatedOptionsHtml;
+}
+
+function formatDateTimeLocal(dateValue) {
+    if (!dateValue) {
+        return '';
+    }
+    const date = dateValue instanceof Date ? dateValue : new Date(dateValue);
+    if (Number.isNaN(date.getTime())) {
+        return '';
+    }
+    const pad = number => String(number).padStart(2, '0');
+    const year = date.getFullYear();
+    const month = pad(date.getMonth() + 1);
+    const day = pad(date.getDate());
+    const hours = pad(date.getHours());
+    const minutes = pad(date.getMinutes());
+    return `${year}-${month}-${day}T${hours}:${minutes}`;
+}
+
 async function showTaskForm(taskId = null) {
     const isEdit = Boolean(taskId);
     let task = {};
@@ -1888,42 +2024,7 @@ async function showTaskForm(taskId = null) {
         hideLoading();
     }
 
-    const parseListResponse = async response => {
-        if (!response || !response.ok) {
-            return [];
-        }
-        const payload = await response.json();
-        if (Array.isArray(payload)) {
-            return payload;
-        }
-        if (Array.isArray(payload.data)) {
-            return payload.data;
-        }
-        return [];
-    };
-
-    let leads = [];
-    let opportunities = [];
-    let companies = [];
-    let contacts = [];
-
-    try {
-        const [leadsResponse, opportunitiesResponse, companiesResponse, contactsResponse] = await Promise.all([
-            fetch('tables/leads?limit=1000'),
-            fetch('tables/opportunities?limit=1000'),
-            fetch('tables/companies?limit=1000'),
-            fetch('tables/contacts?limit=1000')
-        ]);
-
-        [leads, opportunities, companies, contacts] = await Promise.all([
-            parseListResponse(leadsResponse),
-            parseListResponse(opportunitiesResponse),
-            parseListResponse(companiesResponse),
-            parseListResponse(contactsResponse)
-        ]);
-    } catch (error) {
-        console.warn('Unable to fetch related records for task form:', error);
-    }
+    const relatedOptionsHtml = await buildRelatedRecordOptions(task.related_to);
 
     const statusOptions = ['Not Started', 'In Progress', 'Completed', 'Cancelled'];
     if (task.status && !statusOptions.includes(task.status)) {
@@ -1943,58 +2044,7 @@ async function showTaskForm(taskId = null) {
     const selectedStatus = task.status || 'Not Started';
     const selectedPriority = task.priority || 'Medium';
     const selectedType = task.type || 'Task';
-    const selectedRelated = task.related_to || '';
     const dueDate = task.due_date ? new Date(task.due_date).toISOString().split('T')[0] : '';
-
-    let hasSelectedRelatedOption = false;
-
-    const buildGroupOptions = (label, items, labelBuilder) => {
-        if (!Array.isArray(items) || items.length === 0) {
-            return '';
-        }
-        const options = items.map(item => {
-            const value = item.id;
-            const optionLabel = labelBuilder(item);
-            const isSelected = value === selectedRelated;
-            if (isSelected) {
-                hasSelectedRelatedOption = true;
-            }
-            return `<option value="${value}" ${isSelected ? 'selected' : ''}>${optionLabel}</option>`;
-        }).join('');
-
-        return options ? `<optgroup label="${label}">${options}</optgroup>` : '';
-    };
-
-    const opportunityOptionsHtml = buildGroupOptions('Opportunities', opportunities, opportunity => {
-        const name = opportunity.name || 'Untitled Opportunity';
-        const companySuffix = opportunity.company_name ? ` – ${opportunity.company_name}` : '';
-        return `${name}${companySuffix}`;
-    });
-
-    const leadOptionsHtml = buildGroupOptions('Leads', leads, lead => {
-        const name = lead.title || 'Untitled Lead';
-        const companySuffix = lead.company_name ? ` – ${lead.company_name}` : '';
-        return `${name}${companySuffix}`;
-    });
-
-    const companyOptionsHtml = buildGroupOptions('Companies', companies, company => company.name || 'Unnamed Company');
-
-    const contactOptionsHtml = buildGroupOptions('Contacts', contacts, contact => {
-        const name = [contact.first_name, contact.last_name].filter(Boolean).join(' ') || contact.email || contact.phone || 'Contact';
-        const companySuffix = contact.company_name ? ` – ${contact.company_name}` : '';
-        return `${name}${companySuffix}`;
-    });
-
-    let relatedOptionsHtml = [
-        opportunityOptionsHtml,
-        leadOptionsHtml,
-        companyOptionsHtml,
-        contactOptionsHtml
-    ].filter(Boolean).join('');
-
-    if (selectedRelated && !hasSelectedRelatedOption) {
-        relatedOptionsHtml = `<option value="${selectedRelated}" selected>Current link (${selectedRelated})</option>` + relatedOptionsHtml;
-    }
 
     showModal(isEdit ? 'Edit Task' : 'Add New Task', `
         <form id="taskForm" class="space-y-6">
@@ -2153,7 +2203,213 @@ async function saveTask(taskId, formData) {
     }
 }
 
-async function showActivityForm(activityId = null) { showToast('Activity form - to be implemented', 'info'); }
+async function showActivityForm(activityId = null) {
+    const isEdit = Boolean(activityId);
+    let activity = {};
+
+    if (isEdit) {
+        showLoading();
+        try {
+            const response = await fetch(`tables/activities/${activityId}`);
+            if (!response.ok) {
+                throw new Error('Failed to fetch activity');
+            }
+            activity = await response.json();
+        } catch (error) {
+            console.error('Error loading activity:', error);
+            showToast('Failed to load activity details', 'error');
+            return;
+        } finally {
+            hideLoading();
+        }
+    }
+
+    const typeOptions = ['Call', 'Email', 'Meeting', 'Note', 'Task', 'Appointment', 'Document', 'Other'];
+    if (activity.type && !typeOptions.includes(activity.type)) {
+        typeOptions.unshift(activity.type);
+    }
+    const selectedType = activity.type || 'Call';
+
+    const outcomeOptions = ['Positive', 'Neutral', 'Negative', 'Completed', 'In progress', 'Awaiting response', 'Follow-up scheduled', 'No answer', 'Action items assigned', 'Other'];
+    if (activity.outcome && !outcomeOptions.includes(activity.outcome)) {
+        outcomeOptions.unshift(activity.outcome);
+    }
+    const selectedOutcome = activity.outcome || '';
+
+    const datetimeValue = formatDateTimeLocal(activity.date || new Date());
+    const durationValue = activity.duration !== undefined && activity.duration !== null ? activity.duration : '';
+    const relatedOptionsHtml = await buildRelatedRecordOptions(activity.related_to);
+
+    showModal(isEdit ? 'Edit Activity' : 'Log Activity', `
+        <form id="activityForm" class="space-y-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Activity Type</label>
+                    <select name="type" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" required>
+                        ${typeOptions.map(type => `<option value="${type}" ${selectedType === type ? 'selected' : ''}>${type}</option>`).join('')}
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Subject *</label>
+                    <input type="text" name="subject" value="${activity.subject || ''}" required
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                           placeholder="Follow-up call with client">
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Date & Time *</label>
+                    <input type="datetime-local" name="date" value="${datetimeValue}" required
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Assigned To</label>
+                    <input type="text" name="assigned_to" value="${activity.assigned_to || currentUser || ''}"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                           placeholder="Team member">
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Duration (minutes)</label>
+                    <input type="number" name="duration" min="0" step="5" value="${durationValue}"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                           placeholder="30">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Outcome</label>
+                    <select name="outcome" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        <option value="">Not specified</option>
+                        ${outcomeOptions.map(outcome => `<option value="${outcome}" ${selectedOutcome === outcome ? 'selected' : ''}>${outcome}</option>`).join('')}
+                    </select>
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Related Record</label>
+                <select name="related_to" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    <option value="">Not linked</option>
+                    ${relatedOptionsHtml}
+                </select>
+                <p class="mt-1 text-xs text-gray-500">Link the activity to a lead, opportunity, company or contact to keep context together.</p>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Description</label>
+                <textarea name="description" rows="4"
+                          class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          placeholder="Add notes about the conversation or outcome">${activity.description || ''}</textarea>
+            </div>
+
+            <div class="flex justify-end space-x-3">
+                <button type="button" onclick="closeModal()" class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100">
+                    Cancel
+                </button>
+                <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                    ${isEdit ? 'Update Activity' : 'Log Activity'}
+                </button>
+            </div>
+        </form>
+    `);
+
+    const form = document.getElementById('activityForm');
+    form.addEventListener('submit', async event => {
+        event.preventDefault();
+        await saveActivity(activityId, new FormData(form));
+    });
+}
+
+async function saveActivity(activityId, formData) {
+    const data = {};
+    for (const [key, value] of formData.entries()) {
+        if (typeof value === 'string') {
+            const trimmed = value.trim();
+            if (trimmed) {
+                data[key] = trimmed;
+            }
+        } else if (value !== undefined && value !== null) {
+            data[key] = value;
+        }
+    }
+
+    if (!data.subject) {
+        showToast('Activity subject is required', 'error');
+        return;
+    }
+
+    if (!data.type) {
+        data.type = 'Call';
+    }
+
+    if (data.date) {
+        const parsedDate = new Date(data.date);
+        if (Number.isNaN(parsedDate.getTime())) {
+            showToast('Invalid date selected for the activity', 'error');
+            return;
+        }
+        data.date = parsedDate.toISOString();
+    } else {
+        data.date = new Date().toISOString();
+    }
+
+    if (data.duration !== undefined) {
+        const numericDuration = Number(data.duration);
+        if (Number.isFinite(numericDuration) && numericDuration >= 0) {
+            data.duration = numericDuration;
+        } else {
+            delete data.duration;
+        }
+    }
+
+    if (!data.assigned_to && currentUser) {
+        data.assigned_to = currentUser;
+    }
+
+    if (!data.outcome) {
+        delete data.outcome;
+    }
+
+    if (!data.description) {
+        delete data.description;
+    }
+
+    if (!data.related_to) {
+        delete data.related_to;
+    }
+
+    const nowIso = new Date().toISOString();
+    data.updated_at = nowIso;
+    if (!activityId) {
+        data.created_at = nowIso;
+        data.created_by = currentUser;
+    }
+
+    showLoading();
+    try {
+        const method = activityId ? 'PUT' : 'POST';
+        const url = activityId ? `tables/activities/${activityId}` : 'tables/activities';
+        const response = await fetch(url, {
+            method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+
+        if (!response.ok) {
+            throw new Error('Save failed');
+        }
+
+        showToast(activityId ? 'Activity updated successfully' : 'Activity logged successfully', 'success');
+        closeModal();
+        await loadActivities();
+    } catch (error) {
+        console.error('Error saving activity:', error);
+        showToast('Failed to save activity', 'error');
+    } finally {
+        hideLoading();
+    }
+}
 
 // Placeholder view functions for other modules
 
@@ -2188,8 +2444,32 @@ async function deleteTask(id) {
     }
 }
 
-async function editActivity(id) { showToast('Edit activity - to be implemented', 'info'); }
-async function deleteActivity(id) { showToast('Delete activity - to be implemented', 'info'); }
+async function editActivity(id) {
+    await showActivityForm(id);
+}
+
+async function deleteActivity(id) {
+    const confirmed = confirm('Are you sure you want to delete this activity?');
+    if (!confirmed) {
+        return;
+    }
+
+    showLoading();
+    try {
+        const response = await fetch(`tables/activities/${id}`, { method: 'DELETE' });
+        if (!response.ok) {
+            throw new Error('Delete failed');
+        }
+        showToast('Activity deleted successfully', 'success');
+        closeModal();
+        await loadActivities();
+    } catch (error) {
+        console.error('Error deleting activity:', error);
+        showToast('Failed to delete activity', 'error');
+    } finally {
+        hideLoading();
+    }
+}
 
 function toggleOpportunityView() {
     showToast('Opportunity view toggle - to be implemented', 'info');
