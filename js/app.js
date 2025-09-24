@@ -112,6 +112,10 @@ function initializeMobileMenu() {
 
 function setupGlobalSearch() {
     const searchInput = document.getElementById('globalSearch');
+    if (!searchInput) {
+        console.warn('Global search input element not found. Skipping global search setup.');
+        return;
+    }
     let searchTimeout;
 
     searchInput.addEventListener('input', function(e) {
