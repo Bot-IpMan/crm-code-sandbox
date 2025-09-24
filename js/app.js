@@ -801,11 +801,12 @@ async function showActivities() {
 
 // Reports functions
 async function showReports() {
+    if (typeof renderAnalyticsAndBI === 'function') {
+        return renderAnalyticsAndBI();
+    }
+
     showView('reports');
-    updatePageHeader('Reports', 'View comprehensive business reports');
-    
-    // Similar implementation to showContacts()
-    // ... (implementation would follow same pattern)
+    updatePageHeader('Analytics & BI', 'Build interactive dashboards and predictive insights');
 }
 
 // Utility functions
