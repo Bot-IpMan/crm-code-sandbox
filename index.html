@@ -87,61 +87,67 @@
         <nav class="p-4">
             <ul class="space-y-2">
                 <li>
-                    <a href="#" onclick="showDashboard()" class="nav-item flex items-center space-x-3 p-3 rounded-lg text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
+                    <a href="#" onclick="showDashboard()" data-view="dashboard" class="nav-item flex items-center space-x-3 p-3 rounded-lg text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
                         <i class="fas fa-chart-dashboard w-5"></i>
                         <span>Dashboard</span>
                     </a>
                 </li>
                 <li>
-                    <a href="#" onclick="showContacts()" class="nav-item flex items-center space-x-3 p-3 rounded-lg text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
+                    <a href="#" onclick="showContacts()" data-view="contacts" class="nav-item flex items-center space-x-3 p-3 rounded-lg text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
                         <i class="fas fa-users w-5"></i>
                         <span>Contacts</span>
                     </a>
                 </li>
                 <li>
-                    <a href="#" onclick="showCompanies()" class="nav-item flex items-center space-x-3 p-3 rounded-lg text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
+                    <a href="#" onclick="showCompanies()" data-view="companies" class="nav-item flex items-center space-x-3 p-3 rounded-lg text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
                         <i class="fas fa-building w-5"></i>
                         <span>Companies</span>
                     </a>
                 </li>
                 <li>
-                    <a href="#" onclick="showLeads()" class="nav-item flex items-center space-x-3 p-3 rounded-lg text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
+                    <a href="#" onclick="showLeads()" data-view="leads" class="nav-item flex items-center space-x-3 p-3 rounded-lg text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
                         <i class="fas fa-bullseye w-5"></i>
                         <span>Leads</span>
                     </a>
                 </li>
                 <li>
-                    <a href="#" onclick="showOpportunities()" class="nav-item flex items-center space-x-3 p-3 rounded-lg text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
+                    <a href="#" onclick="showOpportunities()" data-view="opportunities" class="nav-item flex items-center space-x-3 p-3 rounded-lg text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
                         <i class="fas fa-handshake w-5"></i>
                         <span>Opportunities</span>
                     </a>
                 </li>
                 <li>
-                    <a href="#" onclick="showSales()" class="nav-item flex items-center space-x-3 p-3 rounded-lg text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
+                    <a href="#" onclick="showSales()" data-view="sales" class="nav-item flex items-center space-x-3 p-3 rounded-lg text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
                         <i class="fas fa-chart-line w-5"></i>
                         <span>Sales</span>
                     </a>
                 </li>
                 <li>
-                    <a href="#" onclick="showTasks()" class="nav-item flex items-center space-x-3 p-3 rounded-lg text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
+                    <a href="#" onclick="showMarketing()" data-view="marketing" class="nav-item flex items-center space-x-3 p-3 rounded-lg text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
+                        <i class="fas fa-bullhorn w-5"></i>
+                        <span>Marketing</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="#" onclick="showTasks()" data-view="tasks" class="nav-item flex items-center space-x-3 p-3 rounded-lg text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
                         <i class="fas fa-tasks w-5"></i>
                         <span>Tasks</span>
                     </a>
                 </li>
                 <li>
-                    <a href="#" onclick="showActivities()" class="nav-item flex items-center space-x-3 p-3 rounded-lg text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
+                    <a href="#" onclick="showActivities()" data-view="activities" class="nav-item flex items-center space-x-3 p-3 rounded-lg text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
                         <i class="fas fa-clock w-5"></i>
                         <span>Activities</span>
                     </a>
                 </li>
                 <li>
-                    <a href="#" onclick="showReports()" class="nav-item flex items-center space-x-3 p-3 rounded-lg text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
+                    <a href="#" onclick="showReports()" data-view="reports" class="nav-item flex items-center space-x-3 p-3 rounded-lg text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
                         <i class="fas fa-chart-bar w-5"></i>
                         <span>Reports</span>
                     </a>
                 </li>
                 <li>
-                    <a href="#" onclick="showFiles()" class="nav-item flex items-center space-x-3 p-3 rounded-lg text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
+                    <a href="#" onclick="showFiles()" data-view="files" class="nav-item flex items-center space-x-3 p-3 rounded-lg text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
                         <i class="fas fa-folder w-5"></i>
                         <span>Files</span>
                     </a>
@@ -310,6 +316,7 @@
             <div id="leadsView" class="view-content hidden"></div>
             <div id="opportunitiesView" class="view-content hidden"></div>
             <div id="salesView" class="view-content hidden"></div>
+            <div id="marketingView" class="view-content hidden"></div>
             <div id="tasksView" class="view-content hidden"></div>
             <div id="activitiesView" class="view-content hidden"></div>
             <div id="reportsView" class="view-content hidden"></div>
