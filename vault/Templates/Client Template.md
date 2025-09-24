@@ -14,6 +14,8 @@ next_review:
 lifetime_value:
 engagement_score:
 deals: []
+competitors:
+  - [[Competitors/Назва конкурента]]
 tags:
   - client
 ---
@@ -38,6 +40,33 @@ dv.table(["Показник", "Значення"], [
 ]);
 ```
 
+> [!info]+ Конкурентне поле
+> У цьому блоці керуйте конкурентами клієнта. Натисніть на рядок таблиці, щоб відкрити картку конкурента та його комірки.
+>
+> ```dataview
+> TABLE file.link AS "Конкурент", tier AS "Рівень", industry AS "Ринок", last_update AS "Оновлено", intel_owner AS "Аналітик"
+> FROM "Competitors"
+> WHERE contains(clients, this.file.link)
+> SORT tier asc, last_update desc
+> ```
+
+> [!todo]+ Швидкі задачі по конкурентам
+> ```dataviewjs
+> const competitors = dv.current().competitors ?? [];
+> if (!competitors.length) {
+>   dv.paragraph("Додайте конкурентів у поле `competitors`, щоби бачити операційні задачі.");
+> } else {
+>   for (const competitor of competitors) {
+>     const page = dv.page(competitor.path);
+>     if (!page) continue;
+>     const tasks = page.file.tasks?.where(t => !t.completed);
+>     if (!tasks || !tasks.length) continue;
+>     dv.header(4, dv.fileLink(page.file.path));
+>     dv.taskList(tasks, false);
+>   }
+> }
+> ```
+
 ## Опис
 Короткий профіль компанії, головні продукти або послуги, сегмент ринку та очікування клієнта.
 
@@ -57,6 +86,10 @@ dv.table(["Показник", "Значення"], [
 
 ## Проєкти та послуги
 - [[Projects/Назва проєкту]] — статус / етап / короткий опис.
+
+## Конкуренти клієнта
+- [[Competitors/Назва конкурента]] — короткий статус чи нотатка.
+- Додайте нових конкурентів за допомогою шаблону "Competitor Template" та додайте лінк у поле `competitors` вище.
 
 ## Фінанси та умови (опційно)
 - Договір / тариф:
