@@ -26,6 +26,17 @@ A comprehensive, fully-featured Customer Relationship Management (CRM) system de
 - **Toast Notifications**: User-friendly feedback system for all actions
 - **Modal Forms**: Streamlined data entry with validation
 
+### 🧱 Upcoming Modular Enhancements
+
+To keep ProCRM future-proof for advanced competitive-intelligence workflows, the next major release focuses on a "LEGO-style" architecture and enterprise-grade productivity upgrades:
+
+- **Modular Canvas** – every dashboard block will behave like an independent module that can be created from templates, rearranged with drag-and-drop between competitor workspaces, duplicated, deleted, resized, and repositioned with pixel precision.
+- **High-volume Performance Optimizations** – engineered for scenarios with 20 competitors × 100 modules each through virtualized scrolling (render only what is visible), lazy loading of heavy widgets, multi-level client/cache layers, and cursor-based pagination for data-heavy tables.
+- **Intelligent Navigation** – introduces a sidebar tree with counters, multi-tab workspace, lightning-fast global search panel (Ctrl+K), and split-view layouts for side-by-side comparisons.
+- **Bulk Operations Toolkit** – bulk-edit fields across competitor groups, apply template presets to multiple entities at once, mass-move modules between views, and streamline data import/export.
+
+**Practical gains:** sub‑2‑second loading for any screen, flexible drag-and-drop customization, smooth scaling to thousands of records, and full keyboard-driven control for power users.
+
 ### 🎯 Main Entry Points
 
 #### Navigation Routes
