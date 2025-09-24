@@ -1919,10 +1919,10 @@ function getActivityTypeColor(type) {
 }
 
 // Analytics & BI Management
-const CAMPAIGN_PERFORMANCE_DATA = [
+const CAMPAIGN_PERFORMANCE_TEMPLATES = [
     {
-        name: MARKETING_CAMPAIGNS[0] ? MARKETING_CAMPAIGNS[0].name : 'Lifecycle nurture · від заявки до продовження',
-        status: MARKETING_CAMPAIGNS[0] ? MARKETING_CAMPAIGNS[0].status : 'Активна',
+        name: 'Lifecycle nurture · від заявки до продовження',
+        status: 'Активна',
         spend: 5400,
         generatedLeads: 148,
         influencedDeals: 19,
@@ -1932,8 +1932,8 @@ const CAMPAIGN_PERFORMANCE_DATA = [
         engagementRate: 0.64
     },
     {
-        name: MARKETING_CAMPAIGNS[1] ? MARKETING_CAMPAIGNS[1].name : 'Account-based програма для стратегічних клієнтів',
-        status: MARKETING_CAMPAIGNS[1] ? MARKETING_CAMPAIGNS[1].status : 'Підготовка',
+        name: 'Account-based програма для стратегічних клієнтів',
+        status: 'Підготовка',
         spend: 8600,
         generatedLeads: 58,
         influencedDeals: 11,
@@ -1943,8 +1943,8 @@ const CAMPAIGN_PERFORMANCE_DATA = [
         engagementRate: 0.58
     },
     {
-        name: MARKETING_CAMPAIGNS[2] ? MARKETING_CAMPAIGNS[2].name : 'Reactivation sprint · повернення неактивних користувачів',
-        status: MARKETING_CAMPAIGNS[2] ? MARKETING_CAMPAIGNS[2].status : 'Активна',
+        name: 'Reactivation sprint · повернення неактивних користувачів',
+        status: 'Активна',
         spend: 3900,
         generatedLeads: 96,
         influencedDeals: 14,
@@ -1954,6 +1954,20 @@ const CAMPAIGN_PERFORMANCE_DATA = [
         engagementRate: 0.71
     }
 ];
+
+function getCampaignPerformanceData() {
+    const hasCampaigns = typeof MARKETING_CAMPAIGNS !== 'undefined' && Array.isArray(MARKETING_CAMPAIGNS);
+    const campaigns = hasCampaigns ? MARKETING_CAMPAIGNS : [];
+
+    return CAMPAIGN_PERFORMANCE_TEMPLATES.map((template, index) => {
+        const campaign = campaigns[index];
+        return {
+            ...template,
+            name: campaign?.name || template.name,
+            status: campaign?.status || template.status
+        };
+    });
+}
 
 const ANALYTICS_WIDGETS_STORAGE_KEY = 'crmAnalyticsWidgets';
 
@@ -2427,7 +2441,7 @@ async function fetchAnalyticsDataset() {
         tasks: tasksRes.data || tasksRes || [],
         companies: companiesRes.data || companiesRes || [],
         campaigns: Array.isArray(MARKETING_CAMPAIGNS) ? MARKETING_CAMPAIGNS.slice() : [],
-        campaignPerformance: CAMPAIGN_PERFORMANCE_DATA.map(item => ({ ...item }))
+        campaignPerformance: getCampaignPerformanceData()
     };
 }
 
