@@ -244,11 +244,15 @@ function showView(viewName) {
 function updateNavigation(activeView) {
     // Remove active class from all nav items
     document.querySelectorAll('.nav-item').forEach(item => {
-        item.classList.remove('bg-blue-50', 'text-blue-600');
+        item.classList.remove('bg-blue-50', 'text-blue-600', 'font-semibold');
+        item.classList.add('text-gray-700');
     });
-    
-    // Add active class to current view (this would need more specific targeting)
-    // For now, we'll handle this in individual show functions
+
+    const activeNavItem = document.querySelector(`.nav-item[data-view="${activeView}"]`);
+    if (activeNavItem) {
+        activeNavItem.classList.add('bg-blue-50', 'text-blue-600', 'font-semibold');
+        activeNavItem.classList.remove('text-gray-700');
+    }
 }
 
 function updatePageHeader(title, subtitle) {

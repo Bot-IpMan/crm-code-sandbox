@@ -3528,6 +3528,668 @@ async function saveActivity(activityId, formData) {
     }
 }
 
+// Marketing automation module data
+const MARKETING_SEGMENTS = [
+    {
+        name: "Стратегічні B2B-клієнти",
+        size: 120,
+        share: "42% виручки",
+        priority: "Стратегічний",
+        growth: "+8% QoQ",
+        description: "Компанії з виручкою понад $1 млн та циклом продажу 90+ днів. Потребують персонального супроводу та складних інтеграцій.",
+        criteria: [
+            "Рівень контактів: C-level або директор з розвитку",
+            "Оцінка fit score > 75 у CRM",
+            "Активна взаємодія з контентом (3+ переглядів демо)"
+        ],
+        needs: [
+            "ROI-кейси для ради директорів",
+            "Персональний solution workshop",
+            "План поетапного впровадження"
+        ],
+        channels: [
+            { type: "Email", detail: "Щомісячні executive-дайджести з аналітикою галузі" },
+            { type: "SMS", detail: "Нагадування про стратегічні дзвінки за 24 години" },
+            { type: "Месенджери", detail: "LinkedIn / Viber для погодження зустрічей з експертом" }
+        ]
+    },
+    {
+        name: "Швидкозростаючі стартапи",
+        size: 210,
+        share: "27% виручки",
+        priority: "Високий потенціал",
+        growth: "+21% QoQ",
+        description: "Компанії Series A-B з невеликим відділом продажів, які шукають швидкий старт та автоматизацію.",
+        criteria: [
+            "Країни: EMEA та Північна Америка",
+            "Активні ліди з джерела Product Hunt або партнерських вебінарів",
+            "Цикл угоди < 45 днів"
+        ],
+        needs: [
+            "Швидкий запуск та готові плейбуки",
+            "Пакети інтеграцій без коду",
+            "Прозоре ціноутворення та знижки за річну оплату"
+        ],
+        channels: [
+            { type: "Email", detail: "Серія онбордингу з підказками та відео" },
+            { type: "SMS", detail: "Тригери під час trial-періоду та перед закінченням" },
+            { type: "Месенджери", detail: "WhatsApp-чат із success-менеджером для швидких питань" }
+        ]
+    },
+    {
+        name: "Клієнти на етапі повторної покупки",
+        size: 95,
+        share: "21% виручки",
+        priority: "Утримання",
+        growth: "+5% QoQ",
+        description: "Існуючі клієнти з потенціалом апсейлу на модулі аналітики та CPQ.",
+        criteria: [
+            "Статус у CRM: Customer 12+ місяців",
+            "Активні користувачі < 70% від куплених ліцензій",
+            "Запити в підтримку щодо додаткових функцій"
+        ],
+        needs: [
+            "План розвитку акаунта на 12 місяців",
+            "Пакет навчальних сесій для нових користувачів",
+            "ROI-докази для фінансової команди"
+        ],
+        channels: [
+            { type: "Email", detail: "Квартальні health-check листи з usage-аналітикою" },
+            { type: "SMS", detail: "Нагадування про закінчення контракту та опитування NPS" },
+            { type: "Месенджери", detail: "Telegram-групи для продакт-апдейтів" }
+        ]
+    }
+];
+
+const MARKETING_CAMPAIGNS = [
+    {
+        name: "Lifecycle nurture · від заявки до продовження",
+        status: "Активна",
+        objective: "Зменшити час до першого value та збільшити конверсію в оплату на 20%.",
+        owner: "Marketing Ops & Customer Success",
+        audience: "Нові клієнти після демо та підписання договору",
+        segments: ["Стратегічні B2B-клієнти", "Швидкозростаючі стартапи"],
+        automation: [
+            "Trigger: створення угоди у стадії «Closed Won»",
+            "Гілка A: якщо adoption score < 50 – запуск серії підтримки",
+            "Гілка B: якщо активовано 3+ ключових модулі – запит відгуку",
+            "Webhook: оновлення health-score у CRM"
+        ],
+        channels: [
+            { type: "Email", frequency: "Day 0 / 3 / 7 / 21", purpose: "Онбординг, туторіали та чек-листи" },
+            { type: "SMS", frequency: "Перед live-сесіями та за 1 день до завершення trial", purpose: "Нагадування про наступний крок" },
+            { type: "Месенджери", frequency: "Щотижня у WhatsApp / Viber", purpose: "Особисті апдейти від Customer Success" }
+        ],
+        metrics: ["Активні користувачі в перші 30 днів", "Час до першого успішного сценарію", "NPS після 45 днів"]
+    },
+    {
+        name: "Account-based програма для стратегічних клієнтів",
+        status: "Підготовка",
+        objective: "Виявити нові підрозділи для апсейлу та збільшити середній чек.",
+        owner: "ABM-команда",
+        audience: "Enterprise-акаунти з ARR > $50k",
+        segments: ["Стратегічні B2B-клієнти"],
+        automation: [
+            "Trigger: оновлення стадії угоди до «Negotiation»",
+            "Signal: акаунт має 2+ champion’ів",
+            "Action: створення задачі для sales + запуск персонального контенту",
+            "Sync: двосторонній список у LinkedIn Ads"
+        ],
+        channels: [
+            { type: "Email", frequency: "Щомісячно", purpose: "Персоналізовані executive-briefing’и" },
+            { type: "Месенджери", frequency: "Щотижневі LinkedIn InMail", purpose: "Координація з decision maker’ами" },
+            { type: "SMS", frequency: "Перед воркшопами", purpose: "Підтвердження участі ключових стейкхолдерів" }
+        ],
+        metrics: ["Кількість залучених champion’ів", "Заплановані воркшопи", "Pipeline influenced revenue"]
+    },
+    {
+        name: "Reactivation sprint · повернення неактивних користувачів",
+        status: "Активна",
+        objective: "Повернути 15% неактивних контактів та прогріти їх до повторної покупки.",
+        owner: "Growth Marketing",
+        audience: "Користувачі без активності 60+ днів",
+        segments: ["Швидкозростаючі стартапи", "Клієнти на етапі повторної покупки"],
+        automation: [
+            "Trigger: activity score < 20 протягом 45 днів",
+            "Умова: статус угоди ≠ Closed Lost",
+            "Динаміка: припиняти серію після відповіді в месенджері",
+            "Завершення: передати ліда у SDR через Slack webhook"
+        ],
+        channels: [
+            { type: "Email", frequency: "3 листи протягом 10 днів", purpose: "Персоналізовані кейси та відновлення trial" },
+            { type: "Месенджери", frequency: "Telegram / Facebook Messenger", purpose: "Бот з діагностикою потреб" },
+            { type: "SMS", frequency: "Дні 2 та 7", purpose: "Купон на консультацію та нагадування про дедлайн" }
+        ],
+        metrics: ["Відкриття листів", "Відповіді в месенджерах", "Повторні демо"]
+    }
+];
+
+const CUSTOMER_JOURNEYS = [
+    {
+        name: "Enterprise Success Journey",
+        trigger: "Коли угода переходить у стадію «Closed Won»",
+        goal: "Активація ключових користувачів і підготовка до апсейлу на 6 місяць",
+        owner: "Customer Success",
+        stages: [
+            {
+                title: "Активація 0-14 днів",
+                description: "Головна мета — провести запуск та навчити champion’ів.",
+                actions: [
+                    "Email: welcome-лист від CEO з записом воркшопу",
+                    "SMS: нагадування про стартову сесію за 24 години",
+                    "Месенджер: представлення менеджера у WhatsApp / Teams"
+                ],
+                kpis: ["% акаунтів зі стартовим воркшопом", "Середній час до першої інтеграції"]
+            },
+            {
+                title: "Успіх 15-45 днів",
+                description: "Побудувати регулярне використання та збір фідбеку.",
+                actions: [
+                    "Email: серія з кейсами та advanced-підказками",
+                    "In-app + месенджер: чек-ін від CSM після 30 днів",
+                    "SMS: NPS-опитування на 45 день"
+                ],
+                kpis: ["Active seats / purchased seats", "NPS > 40"]
+            },
+            {
+                title: "Розширення 46-120 днів",
+                description: "Підготувати апсейл на модулі аналітики.",
+                actions: [
+                    "Email: ROI-розрахунок за даними CRM",
+                    "Месенджер: спільний план розвитку акаунта",
+                    "Вебінар: демонстрація аналітичного модуля для нових стейкхолдерів"
+                ],
+                kpis: ["Заплановані розширення", "Додатковий ARR у прогнозі"]
+            }
+        ]
+    },
+    {
+        name: "Product-led journey для стартапів",
+        trigger: "Реєстрація у trial через лендинг або партнерський канал",
+        goal: "Конвертувати trial у оплату протягом 21 дня",
+        owner: "Growth Team",
+        stages: [
+            {
+                title: "Активація день 0-3",
+                description: "Вивести користувача на перший aha-moment.",
+                actions: [
+                    "Email: серія запуску з відео та чек-листом",
+                    "In-app message + месенджер-бот: налаштування інтеграцій",
+                    "SMS: нагадування про завершення налаштування на 3 день"
+                ],
+                kpis: ["Completed onboarding checklist", "Активовані інтеграції"]
+            },
+            {
+                title: "Конверсія день 4-14",
+                description: "Показати бізнес-цінність та стимулювати оплату.",
+                actions: [
+                    "Email: кейси клієнтів у схожій галузі",
+                    "Месенджер: персональна пропозиція від SDR",
+                    "SMS: промо-код на знижку при оплаті до 14 дня"
+                ],
+                kpis: ["Trial-to-paid conversion", "Відгуки на месенджерні пропозиції"]
+            },
+            {
+                title: "Утримання день 15-21",
+                description: "Запобігти відтоку та зібрати заперечення.",
+                actions: [
+                    "Email: опитування щодо досвіду використання",
+                    "Месенджер: швидкі відповіді на бар’єри у Telegram",
+                    "SMS: нагадування про фінальний демо-дзвінок"
+                ],
+                kpis: ["Retention після 30 дня", "Причини відмови, зафіксовані у CRM"]
+            }
+        ]
+    }
+];
+
+const MARKETING_TEMPLATES = [
+    {
+        channel: "Email",
+        name: "Executive briefing для C-level",
+        cadence: "Щомісяця, перший вівторок",
+        description: "Преміум-розсилання з трендами ринку та кастомними метриками клієнта.",
+        structure: [
+            "Персоналізоване звернення з згадкою KPI акаунта",
+            "Блок з галузевою аналітикою та порівнянням бенчмарків",
+            "Кейс успішного клієнта + CTA на стратсесію"
+        ],
+        recommendation: "Сегмент: стратегічні B2B-клієнти. Використовувати динамічний контент через HubSpot smart fields."
+    },
+    {
+        channel: "SMS",
+        name: "Trigger-нагадування про ключову дію",
+        cadence: "Автоматично після події у CRM",
+        description: "Коротке повідомлення для нагадування про наступний крок у journey.",
+        structure: [
+            "Назва продукту + ім’я менеджера",
+            "Конкретна дія з дедлайном",
+            "Посилання на ресурс або CTA для відповіді"
+        ],
+        recommendation: "Сегменти: швидкозростаючі стартапи, клієнти на повторній покупці. Надсилати з 9:00 до 18:00 за часовим поясом контакту."
+    },
+    {
+        channel: "Месенджери",
+        name: "WhatsApp сценарій для повторної активації",
+        cadence: "Серія з 3 повідомлень протягом 7 днів",
+        description: "Напівавтоматична серія з ботом та залученням менеджера.",
+        structure: [
+            "Повідомлення 1: перевірка статусу та швидке опитування",
+            "Повідомлення 2: відео-кейс та кнопки «Потрібна допомога» / «Запланувати дзвінок»",
+            "Повідомлення 3: нагадування про бонус або консультацію"
+        ],
+        recommendation: "Сегмент: клієнти на етапі повторної покупки. Після відповіді — автостворення задачі у CRM."
+    }
+];
+
+const MARKETING_AB_TESTS = [
+    {
+        name: "Тест теми листа welcome-серії",
+        status: "У тесті (спринт 15)",
+        audience: "Сегмент: швидкозростаючі стартапи, 4 500 контактів",
+        goal: "Підвищити open rate другого листа до 45%",
+        metric: "Open rate листа #2",
+        variants: [
+            { label: "Варіант A", description: "«Запустіть команду продажів за 7 днів»", result: "Базовий контроль · 34,2% OR" },
+            { label: "Варіант B", description: "«[Ім’я], готовий чек-лист для запуску CRM»", result: "Персоналізація · 41,8% OR" }
+        ],
+        learnings: [
+            "Додаємо персоналізацію за іменем + згадку про чек-лист — зростання OR на 22%.",
+            "Потрібно протестувати динамічні підзаголовки у тілі листа."
+        ]
+    },
+    {
+        name: "SMS vs WhatsApp для реактивації",
+        status: "Завершено",
+        audience: "Сегмент: клієнти на етапі повторної покупки, 1 200 контактів",
+        goal: "Збільшити кількість повторних демо на 15%",
+        metric: "Booked demo rate",
+        variants: [
+            { label: "Варіант A", description: "SMS з персональним посиланням на календар", result: "8,4% бронювань" },
+            { label: "Варіант B", description: "WhatsApp-бот з вибором зручного часу", result: "12,9% бронювань" }
+        ],
+        learnings: [
+            "Месенджерні сценарії мають вищу конверсію, але потребують SLA від CSM < 2 години.",
+            "Інтегрувати бота з календарем Google для автооновлення слотів."
+        ]
+    }
+];
+
+const MARKETING_INTEGRATIONS = [
+    {
+        platform: "HubSpot Marketing Hub",
+        category: "Automation & CRM",
+        status: "Підключено",
+        useCases: [
+            "Двостороння синхронізація сегментів та lifecycle-стадій",
+            "Запуск workflow при зміні статусу угоди у ProCRM",
+            "Синхронізація показників кампаній у розділ звітності"
+        ],
+        sync: "Оновлення кожні 15 хвилин через HubSpot APIs",
+        connectors: ["OAuth 2.0", "Workflows", "Custom Behavioral Events"]
+    },
+    {
+        platform: "Mailchimp",
+        category: "Email & кампанії",
+        status: "Готово",
+        useCases: [
+            "Експорт динамічних аудиторій для кампаній з контентом",
+            "Передача аналітики відкриттів назад у CRM",
+            "Автоматичне створення тегів на контактах після розсилки"
+        ],
+        sync: "Реальний час через вебхуки + нічна повна синхронізація",
+        connectors: ["API ключ", "Webhooks", "Audience Tags"]
+    },
+    {
+        platform: "Twilio / Segment",
+        category: "SMS & месенджери",
+        status: "У розгортанні",
+        useCases: [
+            "Trigger-SMS з можливістю відповіді напряму в CRM",
+            "WhatsApp-потоки для повторної активації",
+            "Збір подій доставки у Customer 360"
+        ],
+        sync: "Події в режимі реального часу через Segment Functions",
+        connectors: ["Twilio Studio", "WhatsApp API", "Segment Destination"]
+    },
+    {
+        platform: "Meta Business Suite",
+        category: "Ретаргетинг та реклами",
+        status: "Заплановано Q3",
+        useCases: [
+            "Створення look-alike аудиторій на основі цінних сегментів",
+            "Ретаргетинг лідів, які не завершили демо",
+            "Передача офлайн-подій з CRM у рекламні кампанії"
+        ],
+        sync: "Двічі на день через автоматичні завантаження",
+        connectors: ["Conversions API", "Custom Audiences", "Scheduled CSV"]
+    }
+];
+
+
+async function showMarketing() {
+    showView('marketing');
+    updatePageHeader('Marketing Automation', 'Сегментація, customer journey та мультиканальні кампанії');
+
+    const marketingView = document.getElementById('marketingView');
+    if (!marketingView) {
+        return;
+    }
+
+    const totalSegmentRecords = MARKETING_SEGMENTS.reduce((sum, segment) => sum + (segment.size || 0), 0);
+    const activeCampaigns = MARKETING_CAMPAIGNS.filter(campaign => (campaign.status || '').toLowerCase().includes('актив')).length;
+    const runningTests = MARKETING_AB_TESTS.filter(test => (test.status || '').toLowerCase().includes('тест')).length;
+
+    const stats = [
+        { label: 'Активні кампанії', value: activeCampaigns, caption: `з ${MARKETING_CAMPAIGNS.length} запланованих` },
+        { label: 'Контакти у сегментах', value: totalSegmentRecords, caption: `${MARKETING_SEGMENTS.length} сегменти з автоматичним оновленням` },
+        { label: 'Готові шаблони', value: MARKETING_TEMPLATES.length, caption: 'Email · SMS · месенджери' },
+        { label: 'A/B-тести', value: MARKETING_AB_TESTS.length, caption: runningTests > 0 ? `${runningTests} активні зараз` : 'Нові гіпотези заплановані' }
+    ];
+
+    const renderList = items => (items || []).map(item => `
+        <li class="flex items-start space-x-2">
+            <i class="fas fa-circle text-[6px] text-blue-500 mt-2"></i>
+            <span class="text-sm text-gray-600">${item}</span>
+        </li>
+    `).join('');
+
+    const resolveChannelIcon = label => {
+        const normalized = (label || '').toLowerCase();
+        if (normalized.includes('email') || normalized.includes('лист')) return 'fa-envelope';
+        if (normalized.includes('sms')) return 'fa-sms';
+        if (normalized.includes('whatsapp') || normalized.includes('viber') || normalized.includes('telegram') || normalized.includes('messenger') || normalized.includes('месен')) return 'fa-comments';
+        if (normalized.includes('вебінар') || normalized.includes('webinar')) return 'fa-video';
+        if (normalized.includes('push')) return 'fa-bell';
+        if (normalized.includes('in-app')) return 'fa-bullseye';
+        return 'fa-bullhorn';
+    };
+
+    const getStatusBadgeClass = status => {
+        const normalized = (status || '').toLowerCase();
+        if (normalized.includes('актив')) return 'bg-green-50 text-green-600';
+        if (normalized.includes('тест')) return 'bg-green-50 text-green-600';
+        if (normalized.includes('підключ')) return 'bg-green-50 text-green-600';
+        if (normalized.includes('готов')) return 'bg-blue-50 text-blue-600';
+        if (normalized.includes('підготов') || normalized.includes('розгорт')) return 'bg-yellow-50 text-yellow-700';
+        if (normalized.includes('заплан')) return 'bg-yellow-50 text-yellow-700';
+        if (normalized.includes('заверш')) return 'bg-gray-100 text-gray-600';
+        return 'bg-gray-100 text-gray-600';
+    };
+
+    const statsCards = stats.map(stat => `
+        <div class="bg-white border border-gray-100 rounded-xl p-5 shadow-sm">
+            <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide">${stat.label}</p>
+            <p class="text-2xl font-semibold text-gray-800 mt-3">${Number(stat.value || 0).toLocaleString('uk-UA')}</p>
+            <p class="text-xs text-gray-500 mt-2">${stat.caption}</p>
+        </div>
+    `).join('');
+
+    const segmentCards = MARKETING_SEGMENTS.map(segment => `
+        <div class="border border-gray-200 rounded-xl p-6 bg-gray-50">
+            <div class="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+                <div class="md:max-w-xl">
+                    <span class="inline-flex items-center px-3 py-1 rounded-full text-xs bg-blue-50 text-blue-600">${segment.priority}</span>
+                    <h4 class="text-lg font-semibold text-gray-800 mt-3">${segment.name}</h4>
+                    <p class="text-sm text-gray-600 mt-2">${segment.description}</p>
+                </div>
+                <div class="text-right space-y-1">
+                    <p class="text-2xl font-semibold text-gray-800">${Number(segment.size || 0).toLocaleString('uk-UA')}</p>
+                    <p class="text-xs uppercase tracking-wide text-gray-500">акаунтів у сегменті</p>
+                    <p class="text-sm text-gray-500">${segment.share}</p>
+                    <p class="text-xs text-green-600 font-medium">${segment.growth}</p>
+                </div>
+            </div>
+            <div class="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Ключові критерії</p>
+                    <ul class="mt-3 space-y-2">${renderList(segment.criteria)}</ul>
+                </div>
+                <div>
+                    <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Потреби та пропозиція</p>
+                    <ul class="mt-3 space-y-2">${renderList(segment.needs)}</ul>
+                </div>
+            </div>
+            <div class="mt-6">
+                <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Рекомендовані канали</p>
+                <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+                    ${(segment.channels || []).map(channel => `
+                        <div class="flex items-start space-x-3 bg-white border border-gray-200 rounded-lg p-3">
+                            <span class="inline-flex h-8 w-8 items-center justify-center rounded-full bg-blue-50 text-blue-600">
+                                <i class="fas ${resolveChannelIcon(channel.type)}"></i>
+                            </span>
+                            <div>
+                                <p class="text-sm font-semibold text-gray-700">${channel.type}</p>
+                                <p class="text-sm text-gray-600">${channel.detail}</p>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        </div>
+    `).join('');
+
+    const campaignCards = MARKETING_CAMPAIGNS.map(campaign => `
+        <div class="border border-gray-200 rounded-xl p-6 bg-gray-50">
+            <div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
+                <div>
+                    <div class="flex items-center gap-3">
+                        <h4 class="text-lg font-semibold text-gray-800">${campaign.name}</h4>
+                        <span class="inline-flex items-center px-3 py-1 rounded-full text-xs ${getStatusBadgeClass(campaign.status)}">${campaign.status}</span>
+                    </div>
+                    <p class="text-sm text-gray-600 mt-2">${campaign.objective}</p>
+                    <p class="text-xs text-gray-500 mt-3"><i class="fas fa-users-cog text-blue-500 mr-2"></i>${campaign.owner}</p>
+                    <p class="text-xs text-gray-500 mt-1"><i class="fas fa-layer-group text-purple-500 mr-2"></i>Цільові сегменти: ${campaign.segments.join(', ')}</p>
+                </div>
+                <div class="text-sm text-gray-600 bg-white border border-gray-200 px-4 py-3 rounded-lg lg:max-w-xs">
+                    <p class="font-semibold text-gray-700 flex items-center"><i class="fas fa-bolt text-yellow-500 mr-2"></i>Автоматизація</p>
+                    <ul class="mt-2 space-y-2">${renderList(campaign.automation)}</ul>
+                </div>
+            </div>
+            <div class="mt-6">
+                <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Оркестрація каналів</p>
+                <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+                    ${(campaign.channels || []).map(channel => `
+                        <div class="border border-gray-200 rounded-lg p-4 bg-white">
+                            <div class="flex items-center justify-between">
+                                <span class="inline-flex items-center text-sm font-semibold text-gray-700">
+                                    <i class="fas ${resolveChannelIcon(channel.type)} text-blue-500 mr-2"></i>${channel.type}
+                                </span>
+                                <span class="text-xs px-2 py-1 rounded-full bg-blue-50 text-blue-600">${channel.frequency}</span>
+                            </div>
+                            <p class="text-sm text-gray-600 mt-3">${channel.purpose}</p>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+            <div class="mt-6 flex flex-wrap gap-2">
+                ${campaign.metrics.map(metric => `<span class="inline-flex items-center px-3 py-1 rounded-full text-xs bg-blue-50 text-blue-700">${metric}</span>`).join('')}
+            </div>
+        </div>
+    `).join('');
+
+    const journeyCards = CUSTOMER_JOURNEYS.map(journey => `
+        <div class="border border-gray-200 rounded-xl p-6 bg-gray-50">
+            <div>
+                <h4 class="text-lg font-semibold text-gray-800">${journey.name}</h4>
+                <p class="text-sm text-gray-600 mt-2">${journey.goal}</p>
+                <p class="text-xs text-gray-500 mt-3"><i class="fas fa-bolt text-yellow-500 mr-2"></i>Тригер: ${journey.trigger}</p>
+                <p class="text-xs text-gray-500 mt-1"><i class="fas fa-user-check text-green-500 mr-2"></i>Відповідальні: ${journey.owner}</p>
+            </div>
+            <div class="mt-6 space-y-4 md:space-y-0 md:flex md:space-x-4">
+                ${journey.stages.map(stage => `
+                    <div class="md:flex-1 bg-white border border-gray-200 rounded-lg p-4">
+                        <p class="text-xs font-semibold text-blue-600 uppercase tracking-wide">${stage.title}</p>
+                        <p class="text-sm text-gray-600 mt-2">${stage.description}</p>
+                        <ul class="mt-3 space-y-2">${renderList(stage.actions)}</ul>
+                        <p class="text-xs text-gray-500 mt-3">KPI: ${stage.kpis.join(', ')}</p>
+                    </div>
+                `).join('')}
+            </div>
+        </div>
+    `).join('');
+
+    const templateCards = MARKETING_TEMPLATES.map(template => `
+        <div class="border border-gray-200 rounded-xl p-5 bg-gray-50">
+            <div class="flex items-start justify-between gap-4">
+                <div>
+                    <span class="inline-flex items-center px-3 py-1 rounded-full text-xs bg-purple-50 text-purple-600">
+                        <i class="fas ${resolveChannelIcon(template.channel)} mr-2"></i>${template.channel}
+                    </span>
+                    <h4 class="text-lg font-semibold text-gray-800 mt-3">${template.name}</h4>
+                    <p class="text-sm text-gray-600 mt-2">${template.description}</p>
+                </div>
+                ${template.cadence ? `<span class="text-xs text-gray-500">${template.cadence}</span>` : ''}
+            </div>
+            <div class="mt-4">
+                <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Структура</p>
+                <ul class="mt-2 space-y-2">${renderList(template.structure)}</ul>
+            </div>
+            <p class="text-xs text-gray-500 mt-4">${template.recommendation}</p>
+        </div>
+    `).join('');
+
+    const abTestCards = MARKETING_AB_TESTS.map(test => `
+        <div class="border border-gray-200 rounded-xl p-6 bg-gray-50">
+            <div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
+                <div>
+                    <h4 class="text-lg font-semibold text-gray-800">${test.name}</h4>
+                    <p class="text-sm text-gray-600 mt-2">${test.goal}</p>
+                    <p class="text-xs text-gray-500 mt-3"><i class="fas fa-bullseye text-purple-500 mr-2"></i>${test.metric}</p>
+                    <p class="text-xs text-gray-500 mt-1"><i class="fas fa-users text-blue-500 mr-2"></i>${test.audience}</p>
+                </div>
+                <span class="inline-flex items-center px-3 py-1 rounded-full text-xs ${getStatusBadgeClass(test.status)}">${test.status}</span>
+            </div>
+            <div class="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                ${test.variants.map(variant => `
+                    <div class="border border-gray-200 rounded-lg p-4 bg-white">
+                        <p class="text-sm font-semibold text-gray-700">${variant.label}</p>
+                        <p class="text-sm text-gray-600 mt-2">${variant.description}</p>
+                        <p class="text-xs text-gray-500 mt-2">${variant.result}</p>
+                    </div>
+                `).join('')}
+            </div>
+            <div class="mt-4">
+                <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Висновки</p>
+                <ul class="mt-2 space-y-2">${renderList(test.learnings)}</ul>
+            </div>
+        </div>
+    `).join('');
+
+    const integrationCards = MARKETING_INTEGRATIONS.map(integration => `
+        <div class="border border-gray-200 rounded-xl p-6 bg-gray-50">
+            <div class="flex items-start justify-between gap-4">
+                <div>
+                    <h4 class="text-lg font-semibold text-gray-800">${integration.platform}</h4>
+                    <p class="text-sm text-gray-600 mt-1">${integration.category}</p>
+                </div>
+                <span class="inline-flex items-center px-3 py-1 rounded-full text-xs ${getStatusBadgeClass(integration.status)}">${integration.status}</span>
+            </div>
+            <div class="mt-4">
+                <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Основні сценарії</p>
+                <ul class="mt-2 space-y-2">${renderList(integration.useCases)}</ul>
+            </div>
+            <div class="mt-4 text-sm text-gray-600">
+                <p><strong>Синхронізація:</strong> ${integration.sync}</p>
+            </div>
+            <div class="mt-4">
+                <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Технічні вимоги</p>
+                <div class="flex flex-wrap gap-2">
+                    ${integration.connectors.map(connector => `<span class="inline-flex items-center px-3 py-1 rounded-full text-xs bg-white border border-gray-200 text-gray-600">${connector}</span>`).join('')}
+                </div>
+            </div>
+        </div>
+    `).join('');
+
+    marketingView.innerHTML = `
+        <div class="space-y-8">
+            <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+                ${statsCards}
+            </div>
+
+            <div class="bg-white border border-gray-200 rounded-2xl p-6 space-y-6">
+                <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                    <div>
+                        <h3 class="text-xl font-semibold text-gray-800">Сегментація клієнтів</h3>
+                        <p class="text-sm text-gray-600 mt-1">Динамічні правила для пріоритизації маркетингових дій.</p>
+                    </div>
+                    <span class="text-xs text-gray-500">Оновлено 5 хв тому · джерело: CRM scoring</span>
+                </div>
+                <div class="space-y-6">
+                    ${segmentCards}
+                </div>
+            </div>
+
+            <div class="bg-white border border-gray-200 rounded-2xl p-6 space-y-6">
+                <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                    <div>
+                        <h3 class="text-xl font-semibold text-gray-800">Мультиканальні кампанії</h3>
+                        <p class="text-sm text-gray-600 mt-1">Автоматизовані серії email, SMS та месенджерів за життєвим циклом.</p>
+                    </div>
+                    <span class="text-xs text-gray-500">Керування через Marketing Ops</span>
+                </div>
+                <div class="space-y-6">
+                    ${campaignCards}
+                </div>
+            </div>
+
+            <div class="bg-white border border-gray-200 rounded-2xl p-6 space-y-6">
+                <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                    <div>
+                        <h3 class="text-xl font-semibold text-gray-800">Customer journey</h3>
+                        <p class="text-sm text-gray-600 mt-1">Погоджені сценарії взаємодії від активації до розширення.</p>
+                    </div>
+                    <span class="text-xs text-gray-500">Відповідальні: маркетинг + Customer Success</span>
+                </div>
+                <div class="space-y-6">
+                    ${journeyCards}
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                <div class="bg-white border border-gray-200 rounded-2xl p-6 space-y-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-800">Шаблони комунікацій</h3>
+                            <p class="text-sm text-gray-600 mt-1">Єдині бібліотеки для email, SMS та месенджерів.</p>
+                        </div>
+                        <span class="text-xs text-gray-500">Узгоджено з брендом</span>
+                    </div>
+                    <div class="space-y-4">
+                        ${templateCards}
+                    </div>
+                </div>
+                <div class="bg-white border border-gray-200 rounded-2xl p-6 space-y-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h3 class="text-xl font-semibold text-gray-800">A/B-тести</h3>
+                            <p class="text-sm text-gray-600 mt-1">Гіпотези для підвищення конверсій на ключових етапах.</p>
+                        </div>
+                        <span class="text-xs text-gray-500">Каденція: щомісячний аналіз</span>
+                    </div>
+                    <div class="space-y-4">
+                        ${abTestCards}
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white border border-gray-200 rounded-2xl p-6 space-y-6">
+                <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                    <div>
+                        <h3 class="text-xl font-semibold text-gray-800">Інтеграція з маркетинговими платформами</h3>
+                        <p class="text-sm text-gray-600 mt-1">Синхронізація сегментів, подій та звітності з топовими рішеннями.</p>
+                    </div>
+                    <span class="text-xs text-gray-500">Відстеження SLA через Integration Hub</span>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    ${integrationCards}
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+
 // Placeholder view functions for other modules
 
 async function viewOpportunity(id) { showToast('View opportunity - to be implemented', 'info'); }
