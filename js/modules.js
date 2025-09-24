@@ -6,7 +6,7 @@
 // Companies Management
 async function showCompanies() {
     showView('companies');
-    updatePageHeader('Companies', 'Manage your business accounts');
+    setPageHeader('companies');
     
     const companiesView = document.getElementById('companiesView');
     companiesView.innerHTML = `
@@ -182,7 +182,7 @@ function setupCompanyFilters() {
 // Leads Management
 async function showLeads() {
     showView('leads');
-    updatePageHeader('Leads', 'Track and manage your sales leads');
+    setPageHeader('leads');
     
     const leadsView = document.getElementById('leadsView');
     leadsView.innerHTML = `
@@ -356,7 +356,7 @@ function setupLeadFilters() {
 // Opportunities Management
 async function showOpportunities() {
     showView('opportunities');
-    updatePageHeader('Opportunities', 'Manage your sales opportunities');
+    setPageHeader('opportunities');
     
     const opportunitiesView = document.getElementById('opportunitiesView');
     opportunitiesView.innerHTML = `
@@ -556,7 +556,7 @@ const salesModuleState = {
 
 async function showSales() {
     showView('sales');
-    updatePageHeader('Sales', 'End-to-end pipeline, forecasting and billing');
+    setPageHeader('sales');
 
     const salesView = document.getElementById('salesView');
     salesView.innerHTML = `
@@ -2568,7 +2568,7 @@ const COMPETITOR_ENHANCEMENTS = {
 
 async function showCompetitorIntel() {
     showView('competitorIntel');
-    updatePageHeader('Competitor Intelligence Hub', 'Monitor rivals, linked clients, and research tasks');
+    setPageHeader('competitorIntel');
 
     const hubView = document.getElementById('competitorIntelView');
     if (!hubView) {
@@ -4301,7 +4301,7 @@ async function showCompetitorIntel() {
 // Tasks Management
 async function showTasks() {
     showView('tasks');
-    updatePageHeader('Tasks', 'Manage your tasks and activities');
+    setPageHeader('tasks');
     
     const tasksView = document.getElementById('tasksView');
     tasksView.innerHTML = `
@@ -4505,7 +4505,7 @@ function setupTaskFilters() {
 // Activities Management
 async function showActivities() {
     showView('activities');
-    updatePageHeader('Activities', 'Track all your business activities');
+    setPageHeader('activities');
     
     const activitiesView = document.getElementById('activitiesView');
     activitiesView.innerHTML = `
@@ -5010,7 +5010,7 @@ const ANALYTICS_WIDGET_LIBRARY = {
 
 async function renderAnalyticsAndBI() {
     showView('reports');
-    updatePageHeader('Analytics & BI', 'Будуйте дашборди, зрізи та AI-прогнози на базі CRM-даних.');
+    setPageHeader('reports');
 
     const reportsView = document.getElementById('reportsView');
     if (!reportsView) {
@@ -7966,7 +7966,7 @@ const MARKETING_INTEGRATIONS = [
 
 async function showMarketing() {
     showView('marketing');
-    updatePageHeader('Marketing Automation', 'Сегментація, customer journey та мультиканальні кампанії');
+    setPageHeader('marketing');
 
     const marketingView = document.getElementById('marketingView');
     if (!marketingView) {

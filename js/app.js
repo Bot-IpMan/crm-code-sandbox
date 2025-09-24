@@ -24,9 +24,150 @@ const DEFAULT_FONT_SETTINGS = {
     size: 'medium'
 };
 
+const SUPPORTED_LANGUAGES = {
+    en: 'English',
+    uk: 'Українська'
+};
+
+const SUPPORTED_THEMES = {
+    light: 'light',
+    dark: 'dark'
+};
+
+const TRANSLATIONS = {
+    en: {
+        'common.loading': 'Loading...',
+        'brand.tagline': 'Professional CRM',
+        'nav.dashboard': 'Dashboard',
+        'nav.contacts': 'Contacts',
+        'nav.companies': 'Companies',
+        'nav.leads': 'Leads',
+        'nav.opportunities': 'Opportunities',
+        'nav.sales': 'Sales',
+        'nav.marketing': 'Marketing',
+        'nav.competitorHub': 'Competitor Hub',
+        'nav.tasks': 'Tasks',
+        'nav.activities': 'Activities',
+        'nav.automation': 'Automation',
+        'nav.analytics': 'Analytics & BI',
+        'nav.files': 'Files',
+        'settings.title': 'Settings',
+        'settings.language': 'Language',
+        'settings.languageEnglish': 'English',
+        'settings.languageUkrainian': 'Ukrainian',
+        'settings.theme': 'Theme',
+        'settings.themeLight': 'Light',
+        'settings.themeDark': 'Dark',
+        'settings.font': 'Font',
+        'settings.fontSize': 'Font Size',
+        'header.searchPlaceholder': 'Search anything...',
+        'page.dashboard.title': 'Dashboard',
+        'page.dashboard.subtitle': 'Welcome to your CRM dashboard',
+        'page.contacts.title': 'Contacts',
+        'page.contacts.subtitle': 'Manage your customer contacts',
+        'page.companies.title': 'Companies',
+        'page.companies.subtitle': 'Manage your business accounts',
+        'page.leads.title': 'Leads',
+        'page.leads.subtitle': 'Track and manage your sales leads',
+        'page.opportunities.title': 'Opportunities',
+        'page.opportunities.subtitle': 'Manage your sales opportunities',
+        'page.tasks.title': 'Tasks',
+        'page.tasks.subtitle': 'Manage your tasks and activities',
+        'page.activities.title': 'Activities',
+        'page.activities.subtitle': 'Track all your business activities',
+        'page.reports.title': 'Analytics & BI',
+        'page.reports.subtitle': 'Build interactive dashboards and predictive insights',
+        'page.files.title': 'Files',
+        'page.files.subtitle': 'Browse and manage your CRM vault',
+        'page.automation.title': 'Automation',
+        'page.automation.subtitle': 'Automate routine processes with event-driven workflows',
+        'page.sales.title': 'Sales',
+        'page.sales.subtitle': 'End-to-end pipeline, forecasting and billing',
+        'page.marketing.title': 'Marketing Automation',
+        'page.marketing.subtitle': 'Segmentation, customer journeys and multichannel campaigns',
+        'page.competitorIntel.title': 'Competitor Intelligence Hub',
+        'page.competitorIntel.subtitle': 'Monitor rivals, linked clients, and research tasks'
+    },
+    uk: {
+        'common.loading': 'Завантаження...',
+        'brand.tagline': 'Професійна CRM',
+        'nav.dashboard': 'Панель',
+        'nav.contacts': 'Контакти',
+        'nav.companies': 'Компанії',
+        'nav.leads': 'Ліди',
+        'nav.opportunities': 'Угоди',
+        'nav.sales': 'Продажі',
+        'nav.marketing': 'Маркетинг',
+        'nav.competitorHub': 'Конкуренти',
+        'nav.tasks': 'Завдання',
+        'nav.activities': 'Активності',
+        'nav.automation': 'Автоматизація',
+        'nav.analytics': 'Аналітика та BI',
+        'nav.files': 'Файли',
+        'settings.title': 'Налаштування',
+        'settings.language': 'Мова',
+        'settings.languageEnglish': 'Англійська',
+        'settings.languageUkrainian': 'Українська',
+        'settings.theme': 'Тема',
+        'settings.themeLight': 'Світла',
+        'settings.themeDark': 'Темна',
+        'settings.font': 'Шрифт',
+        'settings.fontSize': 'Розмір шрифту',
+        'header.searchPlaceholder': 'Пошук...',
+        'page.dashboard.title': 'Панель керування',
+        'page.dashboard.subtitle': 'Ласкаво просимо до CRM-панелі',
+        'page.contacts.title': 'Контакти',
+        'page.contacts.subtitle': 'Керуйте контактами клієнтів',
+        'page.companies.title': 'Компанії',
+        'page.companies.subtitle': 'Керуйте обліковими записами компаній',
+        'page.leads.title': 'Ліди',
+        'page.leads.subtitle': 'Відстежуйте та керуйте потенційними клієнтами',
+        'page.opportunities.title': 'Угоди',
+        'page.opportunities.subtitle': 'Керуйте можливостями продажів',
+        'page.tasks.title': 'Завдання',
+        'page.tasks.subtitle': 'Керуйте завданнями та активностями',
+        'page.activities.title': 'Активності',
+        'page.activities.subtitle': 'Відстежуйте всі ділові активності',
+        'page.reports.title': 'Аналітика та BI',
+        'page.reports.subtitle': 'Створюйте інтерактивні дашборди та прогнози',
+        'page.files.title': 'Файли',
+        'page.files.subtitle': 'Переглядайте та керуйте CRM-сховищем',
+        'page.automation.title': 'Автоматизація',
+        'page.automation.subtitle': 'Автоматизуйте процеси за допомогою подієвих сценаріїв',
+        'page.sales.title': 'Продажі',
+        'page.sales.subtitle': 'Повний цикл продажів, прогнозування та білінг',
+        'page.marketing.title': 'Маркетинг',
+        'page.marketing.subtitle': 'Сегментація, клієнтські сценарії та мультиканальні кампанії',
+        'page.competitorIntel.title': 'Конкурентний хаб',
+        'page.competitorIntel.subtitle': 'Відстежуйте конкурентів, пов’язаних клієнтів і дослідження'
+    }
+};
+
+const PAGE_HEADERS = {
+    dashboard: { title: 'page.dashboard.title', subtitle: 'page.dashboard.subtitle' },
+    contacts: { title: 'page.contacts.title', subtitle: 'page.contacts.subtitle' },
+    companies: { title: 'page.companies.title', subtitle: 'page.companies.subtitle' },
+    leads: { title: 'page.leads.title', subtitle: 'page.leads.subtitle' },
+    opportunities: { title: 'page.opportunities.title', subtitle: 'page.opportunities.subtitle' },
+    tasks: { title: 'page.tasks.title', subtitle: 'page.tasks.subtitle' },
+    activities: { title: 'page.activities.title', subtitle: 'page.activities.subtitle' },
+    reports: { title: 'page.reports.title', subtitle: 'page.reports.subtitle' },
+    files: { title: 'page.files.title', subtitle: 'page.files.subtitle' },
+    automation: { title: 'page.automation.title', subtitle: 'page.automation.subtitle' },
+    sales: { title: 'page.sales.title', subtitle: 'page.sales.subtitle' },
+    marketing: { title: 'page.marketing.title', subtitle: 'page.marketing.subtitle' },
+    competitorIntel: { title: 'page.competitorIntel.title', subtitle: 'page.competitorIntel.subtitle' }
+};
+
+const DEFAULT_LANGUAGE = 'en';
+const DEFAULT_THEME = 'light';
 const FONT_FAMILY_STORAGE_KEY = 'appFontFamily';
 const FONT_SIZE_STORAGE_KEY = 'appFontSize';
+const LANGUAGE_STORAGE_KEY = 'appLanguage';
+const THEME_STORAGE_KEY = 'appTheme';
 
+let currentLanguage = DEFAULT_LANGUAGE;
+let currentTheme = DEFAULT_THEME;
 let currentView = 'dashboard';
 let currentUser = 'Admin User';
 let charts = {};
@@ -53,8 +194,83 @@ function initializeApp() {
 
     // Setup global search
     setupGlobalSearch();
-    
+
     console.log('ProCRM initialized successfully');
+}
+
+function translate(key) {
+    const languageMap = TRANSLATIONS[currentLanguage] || {};
+    if (languageMap[key]) {
+        return languageMap[key];
+    }
+
+    const fallbackMap = TRANSLATIONS[DEFAULT_LANGUAGE] || {};
+    return fallbackMap[key] || key;
+}
+
+function applyTranslations() {
+    document.querySelectorAll('[data-i18n]').forEach(element => {
+        const key = element.dataset.i18n;
+        if (!key) {
+            return;
+        }
+
+        const translatedValue = translate(key);
+        const attribute = element.dataset.i18nAttr;
+
+        if (attribute) {
+            element.setAttribute(attribute, translatedValue);
+        } else {
+            element.textContent = translatedValue;
+        }
+    });
+}
+
+function setLanguage(language) {
+    const normalizedLanguage = SUPPORTED_LANGUAGES[language] ? language : DEFAULT_LANGUAGE;
+    currentLanguage = normalizedLanguage;
+
+    document.documentElement.lang = normalizedLanguage;
+    setStoredPreference(LANGUAGE_STORAGE_KEY, normalizedLanguage);
+
+    const languageSelect = document.getElementById('languageSelect');
+    if (languageSelect && languageSelect.value !== normalizedLanguage) {
+        languageSelect.value = normalizedLanguage;
+    }
+
+    applyTranslations();
+    setPageHeader(currentView);
+}
+
+function applyTheme(theme) {
+    const normalizedTheme = SUPPORTED_THEMES[theme] ? theme : DEFAULT_THEME;
+    currentTheme = normalizedTheme;
+
+    if (document.body) {
+        document.body.classList.remove('theme-light', 'theme-dark');
+        document.body.classList.add(`theme-${normalizedTheme}`);
+    }
+
+    const themeSelect = document.getElementById('themeSelect');
+    if (themeSelect && themeSelect.value !== normalizedTheme) {
+        themeSelect.value = normalizedTheme;
+    }
+
+    setStoredPreference(THEME_STORAGE_KEY, normalizedTheme);
+}
+
+function setPageHeader(viewKey) {
+    const headerConfig = PAGE_HEADERS[viewKey];
+    if (!headerConfig) {
+        document.title = 'ProCRM';
+        return;
+    }
+
+    const title = translate(headerConfig.title);
+    const subtitle = translate(headerConfig.subtitle);
+
+    updatePageHeader(title, subtitle);
+    document.title = `${title} · ProCRM`;
 }
 
 function setupEventListeners() {
@@ -129,36 +345,58 @@ function setupGlobalSearch() {
 function initializeSettingsPanel() {
     const fontFamilySelect = document.getElementById('fontFamilySelect');
     const fontSizeSelect = document.getElementById('fontSizeSelect');
+    const languageSelect = document.getElementById('languageSelect');
+    const themeSelect = document.getElementById('themeSelect');
 
-    if (!fontFamilySelect || !fontSizeSelect) {
-        return;
+    const savedLanguage = getStoredPreference(LANGUAGE_STORAGE_KEY);
+    const initialLanguage = SUPPORTED_LANGUAGES[savedLanguage] ? savedLanguage : DEFAULT_LANGUAGE;
+    setLanguage(initialLanguage);
+    if (languageSelect) {
+        languageSelect.value = initialLanguage;
+        languageSelect.addEventListener('change', event => {
+            setLanguage(event.target.value);
+        });
     }
 
-    const savedFontFamily = getStoredPreference(FONT_FAMILY_STORAGE_KEY);
-    const savedFontSize = getStoredPreference(FONT_SIZE_STORAGE_KEY);
+    const savedTheme = getStoredPreference(THEME_STORAGE_KEY);
+    const initialTheme = SUPPORTED_THEMES[savedTheme] ? savedTheme : DEFAULT_THEME;
+    applyTheme(initialTheme);
+    if (themeSelect) {
+        themeSelect.value = initialTheme;
+        themeSelect.addEventListener('change', event => {
+            applyTheme(event.target.value);
+        });
+    }
 
-    const initialFontFamily = (savedFontFamily && FONT_FAMILIES[savedFontFamily]) ? savedFontFamily : DEFAULT_FONT_SETTINGS.family;
-    const initialFontSize = (savedFontSize && FONT_SIZES[savedFontSize]) ? savedFontSize : DEFAULT_FONT_SETTINGS.size;
+    if (fontFamilySelect && fontSizeSelect) {
+        const savedFontFamily = getStoredPreference(FONT_FAMILY_STORAGE_KEY);
+        const savedFontSize = getStoredPreference(FONT_SIZE_STORAGE_KEY);
 
-    applyFontSettings(initialFontFamily, initialFontSize);
+        const initialFontFamily = (savedFontFamily && FONT_FAMILIES[savedFontFamily]) ? savedFontFamily : DEFAULT_FONT_SETTINGS.family;
+        const initialFontSize = (savedFontSize && FONT_SIZES[savedFontSize]) ? savedFontSize : DEFAULT_FONT_SETTINGS.size;
 
-    fontFamilySelect.value = initialFontFamily;
-    fontSizeSelect.value = initialFontSize;
+        applyFontSettings(initialFontFamily, initialFontSize);
 
-    setStoredPreference(FONT_FAMILY_STORAGE_KEY, initialFontFamily);
-    setStoredPreference(FONT_SIZE_STORAGE_KEY, initialFontSize);
+        fontFamilySelect.value = initialFontFamily;
+        fontSizeSelect.value = initialFontSize;
 
-    fontFamilySelect.addEventListener('change', event => {
-        const newFontFamily = event.target.value;
-        applyFontSettings(newFontFamily, fontSizeSelect.value);
-        setStoredPreference(FONT_FAMILY_STORAGE_KEY, newFontFamily);
-    });
+        setStoredPreference(FONT_FAMILY_STORAGE_KEY, initialFontFamily);
+        setStoredPreference(FONT_SIZE_STORAGE_KEY, initialFontSize);
 
-    fontSizeSelect.addEventListener('change', event => {
-        const newFontSize = event.target.value;
-        applyFontSettings(fontFamilySelect.value, newFontSize);
-        setStoredPreference(FONT_SIZE_STORAGE_KEY, newFontSize);
-    });
+        fontFamilySelect.addEventListener('change', event => {
+            const newFontFamily = event.target.value;
+            applyFontSettings(newFontFamily, fontSizeSelect.value);
+            setStoredPreference(FONT_FAMILY_STORAGE_KEY, newFontFamily);
+        });
+
+        fontSizeSelect.addEventListener('change', event => {
+            const newFontSize = event.target.value;
+            applyFontSettings(fontFamilySelect.value, newFontSize);
+            setStoredPreference(FONT_SIZE_STORAGE_KEY, newFontSize);
+        });
+    } else {
+        applyFontSettings(DEFAULT_FONT_SETTINGS.family, DEFAULT_FONT_SETTINGS.size);
+    }
 }
 
 function applyFontSettings(fontFamilyKey, fontSizeKey) {
@@ -267,8 +505,8 @@ function updatePageHeader(title, subtitle) {
 // Dashboard functions
 async function showDashboard() {
     showView('dashboard');
-    updatePageHeader('Dashboard', 'Welcome to your CRM dashboard');
-    
+    setPageHeader('dashboard');
+
     await loadDashboardData();
     initializeDashboardCharts();
 }
@@ -413,7 +651,7 @@ function initializeDashboardCharts() {
 // Contacts functions
 async function showContacts() {
     showView('contacts');
-    updatePageHeader('Contacts', 'Manage your customer contacts');
+    setPageHeader('contacts');
     
     const contactsView = document.getElementById('contactsView');
     contactsView.innerHTML = `
@@ -775,7 +1013,7 @@ async function saveContact(contactId, formData) {
 // Companies functions (similar structure to contacts)
 async function showCompanies() {
     showView('companies');
-    updatePageHeader('Companies', 'Manage your business accounts');
+    setPageHeader('companies');
     
     // Similar implementation to showContacts()
     // ... (implementation would follow same pattern)
@@ -784,7 +1022,7 @@ async function showCompanies() {
 // Leads functions
 async function showLeads() {
     showView('leads');
-    updatePageHeader('Leads', 'Track and manage your sales leads');
+    setPageHeader('leads');
     
     // Similar implementation to showContacts()
     // ... (implementation would follow same pattern)
@@ -793,7 +1031,7 @@ async function showLeads() {
 // Opportunities functions  
 async function showOpportunities() {
     showView('opportunities');
-    updatePageHeader('Opportunities', 'Manage your sales opportunities');
+    setPageHeader('opportunities');
     
     // Similar implementation to showContacts()
     // ... (implementation would follow same pattern)
@@ -802,7 +1040,7 @@ async function showOpportunities() {
 // Tasks functions
 async function showTasks() {
     showView('tasks');
-    updatePageHeader('Tasks', 'Manage your tasks and activities');
+    setPageHeader('tasks');
     
     // Similar implementation to showContacts()
     // ... (implementation would follow same pattern)
@@ -811,7 +1049,7 @@ async function showTasks() {
 // Activities functions
 async function showActivities() {
     showView('activities');
-    updatePageHeader('Activities', 'Track all your business activities');
+    setPageHeader('activities');
     
     // Similar implementation to showContacts()
     // ... (implementation would follow same pattern)
@@ -824,7 +1062,7 @@ async function showReports() {
     }
 
     showView('reports');
-    updatePageHeader('Analytics & BI', 'Build interactive dashboards and predictive insights');
+    setPageHeader('reports');
 }
 
 // Utility functions
