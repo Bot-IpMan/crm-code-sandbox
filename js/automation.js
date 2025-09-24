@@ -350,7 +350,7 @@ const automationState = {
 async function showAutomation() {
     ensureAutomationBuilderState();
     showView('automation');
-    updatePageHeader('Automation', 'Automate routine processes with event-driven workflows');
+    setPageHeader('automation');
 
     renderAutomationView();
     await fetchAutomationWorkflows();

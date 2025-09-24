@@ -301,7 +301,7 @@ let fileManagerInitialized = false;
 
 function showFiles() {
     showView('files');
-    updatePageHeader('Files', 'Browse and manage your CRM vault');
+    setPageHeader('files');
     initializeFileManager();
 }
 
