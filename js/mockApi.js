@@ -116,6 +116,11 @@
             searchFields: ['subject', 'description', 'assigned_to'],
             filterFields: { type: 'type' },
             getLabel: record => record.subject || record.description || record.id
+        },
+        workflows: {
+            searchFields: ['name', 'description', 'owner', 'entity', 'status'],
+            filterFields: { status: 'status', entity: 'entity' },
+            getLabel: record => record.name || record.id
         }
     };
 
@@ -514,6 +519,203 @@
                 description: 'Checklist shared with Global Manufacturing stakeholders.',
                 date: '2024-04-30T15:05:00Z',
                 assigned_to: 'Michael Chen'
+            }
+        ],
+        workflows: [
+            {
+                id: 'workflow-1',
+                name: 'Discovery call follow-up',
+                description: 'Create a follow-up task and reminder after a successful discovery call.',
+                entity: 'activities',
+                status: 'Active',
+                owner: 'RevOps Automation',
+                trigger: {
+                    id: 'call_completed',
+                    label: 'Call completed',
+                    icon: 'fa-phone',
+                    event: 'activity.completed',
+                    config: { outcome: 'Positive' }
+                },
+                conditions: [
+                    {
+                        id: 'no_open_tasks',
+                        label: 'No open tasks on record',
+                        description: 'Skip when a follow-up task is already open.'
+                    },
+                    {
+                        id: 'call_outcome_positive',
+                        label: 'Call outcome is Positive',
+                        description: 'Only run for positive outcomes.'
+                    }
+                ],
+                actions: [
+                    {
+                        type: 'create_task',
+                        label: 'Create task',
+                        icon: 'fa-list-check',
+                        order: 1,
+                        settings: {
+                            title: 'Send discovery recap',
+                            due_in_days: 1,
+                            priority: 'High',
+                            assignee: 'Account Executive'
+                        }
+                    },
+                    {
+                        type: 'send_reminder',
+                        label: 'Send reminder',
+                        icon: 'fa-bell',
+                        order: 2,
+                        settings: {
+                            channel: 'Email',
+                            offset: 30,
+                            message: 'Reminder: send recap email for {{activity.subject}}'
+                        }
+                    }
+                ],
+                metrics: {
+                    runs: 42,
+                    success_rate: 0.98,
+                    tasks_created: 42,
+                    reminders_sent: 42,
+                    erp_syncs: 0
+                },
+                last_run_at: '2024-05-07T16:45:00Z',
+                created_at: '2024-03-12T09:00:00Z',
+                updated_at: '2024-05-07T16:45:00Z'
+            },
+            {
+                id: 'workflow-2',
+                name: 'Closed won implementation kickoff',
+                description: 'Launch onboarding tasks and push data to ERP after a deal is Closed Won.',
+                entity: 'opportunities',
+                status: 'Active',
+                owner: 'Sales Operations',
+                trigger: {
+                    id: 'deal_stage_change',
+                    label: 'Deal stage changed',
+                    icon: 'fa-diagram-project',
+                    event: 'opportunity.stage.changed',
+                    config: { from_stage: 'Negotiation', to_stage: 'Closed Won' }
+                },
+                conditions: [
+                    {
+                        id: 'high_value_deal',
+                        label: 'Deal value > $50k',
+                        description: 'Only for enterprise-sized deals.'
+                    },
+                    {
+                        id: 'erp_sync_pending',
+                        label: 'ERP sync pending flag = true',
+                        description: 'Ensure ERP sync is required before running.'
+                    }
+                ],
+                actions: [
+                    {
+                        type: 'update_status',
+                        label: 'Update status',
+                        icon: 'fa-arrows-rotate',
+                        order: 1,
+                        settings: {
+                            field: 'Opportunity Stage',
+                            value: 'Closed Won'
+                        }
+                    },
+                    {
+                        type: 'create_task',
+                        label: 'Create task',
+                        icon: 'fa-list-check',
+                        order: 2,
+                        settings: {
+                            title: 'Kickoff with Implementation',
+                            due_in_days: 2,
+                            priority: 'High',
+                            assignee: 'Implementation Lead'
+                        }
+                    },
+                    {
+                        type: 'sync_erp',
+                        label: 'Sync with ERP',
+                        icon: 'fa-cloud-arrow-up',
+                        order: 3,
+                        settings: {
+                            system: 'SAP S/4HANA',
+                            payload: 'opportunity_id,value,close_date',
+                            mode: 'Immediate'
+                        }
+                    }
+                ],
+                metrics: {
+                    runs: 18,
+                    success_rate: 0.94,
+                    tasks_created: 18,
+                    reminders_sent: 0,
+                    erp_syncs: 18
+                },
+                last_run_at: '2024-05-06T14:20:00Z',
+                created_at: '2024-02-01T10:30:00Z',
+                updated_at: '2024-05-06T14:20:00Z'
+            },
+            {
+                id: 'workflow-3',
+                name: 'Renewal risk escalation',
+                description: 'Escalate high-priority renewal tasks and sync risk to ERP.',
+                entity: 'tasks',
+                status: 'Active',
+                owner: 'Customer Success Ops',
+                trigger: {
+                    id: 'task_overdue',
+                    label: 'Task becomes overdue',
+                    icon: 'fa-stopwatch',
+                    event: 'task.overdue',
+                    config: { grace_period: 2 }
+                },
+                conditions: [
+                    {
+                        id: 'task_priority_high',
+                        label: 'Task priority is High',
+                        description: 'Escalate only urgent renewals.'
+                    },
+                    {
+                        id: 'tier1_account',
+                        label: 'Account tier is Strategic',
+                        description: 'Focus on tier 1 accounts.'
+                    }
+                ],
+                actions: [
+                    {
+                        type: 'send_reminder',
+                        label: 'Send reminder',
+                        icon: 'fa-bell',
+                        order: 1,
+                        settings: {
+                            channel: 'Slack',
+                            offset: 5,
+                            message: 'Renewal task overdue for {{company.name}}'
+                        }
+                    },
+                    {
+                        type: 'sync_erp',
+                        label: 'Sync with ERP',
+                        icon: 'fa-cloud-arrow-up',
+                        order: 2,
+                        settings: {
+                            system: 'NetSuite',
+                            payload: 'task_id,account_id,status',
+                            mode: 'Immediate'
+                        }
+                    }
+                ],
+                metrics: {
+                    runs: 27,
+                    success_rate: 0.91,
+                    tasks_created: 0,
+                    reminders_sent: 27,
+                    erp_syncs: 27
+                },
+                last_run_at: '2024-05-07T09:55:00Z',
+                created_at: '2024-03-20T08:00:00Z',
+                updated_at: '2024-05-07T09:55:00Z'
             }
         ]
     };
