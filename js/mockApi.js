@@ -1,10 +1,191 @@
-// Mock API layer for local demo usage
-// Provides in-memory dataset and intercepts fetch requests to `tables/` endpoints
-(function() {
+(function(global) {
     const API_PREFIX = 'tables';
-    const originalFetch = window.fetch ? window.fetch.bind(window) : null;
+    const originalFetch = global.fetch ? global.fetch.bind(global) : null;
 
-    const mockDatabase = {
+    if (!global.DataCore) {
+        console.warn('DataCore is not available. Mock API disabled.');
+        return;
+    }
+
+    const entityDefinitions = {
+        companies: {
+            searchFields: ['name', 'industry', 'website', 'city', 'country'],
+            filterFields: { status: 'status', size: 'size', industry: 'industry' },
+            labelFields: ['name'],
+            relations: {
+                hasMany: [
+                    { name: 'contacts', entity: 'contacts', foreignKey: 'company_id' },
+                    { name: 'leads', entity: 'leads', foreignKey: 'company_id' },
+                    { name: 'deals', entity: 'opportunities', foreignKey: 'company_id' }
+                ]
+            }
+        },
+        contacts: {
+            searchFields: ['first_name', 'last_name', 'email', 'phone', 'company_name', 'title'],
+            filterFields: { status: 'status', source: 'lead_source' },
+            getLabel: record => {
+                const fullName = [record.first_name, record.last_name]
+                    .filter(Boolean)
+                    .join(' ')
+                    .trim();
+                return fullName || record.email || record.id;
+            },
+            relations: {
+                belongsTo: [
+                    {
+                        name: 'company',
+                        entity: 'companies',
+                        localKey: 'company_id',
+                        fields: { company_name: 'name' },
+                        match: { source: 'company_name', target: 'name' }
+                    }
+                ],
+                hasMany: [
+                    { name: 'leads', entity: 'leads', foreignKey: 'contact_id' },
+                    { name: 'deals', entity: 'opportunities', foreignKey: 'primary_contact_id' }
+                ]
+            }
+        },
+        leads: {
+            searchFields: ['title', 'description', 'assigned_to', 'company_name'],
+            filterFields: { status: 'status', priority: 'priority' },
+            relations: {
+                belongsTo: [
+                    {
+                        name: 'company',
+                        entity: 'companies',
+                        localKey: 'company_id',
+                        fields: { company_name: 'name' },
+                        match: { source: 'company_name', target: 'name' }
+                    },
+                    {
+                        name: 'contact',
+                        entity: 'contacts',
+                        localKey: 'contact_id',
+                        fields: {
+                            contact_name: contact => [contact.first_name, contact.last_name]
+                                .filter(Boolean)
+                                .join(' ')
+                                .trim()
+                        }
+                    }
+                ],
+                hasMany: [
+                    { name: 'deals', entity: 'opportunities', foreignKey: 'lead_id' }
+                ]
+            }
+        },
+        opportunities: {
+            aliases: ['deals'],
+            searchFields: ['name', 'company_name', 'description', 'stage'],
+            filterFields: { stage: 'stage', status: 'status' },
+            relations: {
+                belongsTo: [
+                    {
+                        name: 'company',
+                        entity: 'companies',
+                        localKey: 'company_id',
+                        fields: { company_name: 'name' },
+                        match: { source: 'company_name', target: 'name' }
+                    },
+                    {
+                        name: 'lead',
+                        entity: 'leads',
+                        localKey: 'lead_id'
+                    },
+                    {
+                        name: 'contact',
+                        entity: 'contacts',
+                        localKey: 'primary_contact_id',
+                        fields: {
+                            primary_contact_name: contact => [contact.first_name, contact.last_name]
+                                .filter(Boolean)
+                                .join(' ')
+                                .trim()
+                        }
+                    }
+                ]
+            }
+        },
+        tasks: {
+            searchFields: ['title', 'description', 'assigned_to'],
+            filterFields: { status: 'status', priority: 'priority', type: 'type' },
+            getLabel: record => record.title || record.id
+        },
+        activities: {
+            searchFields: ['subject', 'description', 'assigned_to'],
+            filterFields: { type: 'type' },
+            getLabel: record => record.subject || record.description || record.id
+        }
+    };
+
+    const seedData = {
+        companies: [
+            {
+                id: 'company-1',
+                name: 'TechCorp Solutions',
+                industry: 'Software',
+                size: '500-1000',
+                website: 'https://techcorp.com',
+                phone: '+1 (555) 111-2222',
+                email: 'info@techcorp.com',
+                status: 'Customer',
+                annual_revenue: 1250000,
+                city: 'San Francisco',
+                state: 'CA',
+                country: 'USA',
+                created_at: '2023-09-12T10:00:00Z',
+                updated_at: '2024-04-18T15:00:00Z'
+            },
+            {
+                id: 'company-2',
+                name: 'Global Manufacturing Inc',
+                industry: 'Manufacturing',
+                size: '1000+',
+                website: 'https://globalmanufacturing.com',
+                phone: '+1 (555) 333-4444',
+                email: 'contact@globalmanufacturing.com',
+                status: 'Prospect',
+                annual_revenue: 2250000,
+                city: 'Chicago',
+                state: 'IL',
+                country: 'USA',
+                created_at: '2024-01-02T09:30:00Z',
+                updated_at: '2024-05-05T14:00:00Z'
+            },
+            {
+                id: 'company-3',
+                name: 'StartupXYZ',
+                industry: 'Technology',
+                size: '50-100',
+                website: 'https://startupxyz.com',
+                phone: '+1 (555) 555-1212',
+                email: 'hello@startupxyz.com',
+                status: 'Customer',
+                annual_revenue: 480000,
+                city: 'Austin',
+                state: 'TX',
+                country: 'USA',
+                created_at: '2023-05-22T11:15:00Z',
+                updated_at: '2024-04-11T09:45:00Z'
+            },
+            {
+                id: 'company-4',
+                name: 'Northwind Logistics',
+                industry: 'Transportation',
+                size: '200-500',
+                website: 'https://northwindlogistics.com',
+                phone: '+1 (555) 777-8888',
+                email: 'support@northwindlogistics.com',
+                status: 'Prospect',
+                annual_revenue: 915000,
+                city: 'Seattle',
+                state: 'WA',
+                country: 'USA',
+                created_at: '2024-02-14T08:45:00Z',
+                updated_at: '2024-05-02T17:30:00Z'
+            }
+        ],
         contacts: [
             {
                 id: 'contact-1',
@@ -96,72 +277,6 @@
                 notes: 'Considering pilot program starting next quarter.'
             }
         ],
-        companies: [
-            {
-                id: 'company-1',
-                name: 'TechCorp Solutions',
-                industry: 'Software',
-                size: '500-1000',
-                website: 'https://techcorp.com',
-                phone: '+1 (555) 111-2222',
-                email: 'info@techcorp.com',
-                status: 'Customer',
-                annual_revenue: 1250000,
-                city: 'San Francisco',
-                state: 'CA',
-                country: 'USA',
-                created_at: '2023-09-12T10:00:00Z',
-                updated_at: '2024-04-18T15:00:00Z'
-            },
-            {
-                id: 'company-2',
-                name: 'Global Manufacturing Inc',
-                industry: 'Manufacturing',
-                size: '1000+',
-                website: 'https://globalmanufacturing.com',
-                phone: '+1 (555) 333-4444',
-                email: 'contact@globalmanufacturing.com',
-                status: 'Prospect',
-                annual_revenue: 2250000,
-                city: 'Chicago',
-                state: 'IL',
-                country: 'USA',
-                created_at: '2024-01-02T09:30:00Z',
-                updated_at: '2024-05-05T14:00:00Z'
-            },
-            {
-                id: 'company-3',
-                name: 'StartupXYZ',
-                industry: 'Technology',
-                size: '50-100',
-                website: 'https://startupxyz.com',
-                phone: '+1 (555) 555-1212',
-                email: 'hello@startupxyz.com',
-                status: 'Customer',
-                annual_revenue: 480000,
-                city: 'Austin',
-                state: 'TX',
-                country: 'USA',
-                created_at: '2023-05-22T11:15:00Z',
-                updated_at: '2024-04-11T09:45:00Z'
-            },
-            {
-                id: 'company-4',
-                name: 'Northwind Logistics',
-                industry: 'Transportation',
-                size: '200-500',
-                website: 'https://northwindlogistics.com',
-                phone: '+1 (555) 777-8888',
-                email: 'support@northwindlogistics.com',
-                status: 'Prospect',
-                annual_revenue: 915000,
-                city: 'Seattle',
-                state: 'WA',
-                country: 'USA',
-                created_at: '2024-02-14T08:45:00Z',
-                updated_at: '2024-05-02T17:30:00Z'
-            }
-        ],
         leads: [
             {
                 id: 'lead-1',
@@ -173,7 +288,9 @@
                 probability: 60,
                 expected_close_date: '2024-07-15',
                 assigned_to: 'Emily Johnson',
+                company_id: 'company-2',
                 company_name: 'Global Manufacturing Inc',
+                contact_id: 'contact-2',
                 source: 'Website',
                 created_at: '2024-03-05T12:00:00Z',
                 updated_at: '2024-05-03T16:00:00Z'
@@ -188,7 +305,9 @@
                 probability: 40,
                 expected_close_date: '2024-06-20',
                 assigned_to: 'Michael Chen',
+                company_id: 'company-4',
                 company_name: 'Northwind Logistics',
+                contact_id: 'contact-4',
                 source: 'Referral',
                 created_at: '2024-03-22T10:30:00Z',
                 updated_at: '2024-05-04T09:20:00Z'
@@ -203,7 +322,9 @@
                 probability: 55,
                 expected_close_date: '2024-05-31',
                 assigned_to: 'Sofia Martinez',
+                company_id: 'company-3',
                 company_name: 'StartupXYZ',
+                contact_id: 'contact-3',
                 source: 'Conference',
                 created_at: '2024-02-10T09:45:00Z',
                 updated_at: '2024-05-01T14:10:00Z'
@@ -217,7 +338,10 @@
                 value: 95000,
                 probability: 70,
                 expected_close_date: '2024-07-30',
+                company_id: 'company-2',
                 company_name: 'Global Manufacturing Inc',
+                lead_id: 'lead-1',
+                primary_contact_id: 'contact-2',
                 assigned_to: 'Michael Chen',
                 next_step: 'Finalize security review with IT team',
                 description: 'Lift-and-shift of legacy workloads to hybrid cloud.'
@@ -229,7 +353,10 @@
                 value: 62000,
                 probability: 55,
                 expected_close_date: '2024-06-18',
+                company_id: 'company-1',
                 company_name: 'TechCorp Solutions',
+                lead_id: 'lead-1',
+                primary_contact_id: 'contact-1',
                 assigned_to: 'Emily Johnson',
                 next_step: 'Send revised pricing options',
                 description: 'Expansion of existing success platform to additional regions.'
@@ -241,7 +368,10 @@
                 value: 41000,
                 probability: 30,
                 expected_close_date: '2024-08-05',
+                company_id: 'company-4',
                 company_name: 'Northwind Logistics',
+                lead_id: 'lead-2',
+                primary_contact_id: 'contact-4',
                 assigned_to: 'Daniel Iverson',
                 next_step: 'Schedule discovery workshop',
                 description: 'Optimization algorithms for routing and fleet management.'
@@ -253,7 +383,10 @@
                 value: 38000,
                 probability: 100,
                 expected_close_date: '2024-04-12',
+                company_id: 'company-3',
                 company_name: 'StartupXYZ',
+                lead_id: 'lead-3',
+                primary_contact_id: 'contact-3',
                 assigned_to: 'Sofia Martinez',
                 next_step: 'Kickoff meeting scheduled',
                 description: 'Growth advisory retainer for 12 months.'
@@ -265,7 +398,9 @@
                 value: 27000,
                 probability: 0,
                 expected_close_date: '2024-03-22',
+                company_id: 'company-1',
                 company_name: 'TechCorp Solutions',
+                primary_contact_id: 'contact-1',
                 assigned_to: 'Emily Johnson',
                 next_step: 'Document lessons learned',
                 description: 'Renewal opportunity lost due to budget constraints.'
@@ -383,72 +518,22 @@
         ]
     };
 
-    const searchFields = {
-        contacts: ['first_name', 'last_name', 'email', 'phone', 'company_name', 'title'],
-        companies: ['name', 'industry', 'website', 'city', 'country'],
-        leads: ['title', 'description', 'assigned_to', 'company_name'],
-        opportunities: ['name', 'company_name', 'description'],
-        tasks: ['title', 'description', 'assigned_to'],
-        activities: ['subject', 'description', 'assigned_to']
-    };
+    const dataCore = new global.DataCore({ entities: entityDefinitions, seedData });
 
-    const filterMap = {
-        contacts: { status: 'status', source: 'lead_source' },
-        companies: { status: 'status', size: 'size', industry: 'industry' },
-        leads: { status: 'status', priority: 'priority' },
-        tasks: { status: 'status', priority: 'priority', type: 'type' },
-        activities: { type: 'type' }
-    };
+    const RESERVED_QUERY_KEYS = new Set(['search', 'sort', 'page', 'limit', 'version']);
+    const ENTITY_ALIASES = { deals: 'opportunities' };
 
-    function normalizeValue(value) {
-        return typeof value === 'string' ? value.toLowerCase() : String(value ?? '').toLowerCase();
-    }
-
-    function applySearch(entity, records, term) {
-        const lowerTerm = term.trim().toLowerCase();
-        if (!lowerTerm) return records;
-        const fields = searchFields[entity] || [];
-        return records.filter(record =>
-            fields.some(field => {
-                const value = record[field];
-                if (value === undefined || value === null) return false;
-                return normalizeValue(value).includes(lowerTerm);
-            })
-        );
-    }
-
-    function applyFilters(entity, records, params) {
-        const entityFilters = filterMap[entity] || {};
-        return records.filter(record => {
-            for (const [queryKey, fieldName] of Object.entries(entityFilters)) {
-                if (!params.has(queryKey)) continue;
-                const filterValue = params.get(queryKey);
-                if (!filterValue) continue;
-                const recordValue = record[fieldName];
-                if (recordValue === undefined || recordValue === null) return false;
-                if (normalizeValue(recordValue) !== filterValue.toLowerCase()) {
-                    return false;
-                }
-            }
-            return true;
-        });
-    }
-
-    function applySorting(entity, records, params) {
-        const sort = params.get('sort');
-        if (!sort) return records;
-        const sorted = records.slice();
-        if (sort === 'date') {
-            sorted.sort((a, b) => new Date(b.date || b.updated_at || 0) - new Date(a.date || a.updated_at || 0));
-        } else if (sort === 'created_at') {
-            sorted.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+    function resolveEntityName(rawName) {
+        if (!rawName) {
+            return null;
         }
-        return sorted;
+        const normalized = String(rawName).toLowerCase();
+        return ENTITY_ALIASES[normalized] || normalized;
     }
 
-    function toNumber(value, fallback) {
+    function toNumber(value) {
         const num = Number(value);
-        return Number.isFinite(num) && num > 0 ? num : fallback;
+        return Number.isFinite(num) && num > 0 ? num : undefined;
     }
 
     function createJsonResponse(body, status = 200) {
@@ -489,27 +574,18 @@
         return init.body;
     }
 
-    function resolveCompanyName(companyId) {
-        if (!companyId) return undefined;
-        const company = mockDatabase.companies.find(item => item.id === companyId);
-        return company ? company.name : undefined;
+    function extractFilters(params) {
+        const filters = {};
+        params.forEach((value, key) => {
+            if (RESERVED_QUERY_KEYS.has(key)) {
+                return;
+            }
+            filters[key] = value;
+        });
+        return filters;
     }
 
-    function enhanceRecord(entity, record) {
-        if (entity === 'contacts') {
-            const companyName = resolveCompanyName(record.company_id);
-            record.company_name = companyName || '';
-        }
-    }
-
-    function generateId(entity) {
-        if (window.crypto?.randomUUID) {
-            return `${entity}-${window.crypto.randomUUID()}`;
-        }
-        return `${entity}-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-    }
-
-    window.fetch = async function(input, init = {}) {
+    global.fetch = async function(input, init = {}) {
         const request = typeof input === 'string' ? input : input?.url;
         if (typeof request !== 'string') {
             return originalFetch ? originalFetch(input, init) : Promise.reject(new Error('Invalid request'));
@@ -519,7 +595,7 @@
             return originalFetch ? originalFetch(input, init) : Promise.reject(new Error('fetch not available'));
         }
 
-        const base = window.location?.href || 'http://localhost/';
+        const base = global.location?.href || 'http://localhost/';
         const url = new URL(request, base);
         const pathParts = url.pathname
             .replace(/^\/+/, '')
@@ -530,90 +606,78 @@
             return createJsonResponse({ message: 'Not found' }, 404);
         }
 
-        const entity = pathParts[apiIndex + 1];
-        const recordId = pathParts[apiIndex + 2];
-        if (!entity || !mockDatabase[entity]) {
+        const rawEntity = pathParts[apiIndex + 1];
+        const entity = resolveEntityName(rawEntity);
+        if (!entity || !dataCore.hasEntity(entity)) {
             return createJsonResponse({ message: 'Unknown entity' }, 404);
         }
 
+        const recordId = pathParts[apiIndex + 2] ? decodeURIComponent(pathParts[apiIndex + 2]) : undefined;
+        const extraSegment = pathParts[apiIndex + 3];
         const method = (init.method || (typeof input === 'object' && input.method) || 'GET').toUpperCase();
         const params = url.searchParams;
-        const records = mockDatabase[entity];
 
-        if (method === 'GET' && !recordId) {
-            let results = records.slice();
-            if (params.has('search')) {
-                results = applySearch(entity, results, params.get('search'));
+        try {
+            if (method === 'GET' && recordId && extraSegment === 'versions') {
+                const history = dataCore.getHistory(entity, recordId);
+                return createJsonResponse({ data: history, total: history.length });
             }
-            results = applyFilters(entity, results, params);
-            results = applySorting(entity, results, params);
 
-            const total = results.length;
-            const limit = toNumber(params.get('limit'), total > 0 ? total : 20);
-            const page = toNumber(params.get('page'), 1);
-            const start = (page - 1) * limit;
-            const paginated = start >= total ? results.slice(0, limit) : results.slice(start, start + limit);
+            if (method === 'GET' && !recordId) {
+                const search = params.get('search') || '';
+                const sort = params.get('sort') || undefined;
+                const limit = toNumber(params.get('limit'));
+                const page = toNumber(params.get('page'));
+                const filters = extractFilters(params);
+                const result = dataCore.list(entity, { search, sort, limit, page, filters });
+                return createJsonResponse(result);
+            }
 
-            return createJsonResponse({
-                data: paginated,
-                total,
-                limit,
-                page
-            });
+            if (method === 'GET' && recordId) {
+                const version = params.get('version');
+                const record = dataCore.get(entity, recordId, { version });
+                if (!record) {
+                    return createJsonResponse({ message: 'Not found' }, 404);
+                }
+                return createJsonResponse(record);
+            }
+
+            if (method === 'POST') {
+                const body = parseBody(init);
+                const record = dataCore.create(entity, body);
+                return createJsonResponse(record, 201);
+            }
+
+            if ((method === 'PUT' || method === 'PATCH') && recordId) {
+                const body = parseBody(init);
+                const record = dataCore.update(entity, recordId, body);
+                if (!record) {
+                    return createJsonResponse({ message: 'Not found' }, 404);
+                }
+                return createJsonResponse(record);
+            }
+
+            if (method === 'DELETE' && recordId) {
+                const success = dataCore.delete(entity, recordId);
+                if (!success) {
+                    return createJsonResponse({ message: 'Not found' }, 404);
+                }
+                return createJsonResponse({ success: true });
+            }
+
+            return createJsonResponse({ message: 'Unsupported operation' }, 400);
+        } catch (error) {
+            console.error('Mock API error', error);
+            return createJsonResponse({ message: error.message || 'Server error' }, 400);
         }
-
-        if (method === 'GET' && recordId) {
-            const record = records.find(item => item.id === recordId);
-            if (!record) {
-                return createJsonResponse({ message: 'Not found' }, 404);
-            }
-            return createJsonResponse({ ...record });
-        }
-
-        if (method === 'POST') {
-            const body = parseBody(init);
-            const nowIso = new Date().toISOString();
-            const newRecord = {
-                id: body.id || generateId(entity),
-                ...body
-            };
-            if (!newRecord.created_at) {
-                newRecord.created_at = nowIso;
-            }
-            if (!newRecord.updated_at) {
-                newRecord.updated_at = nowIso;
-            }
-            enhanceRecord(entity, newRecord);
-            records.push(newRecord);
-            return createJsonResponse(newRecord, 201);
-        }
-
-        if (method === 'PUT' && recordId) {
-            const body = parseBody(init);
-            const index = records.findIndex(item => item.id === recordId);
-            if (index === -1) {
-                return createJsonResponse({ message: 'Not found' }, 404);
-            }
-            const updatedRecord = { ...records[index], ...body, id: recordId };
-            if (!updatedRecord.updated_at) {
-                updatedRecord.updated_at = new Date().toISOString();
-            }
-            enhanceRecord(entity, updatedRecord);
-            records[index] = updatedRecord;
-            return createJsonResponse(updatedRecord);
-        }
-
-        if (method === 'DELETE' && recordId) {
-            const index = records.findIndex(item => item.id === recordId);
-            if (index === -1) {
-                return createJsonResponse({ message: 'Not found' }, 404);
-            }
-            records.splice(index, 1);
-            return createJsonResponse({ success: true }, 200);
-        }
-
-        return createJsonResponse({ message: 'Unsupported operation' }, 400);
     };
 
-    window.mockDatabase = mockDatabase;
-})();
+    global.crmDataCore = dataCore;
+    Object.defineProperty(global, 'mockDatabase', {
+        configurable: true,
+        get() {
+            return dataCore.exportState();
+        }
+    });
+})(typeof window !== 'undefined' ? window : this);
+
