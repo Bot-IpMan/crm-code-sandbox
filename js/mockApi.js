@@ -117,6 +117,11 @@
             filterFields: { type: 'type' },
             getLabel: record => record.subject || record.description || record.id
         },
+        competitors: {
+            searchFields: ['name', 'industry', 'tier', 'status', 'primary_markets'],
+            filterFields: { tier: 'tier', status: 'status' },
+            getLabel: record => record.name || record.id
+        },
         workflows: {
             searchFields: ['name', 'description', 'owner', 'entity', 'status'],
             filterFields: { status: 'status', entity: 'entity' },
@@ -411,6 +416,52 @@
                 description: 'Renewal opportunity lost due to budget constraints.'
             }
         ],
+        competitors: [
+            {
+                id: 'competitor-insightsphere',
+                name: 'InsightSphere',
+                industry: 'Analytics Platform',
+                tier: 'Tier 1',
+                status: 'Active Watch',
+                headquarters: 'Berlin, Germany',
+                primary_markets: ['EU SaaS', 'Enterprise BI'],
+                focus_areas: ['Predictive benchmarking', 'Revenue intelligence'],
+                linked_clients: ['TechCorp Solutions', 'StartupXYZ'],
+                intel_owner: 'Competitive Research Guild',
+                last_update: '2024-05-10',
+                latest_move: 'Launched AI forecasting copilot for enterprise plans.',
+                note_file: 'InsightSphere – Analytics.md'
+            },
+            {
+                id: 'competitor-marketpulse',
+                name: 'MarketPulse',
+                industry: 'Market Intelligence',
+                tier: 'Tier 1',
+                status: 'Monitoring',
+                headquarters: 'Vilnius, Lithuania',
+                primary_markets: ['Baltics', 'Central Europe'],
+                focus_areas: ['Deal alerts', 'Pricing benchmarks'],
+                linked_clients: ['Global Manufacturing Inc'],
+                intel_owner: 'Regional Desk',
+                last_update: '2024-05-08',
+                latest_move: 'Signed data-sharing alliance with Baltic SaaS consortium.',
+                note_file: 'MarketPulse – SaaS.md'
+            },
+            {
+                id: 'competitor-atlaslogix',
+                name: 'AtlasLogix',
+                industry: 'Logistics Automation',
+                tier: 'Tier 2',
+                status: 'Watchlist',
+                headquarters: 'Wrocław, Poland',
+                primary_markets: ['CE SMB', 'Logistics tech'],
+                focus_areas: ['Modular dashboards', 'Usage-based pricing'],
+                linked_clients: ['Northwind Logistics'],
+                intel_owner: 'Product Marketing',
+                last_update: '2024-05-06',
+                latest_move: 'Introduced logistics optimization playbooks for freight brokers.'
+            }
+        ],
         tasks: [
             {
                 id: 'task-1',
@@ -463,6 +514,34 @@
                 related_to: 'company-4',
                 created_at: '2024-05-06T07:15:00Z',
                 updated_at: '2024-05-06T07:15:00Z'
+            },
+            {
+                id: 'task-5',
+                title: 'Refresh InsightSphere battlecard',
+                description: 'Update positioning, pricing responses, and counter-messaging for InsightSphere.',
+                type: 'Research',
+                priority: 'High',
+                status: 'In Progress',
+                due_date: '2024-05-29',
+                assigned_to: 'Competitive Research Guild',
+                related_to: 'competitor-insightsphere',
+                category: 'Competitive Intelligence',
+                tags: ['competitor', 'insightsphere'],
+                updated_at: '2024-05-09T10:45:00Z'
+            },
+            {
+                id: 'task-6',
+                title: 'Audit MarketPulse deal alerts',
+                description: 'Review alert cadence, coverage gaps, and overlap with current monitoring stack.',
+                type: 'Research',
+                priority: 'Medium',
+                status: 'Not Started',
+                due_date: '2024-05-27',
+                assigned_to: 'Regional Desk',
+                related_to: 'competitor-marketpulse',
+                category: 'Competitive Intelligence',
+                tags: ['competitor', 'marketpulse'],
+                updated_at: '2024-05-08T12:00:00Z'
             }
         ],
         activities: [
@@ -519,6 +598,26 @@
                 description: 'Checklist shared with Global Manufacturing stakeholders.',
                 date: '2024-04-30T15:05:00Z',
                 assigned_to: 'Michael Chen'
+            },
+            {
+                id: 'activity-7',
+                type: 'Update',
+                subject: 'InsightSphere AI copilot announcement',
+                description: 'Briefed account teams on InsightSphere predictive features and pricing tiers.',
+                date: '2024-05-10T10:15:00Z',
+                assigned_to: 'Competitive Research Guild',
+                category: 'Competitive Intelligence',
+                related_competitors: ['competitor-insightsphere']
+            },
+            {
+                id: 'activity-8',
+                type: 'Alert',
+                subject: 'MarketPulse expands Baltic coverage',
+                description: 'Captured announcement on MarketPulse logistics benchmark for Baltic region.',
+                date: '2024-05-08T13:40:00Z',
+                assigned_to: 'Regional Desk',
+                category: 'Competitive Intelligence',
+                related_competitors: ['competitor-marketpulse']
             }
         ],
         workflows: [

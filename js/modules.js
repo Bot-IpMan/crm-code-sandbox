@@ -1607,6 +1607,418 @@ function simulateInvoiceSync() {
     showToast('Invoice sync simulated successfully', 'success');
 }
 
+async function showCompetitorIntel() {
+    showView('competitorIntel');
+    updatePageHeader('Competitor Intelligence Hub', 'Monitor rivals, linked clients, and research tasks');
+
+    const hubView = document.getElementById('competitorIntelView');
+    if (!hubView) {
+        return;
+    }
+
+    hubView.innerHTML = `
+        <div class="bg-white border border-dashed border-gray-300 rounded-xl p-6 text-gray-500 flex items-center space-x-3">
+            <i class="fas fa-circle-notch fa-spin"></i>
+            <span>Loading competitor intelligence workspace...</span>
+        </div>
+    `;
+
+    showLoading();
+
+    try {
+        const [competitorsResponse, tasksResponse, activitiesResponse] = await Promise.all([
+            fetch('tables/competitors').then(res => res.json()),
+            fetch('tables/tasks').then(res => res.json()),
+            fetch('tables/activities').then(res => res.json())
+        ]);
+
+        const competitors = (competitorsResponse.data || []).slice().sort((a, b) => {
+            const resolveTier = tier => {
+                const normalized = (tier || '').toLowerCase();
+                if (normalized.includes('tier 1')) return 0;
+                if (normalized.includes('tier 2')) return 1;
+                return 2;
+            };
+            const tierDiff = resolveTier(a.tier) - resolveTier(b.tier);
+            if (tierDiff !== 0) {
+                return tierDiff;
+            }
+            const dateA = new Date(a.last_update || a.updated_at || 0);
+            const dateB = new Date(b.last_update || b.updated_at || 0);
+            return dateB - dateA;
+        });
+
+        const competitorIndex = new Map(competitors.map(comp => [comp.id, comp.name]));
+
+        const tasks = tasksResponse.data || [];
+        const activities = activitiesResponse.data || [];
+
+        const intelTasks = tasks
+            .filter(task => task.category === 'Competitive Intelligence'
+                || task.type === 'Research'
+                || (Array.isArray(task.tags) && task.tags.includes('competitor')))
+            .sort((a, b) => new Date(a.due_date || a.updated_at || 0) - new Date(b.due_date || b.updated_at || 0))
+            .slice(0, 5);
+
+        const intelSignals = activities
+            .filter(activity => activity.category === 'Competitive Intelligence'
+                || (activity.subject && activity.subject.toLowerCase().includes('competitor'))
+                || (activity.description && activity.description.toLowerCase().includes('competitor')))
+            .sort((a, b) => new Date(b.date || b.updated_at || 0) - new Date(a.date || a.updated_at || 0))
+            .slice(0, 5);
+
+        const tier1Count = competitors.filter(comp => (comp.tier || '').toLowerCase().includes('tier 1')).length;
+        const trackedClients = new Set();
+        competitors.forEach(comp => (Array.isArray(comp.linked_clients) ? comp.linked_clients : []).forEach(client => trackedClients.add(client)));
+
+        const mostRecentUpdate = competitors.reduce((latest, comp) => {
+            const candidate = new Date(comp.last_update || comp.updated_at || 0);
+            if (!latest || candidate > latest) {
+                return candidate;
+            }
+            return latest;
+        }, null);
+        const mostRecentText = mostRecentUpdate ? mostRecentUpdate.toLocaleDateString() : '—';
+
+        const formatDateOnly = value => {
+            if (!value) {
+                return 'Not set';
+            }
+            const date = new Date(value);
+            if (Number.isNaN(date.getTime())) {
+                return value;
+            }
+            return date.toLocaleDateString();
+        };
+
+        const formatList = list => (Array.isArray(list) && list.length ? list.join(', ') : '—');
+
+        const tierClass = tier => {
+            const normalized = (tier || '').toLowerCase();
+            if (normalized.includes('tier 1')) return 'bg-red-100 text-red-700';
+            if (normalized.includes('tier 2')) return 'bg-amber-100 text-amber-700';
+            return 'bg-gray-100 text-gray-700';
+        };
+
+        const statusClass = status => {
+            const normalized = (status || '').toLowerCase();
+            if (normalized.includes('active')) return 'bg-blue-100 text-blue-700';
+            if (normalized.includes('monitor')) return 'bg-yellow-100 text-yellow-700';
+            if (normalized.includes('watch')) return 'bg-purple-100 text-purple-700';
+            return 'bg-gray-100 text-gray-700';
+        };
+
+        const taskStatusClass = status => {
+            const normalized = (status || '').toLowerCase();
+            if (normalized.includes('progress')) return 'bg-blue-100 text-blue-700';
+            if (normalized.includes('not started')) return 'bg-gray-100 text-gray-700';
+            if (normalized.includes('completed')) return 'bg-green-100 text-green-700';
+            if (normalized.includes('blocked') || normalized.includes('overdue')) return 'bg-red-100 text-red-700';
+            return 'bg-gray-100 text-gray-700';
+        };
+
+        const buildNoteLink = fileName => {
+            if (!fileName) {
+                return null;
+            }
+            return `vault/Competitors/${encodeURIComponent(fileName)}`;
+        };
+
+        const competitorRows = competitors.length ? competitors.map(comp => {
+            const noteHref = buildNoteLink(comp.note_file);
+            return `
+                <tr class="hover:bg-gray-50 transition-colors">
+                    <td class="p-4 align-top">
+                        <div class="flex items-start justify-between gap-3">
+                            <div>
+                                <p class="font-semibold text-gray-800">${comp.name}</p>
+                                <p class="text-sm text-gray-500">${comp.industry || '—'}</p>
+                            </div>
+                            ${noteHref
+                                ? `<a href="${noteHref}" target="_blank" class="text-blue-600 text-xs font-medium hover:text-blue-700 flex items-center space-x-1">
+                                        <i class="fas fa-arrow-up-right-from-square"></i>
+                                        <span>Obsidian</span>
+                                   </a>`
+                                : '<span class="text-xs text-gray-400">Create workspace</span>'}
+                        </div>
+                        <div class="mt-3 text-sm text-gray-600 border-t border-gray-100 pt-3">
+                            <p class="font-medium text-gray-700">Latest move</p>
+                            <p>${comp.latest_move || 'No recent intel captured yet.'}</p>
+                        </div>
+                    </td>
+                    <td class="p-4 align-top">
+                        <span class="px-2 py-1 rounded-full text-xs font-medium ${tierClass(comp.tier)}">${comp.tier || '—'}</span>
+                    </td>
+                    <td class="p-4 align-top">
+                        <span class="px-2 py-1 rounded-full text-xs font-medium ${statusClass(comp.status)}">${comp.status || '—'}</span>
+                    </td>
+                    <td class="p-4 align-top text-sm text-gray-600">${formatList(comp.focus_areas)}</td>
+                    <td class="p-4 align-top text-sm text-gray-600">${formatList(comp.linked_clients)}</td>
+                    <td class="p-4 align-top text-sm text-gray-600">
+                        <p class="font-medium text-gray-700">${comp.intel_owner || 'Unassigned'}</p>
+                        <p class="text-xs text-gray-500 mt-1">Updated ${formatDateOnly(comp.last_update)}</p>
+                    </td>
+                </tr>
+            `;
+        }).join('') : `
+            <tr>
+                <td colspan="6" class="p-6 text-center text-gray-500">
+                    <i class="fas fa-chess-board text-3xl mb-3"></i>
+                    <p>No competitors tracked yet. Use the Obsidian template to add your first profile.</p>
+                </td>
+            </tr>
+        `;
+
+        const watchlistTable = `
+            <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-semibold text-gray-800">Competitor Watchlist</h3>
+                    <span class="text-sm text-gray-500">${competitors.length} profile${competitors.length === 1 ? '' : 's'}</span>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead class="bg-gray-50 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                            <tr>
+                                <th class="p-3 text-left">Competitor</th>
+                                <th class="p-3 text-left">Tier</th>
+                                <th class="p-3 text-left">Status</th>
+                                <th class="p-3 text-left">Focus Areas</th>
+                                <th class="p-3 text-left">Linked Clients</th>
+                                <th class="p-3 text-left">Owner &amp; Update</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-100">
+                            ${competitorRows}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        `;
+
+        const hubNoteLink = `vault/Competitors/${encodeURIComponent('Competitor Intelligence Hub.md')}`;
+
+        const quickActions = `
+            <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-semibold text-gray-800 flex items-center space-x-2">
+                        <i class="fas fa-compass text-blue-500"></i>
+                        <span>Quick Actions</span>
+                    </h3>
+                </div>
+                <div class="space-y-3">
+                    <a href="${hubNoteLink}" target="_blank" class="flex items-center justify-between px-4 py-3 border border-blue-100 rounded-lg text-blue-600 hover:bg-blue-50 transition">
+                        <span><i class="fas fa-arrow-up-right-from-square mr-2"></i>Open Obsidian hub</span>
+                        <i class="fas fa-external-link-alt text-xs"></i>
+                    </a>
+                    <a href="vault/Competitors/" target="_blank" class="flex items-center justify-between px-4 py-3 border border-gray-200 rounded-lg text-gray-700 hover:bg-gray-50 transition">
+                        <span><i class="fas fa-folder-tree mr-2"></i>Browse competitor folder</span>
+                        <i class="fas fa-external-link-alt text-xs"></i>
+                    </a>
+                </div>
+                <p class="text-xs text-gray-500 mt-4">Tip: Use the Competitor template to add kanban boards, diagrams, contacts, pricing, and documents for each rival.</p>
+            </div>
+        `;
+
+        const clientCoverageEntries = (() => {
+            const coverage = new Map();
+            competitors.forEach(comp => {
+                (Array.isArray(comp.linked_clients) ? comp.linked_clients : []).forEach(client => {
+                    coverage.set(client, (coverage.get(client) || 0) + 1);
+                });
+            });
+            const entries = Array.from(coverage.entries()).sort((a, b) => b[1] - a[1]);
+            const maxCount = entries.length ? Math.max(...entries.map(([, count]) => count)) : 1;
+            if (!entries.length) {
+                return '<p class="text-sm text-gray-500">Link competitors to client notes to see coverage here.</p>';
+            }
+            return entries.map(([client, count]) => {
+                const width = Math.round((count / maxCount) * 100);
+                return `
+                    <div>
+                        <div class="flex items-center justify-between text-sm text-gray-600">
+                            <span class="font-medium text-gray-700">${client}</span>
+                            <span class="text-xs text-gray-500">${count} competitor${count === 1 ? '' : 's'}</span>
+                        </div>
+                        <div class="mt-2 h-2 bg-gray-100 rounded-full overflow-hidden">
+                            <div class="h-2 bg-blue-500" style="width: ${width}%;"></div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        })();
+
+        const clientCoverage = `
+            <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-semibold text-gray-800">Client Coverage</h3>
+                    <span class="text-sm text-gray-500">${trackedClients.size} client${trackedClients.size === 1 ? '' : 's'}</span>
+                </div>
+                <div class="space-y-4">
+                    ${clientCoverageEntries}
+                </div>
+            </div>
+        `;
+
+        const nextTaskDue = intelTasks.length ? formatDateOnly(intelTasks[0].due_date || intelTasks[0].updated_at) : '—';
+
+        const tasksPanel = `
+            <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-semibold text-gray-800">Active Intel Tasks</h3>
+                    <button onclick="showTasks()" class="text-sm text-blue-600 hover:text-blue-700">View all</button>
+                </div>
+                <div class="space-y-3">
+                    ${intelTasks.length ? intelTasks.map(task => {
+                        const relatedName = competitorIndex.get(task.related_to) || task.related_to || '—';
+                        return `
+                            <div class="border border-gray-100 rounded-lg p-4">
+                                <div class="flex items-start justify-between gap-3">
+                                    <div>
+                                        <p class="font-medium text-gray-800">${task.title}</p>
+                                        <p class="text-sm text-gray-500">${task.description || 'No description provided.'}</p>
+                                    </div>
+                                    <span class="px-2 py-1 rounded-full text-xs font-medium ${taskStatusClass(task.status)}">${task.status || '—'}</span>
+                                </div>
+                                <div class="mt-3 flex flex-wrap items-center gap-4 text-xs text-gray-500">
+                                    <span><i class="fas fa-calendar-day mr-1"></i>${formatDateOnly(task.due_date || task.updated_at)}</span>
+                                    <span><i class="fas fa-user mr-1"></i>${task.assigned_to || 'Unassigned'}</span>
+                                    <span><i class="fas fa-chess-knight mr-1"></i>${relatedName}</span>
+                                </div>
+                            </div>
+                        `;
+                    }).join('') : '<p class="text-sm text-gray-500">Tag tasks with <code>Competitive Intelligence</code> to surface them here.</p>'}
+                </div>
+            </div>
+        `;
+
+        const signalsPanel = `
+            <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-semibold text-gray-800">Latest Signals</h3>
+                    <span class="text-sm text-gray-500">${intelSignals.length} captured</span>
+                </div>
+                <div class="space-y-3">
+                    ${intelSignals.length ? intelSignals.map(signal => {
+                        const relatedNames = (Array.isArray(signal.related_competitors) ? signal.related_competitors : [])
+                            .map(id => competitorIndex.get(id) || id)
+                            .filter(Boolean)
+                            .join(', ');
+                        return `
+                            <div class="border border-gray-100 rounded-lg p-4">
+                                <div class="flex items-start justify-between gap-3">
+                                    <div>
+                                        <p class="font-medium text-gray-800">${signal.subject || signal.type || 'Signal'}</p>
+                                        <p class="text-sm text-gray-500">${signal.description || 'No description provided.'}</p>
+                                    </div>
+                                    <span class="text-xs text-gray-400 whitespace-nowrap">${formatDateOnly(signal.date || signal.updated_at)}</span>
+                                </div>
+                                <div class="mt-3 flex flex-wrap items-center gap-4 text-xs text-gray-500">
+                                    <span><i class="fas fa-user mr-1"></i>${signal.assigned_to || 'Unassigned'}</span>
+                                    ${relatedNames ? `<span><i class="fas fa-chess-knight mr-1"></i>${relatedNames}</span>` : ''}
+                                </div>
+                            </div>
+                        `;
+                    }).join('') : '<p class="text-sm text-gray-500">Log competitor mentions as activities to keep the team aligned.</p>'}
+                </div>
+            </div>
+        `;
+
+        const summaryCards = `
+            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm font-medium text-gray-500">Tracked Competitors</p>
+                            <p class="text-3xl font-semibold text-gray-800">${competitors.length}</p>
+                        </div>
+                        <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                            <i class="fas fa-chess-rook text-blue-600 text-xl"></i>
+                        </div>
+                    </div>
+                    <p class="text-xs text-gray-500 mt-4">Most recent update: ${mostRecentText}</p>
+                </div>
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm font-medium text-gray-500">Tier 1 Watchlist</p>
+                            <p class="text-3xl font-semibold text-gray-800">${tier1Count}</p>
+                        </div>
+                        <div class="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center">
+                            <i class="fas fa-fire text-red-500 text-xl"></i>
+                        </div>
+                    </div>
+                    <p class="text-xs text-gray-500 mt-4">Prioritize counter-messaging for high-impact rivals.</p>
+                </div>
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm font-medium text-gray-500">Active Intel Tasks</p>
+                            <p class="text-3xl font-semibold text-gray-800">${intelTasks.length}</p>
+                        </div>
+                        <div class="w-12 h-12 bg-emerald-100 rounded-lg flex items-center justify-center">
+                            <i class="fas fa-list-check text-emerald-500 text-xl"></i>
+                        </div>
+                    </div>
+                    <p class="text-xs text-gray-500 mt-4">Next due: ${nextTaskDue}</p>
+                </div>
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm font-medium text-gray-500">Impacted Clients</p>
+                            <p class="text-3xl font-semibold text-gray-800">${trackedClients.size}</p>
+                        </div>
+                        <div class="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
+                            <i class="fas fa-wave-square text-purple-500 text-xl"></i>
+                        </div>
+                    </div>
+                    <p class="text-xs text-gray-500 mt-4">Signals logged: ${intelSignals.length}</p>
+                </div>
+            </div>
+        `;
+
+        const playbookCard = `
+            <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                <h3 class="text-lg font-semibold text-gray-800 mb-3">Workspace Playbook</h3>
+                <ul class="list-disc list-inside space-y-2 text-sm text-gray-600">
+                    <li>Use the Competitor template to add collapsible kanban boards, diagrams, contacts, pricing, and document cells.</li>
+                    <li>Populate the <code>competitors</code> field in client notes to surface overlaps in the coverage panel.</li>
+                    <li>Tag research tasks with <code>category:: Competitive Intelligence</code> so they appear in the task roll-up automatically.</li>
+                </ul>
+            </div>
+        `;
+
+        hubView.innerHTML = `
+            <div class="space-y-6">
+                ${summaryCards}
+                <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
+                    <div class="xl:col-span-2 space-y-6">
+                        ${watchlistTable}
+                        ${clientCoverage}
+                        ${playbookCard}
+                    </div>
+                    <div class="space-y-6">
+                        ${quickActions}
+                        ${tasksPanel}
+                        ${signalsPanel}
+                    </div>
+                </div>
+            </div>
+        `;
+
+    } catch (error) {
+        console.error('Error loading competitor intelligence hub:', error);
+        showToast('Failed to load competitor intelligence hub', 'error');
+        hubView.innerHTML = `
+            <div class="bg-red-50 border border-red-200 text-red-700 rounded-xl p-6">
+                <p class="font-semibold mb-2">We could not load the competitor hub.</p>
+                <p class="text-sm">Please refresh the page or check your mock data configuration.</p>
+            </div>
+        `;
+    } finally {
+        hideLoading();
+    }
+}
+
 // Tasks Management
 async function showTasks() {
     showView('tasks');
