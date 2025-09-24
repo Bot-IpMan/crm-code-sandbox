@@ -441,26 +441,33 @@ async function loadOpportunities() {
     }
 }
 
-function displayOpportunitiesPipeline(opportunities) {
+function displayOpportunitiesPipeline(opportunities, columnPrefix = '') {
     const stages = {
-        'Qualification': 'qualificationColumn',
-        'Needs Analysis': 'needsAnalysisColumn',
-        'Proposal': 'proposalColumn',
-        'Negotiation': 'negotiationColumn',
-        'Closed Won': 'closedWonColumn',
-        'Closed Lost': 'closedLostColumn'
+        'Qualification': { baseId: 'qualificationColumn', prefixedId: 'QualificationColumn' },
+        'Needs Analysis': { baseId: 'needsAnalysisColumn', prefixedId: 'NeedsAnalysisColumn' },
+        'Proposal': { baseId: 'proposalColumn', prefixedId: 'ProposalColumn' },
+        'Negotiation': { baseId: 'negotiationColumn', prefixedId: 'NegotiationColumn' },
+        'Closed Won': { baseId: 'closedWonColumn', prefixedId: 'ClosedWonColumn' },
+        'Closed Lost': { baseId: 'closedLostColumn', prefixedId: 'ClosedLostColumn' }
     };
-    
-    // Clear columns
-    Object.values(stages).forEach(columnId => {
-        document.getElementById(columnId).innerHTML = '';
+
+    Object.values(stages).forEach(config => {
+        const columnId = columnPrefix ? `${columnPrefix}${config.prefixedId}` : config.baseId;
+        const column = document.getElementById(columnId);
+        if (column) {
+            column.innerHTML = '';
+        }
     });
-    
-    // Populate columns
+
     opportunities.forEach(opp => {
-        const columnId = stages[opp.stage];
-        if (columnId) {
-            const column = document.getElementById(columnId);
+        const config = stages[opp.stage];
+        if (!config) {
+            return;
+        }
+
+        const columnId = columnPrefix ? `${columnPrefix}${config.prefixedId}` : config.baseId;
+        const column = document.getElementById(columnId);
+        if (column) {
             column.innerHTML += createOpportunityCard(opp);
         }
     });
@@ -468,9 +475,9 @@ function displayOpportunitiesPipeline(opportunities) {
 
 function createOpportunityCard(opportunity) {
     const probability = opportunity.probability || 0;
-    const expectedClose = opportunity.expected_close_date ? 
+    const expectedClose = opportunity.expected_close_date ?
         new Date(opportunity.expected_close_date).toLocaleDateString() : 'Not set';
-        
+
     return `
         <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200 cursor-pointer hover:shadow-md transition-shadow"
              onclick="viewOpportunity('${opportunity.id}')">
@@ -488,6 +495,1116 @@ function createOpportunityCard(opportunity) {
             </div>
         </div>
     `;
+}
+
+// Sales Module
+const SALES_STAGE_ORDER = ['Qualification', 'Needs Analysis', 'Proposal', 'Negotiation', 'Closed Won', 'Closed Lost'];
+
+const STAGE_DEFAULT_PROBABILITY = {
+    'Qualification': 25,
+    'Needs Analysis': 35,
+    'Proposal': 55,
+    'Negotiation': 75,
+    'Closed Won': 100,
+    'Closed Lost': 0
+};
+
+const SALES_STAGE_GRADIENTS = {
+    'Qualification': 'linear-gradient(90deg, #3b82f6 0%, #60a5fa 100%)',
+    'Needs Analysis': 'linear-gradient(90deg, #0ea5e9 0%, #38bdf8 100%)',
+    'Proposal': 'linear-gradient(90deg, #f59e0b 0%, #facc15 100%)',
+    'Negotiation': 'linear-gradient(90deg, #f97316 0%, #fb923c 100%)',
+    'Closed Won': 'linear-gradient(90deg, #10b981 0%, #34d399 100%)',
+    'Closed Lost': 'linear-gradient(90deg, #ef4444 0%, #f87171 100%)'
+};
+
+const CPQ_PRODUCTS = [
+    { id: 'crm-professional', name: 'CRM Platform · Professional', price: 1200, unit: 'Per user / year', category: 'Software' },
+    { id: 'crm-enterprise', name: 'CRM Platform · Enterprise', price: 1800, unit: 'Per user / year', category: 'Software' },
+    { id: 'onboarding-suite', name: 'Onboarding & Implementation Suite', price: 4500, unit: 'One-time', category: 'Services' },
+    { id: 'premium-support', name: 'Premium Support Plan', price: 950, unit: 'Per account / year', category: 'Support' },
+    { id: 'analytics-pack', name: 'Revenue Analytics Pack', price: 2500, unit: 'Per account / year', category: 'Add-on' }
+];
+
+const PAYMENT_PROVIDERS = [
+    { id: 'stripe', name: 'Stripe', description: 'Global card payments and subscription billing' },
+    { id: 'paypal', name: 'PayPal', description: 'Digital wallets and PayPal credit for B2B' },
+    { id: 'adyen', name: 'Adyen', description: 'Enterprise omnichannel payments' }
+];
+
+const ACCOUNTING_SYSTEMS = [
+    { id: 'quickbooks', name: 'QuickBooks Online', description: 'SMB accounting and invoicing' },
+    { id: 'xero', name: 'Xero', description: 'Cloud accounting for scaling teams' },
+    { id: 'netsuite', name: 'Oracle NetSuite', description: 'Enterprise ERP & revenue recognition' }
+];
+
+const salesModuleState = {
+    opportunities: [],
+    cpq: {
+        lines: [],
+        opportunityId: null,
+        currency: 'USD',
+        lastGeneratedAt: null
+    },
+    billing: {
+        paymentProviders: new Set(),
+        accountingSystems: new Set(),
+        paymentTerms: 'Net 30',
+        autoSendInvoices: false
+    }
+};
+
+async function showSales() {
+    showView('sales');
+    updatePageHeader('Sales', 'End-to-end pipeline, forecasting and billing');
+
+    const salesView = document.getElementById('salesView');
+    salesView.innerHTML = `
+        <div class="space-y-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+                    <p class="text-sm text-gray-500">Pipeline Value</p>
+                    <p id="salesPipelineValue" class="text-2xl font-semibold text-gray-800 mt-1">$0.00</p>
+                    <p id="salesPipelineCount" class="text-xs text-gray-400 mt-2">0 open deals</p>
+                </div>
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+                    <p class="text-sm text-gray-500">Weighted Forecast</p>
+                    <p id="salesWeightedValue" class="text-2xl font-semibold text-gray-800 mt-1">$0.00</p>
+                    <p id="salesWonValue" class="text-xs text-gray-400 mt-2">$0.00 closed won</p>
+                </div>
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+                    <p class="text-sm text-gray-500">Win Rate</p>
+                    <p id="salesWinRate" class="text-2xl font-semibold text-gray-800 mt-1">0.0%</p>
+                    <p class="text-xs text-gray-400 mt-2">Across closed opportunities</p>
+                </div>
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+                    <p class="text-sm text-gray-500">Average Deal Size</p>
+                    <p id="salesAvgDealSize" class="text-2xl font-semibold text-gray-800 mt-1">$0.00</p>
+                    <p class="text-xs text-gray-400 mt-2">Based on open pipeline</p>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-lg font-semibold text-gray-800">Sales Funnel</h3>
+                        <span id="salesFunnelSummary" class="text-xs text-gray-500"></span>
+                    </div>
+                    <div id="salesFunnel" class="space-y-4"></div>
+                </div>
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-lg font-semibold text-gray-800">Revenue Forecast</h3>
+                    </div>
+                    <div class="relative h-64">
+                        <canvas id="salesForecastChart" class="h-full"></canvas>
+                        <p id="salesForecastEmpty" class="absolute inset-0 flex items-center justify-center text-sm text-gray-500 hidden">Add expected close dates to power the forecast.</p>
+                    </div>
+                    <p id="salesForecastSummary" class="text-sm text-gray-500 mt-4"></p>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-semibold text-gray-800">Pipeline Board</h3>
+                    <p id="salesPipelineStats" class="text-sm text-gray-500"></p>
+                </div>
+                <div class="flex space-x-4 overflow-x-auto pb-4">
+                    <div class="min-w-80 bg-gray-50 rounded-lg p-4">
+                        <h4 class="font-semibold text-gray-700 mb-3">Qualification</h4>
+                        <div id="salesQualificationColumn" class="space-y-3 min-h-40"></div>
+                    </div>
+                    <div class="min-w-80 bg-blue-50 rounded-lg p-4">
+                        <h4 class="font-semibold text-blue-700 mb-3">Needs Analysis</h4>
+                        <div id="salesNeedsAnalysisColumn" class="space-y-3 min-h-40"></div>
+                    </div>
+                    <div class="min-w-80 bg-yellow-50 rounded-lg p-4">
+                        <h4 class="font-semibold text-yellow-700 mb-3">Proposal</h4>
+                        <div id="salesProposalColumn" class="space-y-3 min-h-40"></div>
+                    </div>
+                    <div class="min-w-80 bg-orange-50 rounded-lg p-4">
+                        <h4 class="font-semibold text-orange-700 mb-3">Negotiation</h4>
+                        <div id="salesNegotiationColumn" class="space-y-3 min-h-40"></div>
+                    </div>
+                    <div class="min-w-80 bg-green-50 rounded-lg p-4">
+                        <h4 class="font-semibold text-green-700 mb-3">Closed Won</h4>
+                        <div id="salesClosedWonColumn" class="space-y-3 min-h-40"></div>
+                    </div>
+                    <div class="min-w-80 bg-red-50 rounded-lg p-4">
+                        <h4 class="font-semibold text-red-700 mb-3">Closed Lost</h4>
+                        <div id="salesClosedLostColumn" class="space-y-3 min-h-40"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <div>
+                        <h3 class="text-lg font-semibold text-gray-800">Opportunity Management</h3>
+                        <p class="text-sm text-gray-500">Adjust stages, forecast probability and next steps.</p>
+                    </div>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead class="bg-gray-50 text-gray-600 uppercase text-xs">
+                            <tr>
+                                <th class="p-3 text-left">Opportunity</th>
+                                <th class="p-3 text-left">Stage</th>
+                                <th class="p-3 text-left">Probability</th>
+                                <th class="p-3 text-left">Value</th>
+                                <th class="p-3 text-left">Expected Close</th>
+                                <th class="p-3 text-left">Owner</th>
+                                <th class="p-3 text-left">Next Step</th>
+                            </tr>
+                        </thead>
+                        <tbody id="salesOpportunitiesTableBody" class="divide-y divide-gray-100"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <div>
+                            <h3 class="text-lg font-semibold text-gray-800">Configure Price Quote (CPQ)</h3>
+                            <p class="text-sm text-gray-500">Bundle products, discounts and approvals.</p>
+                        </div>
+                        <button id="cpqResetQuote" class="text-sm text-blue-600 hover:text-blue-700">Reset</button>
+                    </div>
+                    <div class="space-y-4">
+                        <div>
+                            <label for="cpqOpportunitySelect" class="block text-sm font-medium text-gray-600 mb-1">Opportunity</label>
+                            <select id="cpqOpportunitySelect" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"></select>
+                        </div>
+                        <div class="grid md:grid-cols-4 gap-4">
+                            <div class="md:col-span-2">
+                                <label for="cpqProductSelect" class="block text-sm font-medium text-gray-600 mb-1">Catalog Item</label>
+                                <select id="cpqProductSelect" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"></select>
+                            </div>
+                            <div>
+                                <label for="cpqQuantity" class="block text-sm font-medium text-gray-600 mb-1">Quantity</label>
+                                <input type="number" id="cpqQuantity" min="1" value="1" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                            </div>
+                            <div>
+                                <label for="cpqDiscount" class="block text-sm font-medium text-gray-600 mb-1">Discount (%)</label>
+                                <input type="number" id="cpqDiscount" min="0" max="100" value="0" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                            </div>
+                        </div>
+                        <div class="flex items-center justify-between text-sm text-gray-500">
+                            <button id="cpqAddLineItem" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Add Line Item</button>
+                            <span id="cpqCatalogSummary"></span>
+                        </div>
+                        <div class="border border-dashed border-gray-200 rounded-lg overflow-hidden">
+                            <table class="w-full text-sm">
+                                <thead class="bg-gray-50 text-gray-600 uppercase text-xs">
+                                    <tr>
+                                        <th class="p-3 text-left">Product</th>
+                                        <th class="p-3 text-left">Qty</th>
+                                        <th class="p-3 text-left">Unit Price</th>
+                                        <th class="p-3 text-left">Discount</th>
+                                        <th class="p-3 text-left">Net Total</th>
+                                        <th class="p-3 text-left">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="cpqLineItemsBody"></tbody>
+                            </table>
+                        </div>
+                        <div class="space-y-1 text-sm text-gray-700">
+                            <div class="flex items-center justify-between"><span>Subtotal</span><span id="cpqSubtotal">$0.00</span></div>
+                            <div class="flex items-center justify-between"><span>Discounts</span><span id="cpqDiscountTotal">$0.00</span></div>
+                            <div class="flex items-center justify-between text-base font-semibold text-gray-800"><span>Total</span><span id="cpqGrandTotal">$0.00</span></div>
+                        </div>
+                        <div class="space-y-3">
+                            <button id="cpqGenerateQuote" class="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">Generate Quote Preview</button>
+                            <button id="cpqGenerateInvoice" class="w-full px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">Create Invoice Draft</button>
+                            <p id="cpqInvoiceStatus" class="text-sm text-gray-500"></p>
+                        </div>
+                        <div id="cpqQuotePreview" class="bg-gray-50 border border-gray-200 rounded-lg p-4 text-sm text-gray-700"></div>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <div>
+                            <h3 class="text-lg font-semibold text-gray-800">Billing & Integrations</h3>
+                            <p class="text-sm text-gray-500">Connect payment and accounting systems for invoicing.</p>
+                        </div>
+                        <button id="simulateInvoiceSync" class="px-4 py-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100">Run Sync</button>
+                    </div>
+                    <div class="space-y-6">
+                        <div>
+                            <h4 class="text-sm font-semibold text-gray-700 mb-3">Payment Providers</h4>
+                            <div id="paymentProvidersList" class="grid grid-cols-1 sm:grid-cols-2 gap-3"></div>
+                        </div>
+                        <div>
+                            <h4 class="text-sm font-semibold text-gray-700 mb-3">Accounting Platforms</h4>
+                            <div id="accountingSystemsList" class="grid grid-cols-1 sm:grid-cols-2 gap-3"></div>
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                                <label for="invoicePaymentTerms" class="block text-sm font-medium text-gray-600 mb-1">Default Payment Terms</label>
+                                <select id="invoicePaymentTerms" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                    <option value="Net 15">Net 15</option>
+                                    <option value="Net 30" selected>Net 30</option>
+                                    <option value="Net 45">Net 45</option>
+                                    <option value="Due on Receipt">Due on Receipt</option>
+                                </select>
+                            </div>
+                            <div class="flex items-center space-x-2 pt-6">
+                                <input type="checkbox" id="invoiceAutoSend" class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
+                                <label for="invoiceAutoSend" class="text-sm text-gray-600">Automatically send invoices after quote approval</label>
+                            </div>
+                        </div>
+                        <div id="billingConnectionSummary" class="text-sm text-blue-700 bg-blue-50 px-4 py-3 rounded-lg"></div>
+                        <div id="invoiceSyncStatus" class="text-sm text-gray-500"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+
+    await loadSalesModuleData();
+}
+
+async function loadSalesModuleData() {
+    showLoading();
+    try {
+        const response = await fetch('tables/opportunities?limit=200');
+        const data = await response.json();
+
+        salesModuleState.opportunities = (data.data || []).map(opportunity => ({
+            ...opportunity,
+            probability: typeof opportunity.probability === 'number'
+                ? opportunity.probability
+                : (STAGE_DEFAULT_PROBABILITY[opportunity.stage] ?? 0)
+        }));
+
+        salesModuleState.cpq.lines = [];
+        salesModuleState.cpq.opportunityId = null;
+        salesModuleState.cpq.lastGeneratedAt = null;
+
+        initializeCpqSection();
+        initializeBillingIntegrations();
+        refreshSalesVisuals();
+    } catch (error) {
+        console.error('Error loading sales data:', error);
+        showToast('Failed to load sales data', 'error');
+    } finally {
+        hideLoading();
+    }
+}
+
+function calculateSalesMetrics(opportunities) {
+    const stageSummary = {};
+    SALES_STAGE_ORDER.forEach(stage => {
+        stageSummary[stage] = { count: 0, total: 0, conversion: 0 };
+    });
+
+    let totalPipeline = 0;
+    let weightedPipeline = 0;
+    let openCount = 0;
+    let openValue = 0;
+    let closedWonCount = 0;
+    let closedLostCount = 0;
+    let wonValue = 0;
+
+    const forecastBuckets = {};
+
+    opportunities.forEach(opportunity => {
+        const stage = stageSummary[opportunity.stage] ? opportunity.stage : SALES_STAGE_ORDER[0];
+        const amount = Number(opportunity.value) || 0;
+        const probability = Math.min(Math.max(Number(opportunity.probability) || 0, 0), 100);
+
+        stageSummary[stage].count += 1;
+        stageSummary[stage].total += amount;
+
+        const isOpen = stage !== 'Closed Won' && stage !== 'Closed Lost';
+
+        if (isOpen) {
+            totalPipeline += amount;
+            weightedPipeline += amount * (probability / 100);
+            openCount += 1;
+            openValue += amount;
+        }
+
+        if (stage === 'Closed Won') {
+            closedWonCount += 1;
+            wonValue += amount;
+        }
+
+        if (stage === 'Closed Lost') {
+            closedLostCount += 1;
+        }
+
+        if (opportunity.expected_close_date) {
+            const expectedDate = new Date(opportunity.expected_close_date);
+            if (!Number.isNaN(expectedDate.valueOf())) {
+                const key = `${expectedDate.getFullYear()}-${String(expectedDate.getMonth() + 1).padStart(2, '0')}`;
+                const label = expectedDate.toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
+                if (!forecastBuckets[key]) {
+                    forecastBuckets[key] = { label, pipeline: 0, weighted: 0 };
+                }
+                if (isOpen) {
+                    forecastBuckets[key].pipeline += amount;
+                    forecastBuckets[key].weighted += amount * (probability / 100);
+                } else if (stage === 'Closed Won') {
+                    forecastBuckets[key].weighted += amount;
+                }
+            }
+        }
+    });
+
+    SALES_STAGE_ORDER.forEach((stage, index) => {
+        const previousStage = stage === 'Closed Lost'
+            ? 'Negotiation'
+            : SALES_STAGE_ORDER[index - 1];
+        if (!previousStage) {
+            stageSummary[stage].conversion = 100;
+            return;
+        }
+
+        const previousCount = stageSummary[previousStage]?.count || 0;
+        stageSummary[stage].conversion = previousCount > 0
+            ? Math.round((stageSummary[stage].count / previousCount) * 100)
+            : 0;
+    });
+
+    const sortedForecastKeys = Object.keys(forecastBuckets).sort();
+    const forecast = {
+        labels: sortedForecastKeys.map(key => forecastBuckets[key].label),
+        pipeline: sortedForecastKeys.map(key => Math.round(forecastBuckets[key].pipeline)),
+        weighted: sortedForecastKeys.map(key => Math.round(forecastBuckets[key].weighted))
+    };
+
+    const winRateDenominator = closedWonCount + closedLostCount;
+    const winRate = winRateDenominator > 0 ? (closedWonCount / winRateDenominator) * 100 : 0;
+    const avgDealSize = openCount > 0 ? openValue / openCount : 0;
+
+    return {
+        stageSummary,
+        totalPipeline,
+        weightedPipeline,
+        openCount,
+        avgDealSize,
+        winRate,
+        wonValue,
+        forecast
+    };
+}
+
+function renderSalesMetrics(metrics) {
+    const pipelineValue = document.getElementById('salesPipelineValue');
+    const pipelineCount = document.getElementById('salesPipelineCount');
+    const weightedValue = document.getElementById('salesWeightedValue');
+    const winRate = document.getElementById('salesWinRate');
+    const avgDealSize = document.getElementById('salesAvgDealSize');
+    const wonValue = document.getElementById('salesWonValue');
+    const pipelineStats = document.getElementById('salesPipelineStats');
+    const funnelSummary = document.getElementById('salesFunnelSummary');
+    const forecastSummary = document.getElementById('salesForecastSummary');
+
+    if (pipelineValue) pipelineValue.textContent = formatCurrency(metrics.totalPipeline);
+    if (pipelineCount) pipelineCount.textContent = `${metrics.openCount} open deals`;
+    if (weightedValue) weightedValue.textContent = formatCurrency(metrics.weightedPipeline);
+    if (wonValue) wonValue.textContent = `${formatCurrency(metrics.wonValue)} closed won`;
+    if (winRate) winRate.textContent = `${metrics.winRate.toFixed(1)}%`;
+    if (avgDealSize) avgDealSize.textContent = formatCurrency(metrics.avgDealSize);
+    if (pipelineStats) pipelineStats.textContent = `${metrics.openCount} open • ${formatCurrency(metrics.totalPipeline)} in pipeline`;
+
+    const qualificationCount = metrics.stageSummary['Qualification']?.count || 0;
+    if (funnelSummary) funnelSummary.textContent = `${qualificationCount} opportunities entering the funnel`;
+
+    if (forecastSummary) {
+        const totalWeighted = metrics.forecast.weighted.reduce((sum, value) => sum + value, 0);
+        forecastSummary.textContent = metrics.forecast.labels.length
+            ? `Projected weighted revenue: ${formatCurrency(totalWeighted)}`
+            : 'Add expected close dates to generate a forward-looking forecast.';
+    }
+}
+
+function renderSalesFunnel(stageSummary) {
+    const funnelContainer = document.getElementById('salesFunnel');
+    if (!funnelContainer) {
+        return;
+    }
+
+    const maxValue = Math.max(...SALES_STAGE_ORDER.map(stage => stageSummary[stage]?.total || 0), 1);
+
+    funnelContainer.innerHTML = SALES_STAGE_ORDER.map(stage => {
+        const data = stageSummary[stage] || { count: 0, total: 0, conversion: 0 };
+        const width = Math.max(12, (data.total / maxValue) * 100);
+        const gradient = SALES_STAGE_GRADIENTS[stage] || '#e5e7eb';
+        return `
+            <div class="flex items-center space-x-4">
+                <div class="w-36">
+                    <p class="text-sm font-medium text-gray-700">${stage}</p>
+                    <p class="text-xs text-gray-500">${data.count} deals</p>
+                </div>
+                <div class="flex-1">
+                    <div class="h-10 rounded-r-full" style="width: ${width}%; background: ${gradient};"></div>
+                </div>
+                <div class="w-32 text-right">
+                    <p class="text-sm font-medium text-gray-700">${formatCurrency(data.total)}</p>
+                    <p class="text-xs text-gray-400">${data.conversion}% conversion</p>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+function renderSalesPipelineBoard() {
+    displayOpportunitiesPipeline(salesModuleState.opportunities, 'sales');
+}
+
+function renderSalesOpportunityTable() {
+    const tbody = document.getElementById('salesOpportunitiesTableBody');
+    if (!tbody) {
+        return;
+    }
+
+    if (salesModuleState.opportunities.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="7" class="py-6 text-center text-gray-500">No opportunities available. Create a deal to populate the pipeline.</td>
+            </tr>
+        `;
+        return;
+    }
+
+    const stageRank = stage => {
+        const index = SALES_STAGE_ORDER.indexOf(stage);
+        return index === -1 ? SALES_STAGE_ORDER.length : index;
+    };
+
+    const sortedOpportunities = [...salesModuleState.opportunities].sort((a, b) => {
+        const stageDiff = stageRank(a.stage) - stageRank(b.stage);
+        if (stageDiff !== 0) return stageDiff;
+        const aDate = a.expected_close_date ? new Date(a.expected_close_date).valueOf() : Infinity;
+        const bDate = b.expected_close_date ? new Date(b.expected_close_date).valueOf() : Infinity;
+        return aDate - bDate;
+    });
+
+    tbody.innerHTML = sortedOpportunities.map(opportunity => {
+        const stageOptions = SALES_STAGE_ORDER.map(stage => `
+            <option value="${stage}" ${opportunity.stage === stage ? 'selected' : ''}>${stage}</option>
+        `).join('');
+
+        const probabilityValue = Math.min(Math.max(Number(opportunity.probability) || 0, 0), 100);
+        const expected = opportunity.expected_close_date ? new Date(opportunity.expected_close_date).toLocaleDateString() : 'Not set';
+
+        return `
+            <tr class="hover:bg-gray-50">
+                <td class="p-3">
+                    <div class="font-medium text-gray-800">${opportunity.name}</div>
+                    <div class="text-xs text-gray-500">${opportunity.company_name || 'No account linked'}</div>
+                </td>
+                <td class="p-3">
+                    <select data-opportunity-id="${opportunity.id}" class="sales-stage-select border border-gray-300 rounded-lg px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        ${stageOptions}
+                    </select>
+                </td>
+                <td class="p-3">
+                    <input type="number" min="0" max="100" value="${probabilityValue}" data-opportunity-id="${opportunity.id}" class="sales-probability-input w-24 border border-gray-300 rounded-lg px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                </td>
+                <td class="p-3 text-gray-700">${formatCurrency(opportunity.value)}</td>
+                <td class="p-3 text-gray-500">${expected}</td>
+                <td class="p-3 text-gray-500">${opportunity.assigned_to || 'Unassigned'}</td>
+                <td class="p-3 text-gray-500">${opportunity.next_step || 'No next step defined'}</td>
+            </tr>
+        `;
+    }).join('');
+
+    bindSalesOpportunityEvents();
+}
+
+function bindSalesOpportunityEvents() {
+    document.querySelectorAll('.sales-stage-select').forEach(select => {
+        select.addEventListener('change', handleOpportunityStageChange);
+    });
+
+    document.querySelectorAll('.sales-probability-input').forEach(input => {
+        input.addEventListener('change', handleOpportunityProbabilityChange);
+    });
+}
+
+function handleOpportunityStageChange(event) {
+    const opportunityId = event.target.dataset.opportunityId;
+    const newStage = event.target.value;
+    const opportunity = salesModuleState.opportunities.find(item => item.id === opportunityId);
+    if (!opportunity) {
+        return;
+    }
+
+    opportunity.stage = newStage;
+    if (typeof STAGE_DEFAULT_PROBABILITY[newStage] === 'number') {
+        opportunity.probability = STAGE_DEFAULT_PROBABILITY[newStage];
+    }
+
+    showToast('Opportunity stage updated for forecasting', 'success');
+    refreshSalesVisuals();
+}
+
+function handleOpportunityProbabilityChange(event) {
+    const opportunityId = event.target.dataset.opportunityId;
+    let probability = Number(event.target.value);
+    if (!Number.isFinite(probability)) {
+        probability = 0;
+    }
+    probability = Math.min(Math.max(probability, 0), 100);
+    event.target.value = probability;
+
+    const opportunity = salesModuleState.opportunities.find(item => item.id === opportunityId);
+    if (!opportunity) {
+        return;
+    }
+
+    opportunity.probability = probability;
+    showToast('Updated opportunity probability', 'info');
+    refreshSalesVisuals();
+}
+
+function refreshSalesVisuals() {
+    const metrics = calculateSalesMetrics(salesModuleState.opportunities);
+    renderSalesMetrics(metrics);
+    renderSalesFunnel(metrics.stageSummary);
+    renderSalesPipelineBoard();
+    renderSalesOpportunityTable();
+    renderSalesForecast(metrics.forecast);
+    updateCpqOpportunityOptions();
+}
+
+function renderSalesForecast(forecast) {
+    const canvas = document.getElementById('salesForecastChart');
+    const emptyState = document.getElementById('salesForecastEmpty');
+    if (!canvas) {
+        return;
+    }
+
+    if (!forecast.labels.length) {
+        if (charts.salesForecast) {
+            charts.salesForecast.destroy();
+            charts.salesForecast = null;
+        }
+        canvas.classList.add('hidden');
+        if (emptyState) emptyState.classList.remove('hidden');
+        return;
+    }
+
+    canvas.classList.remove('hidden');
+    if (emptyState) emptyState.classList.add('hidden');
+
+    const context = canvas.getContext('2d');
+    if (charts.salesForecast) {
+        charts.salesForecast.destroy();
+    }
+
+    charts.salesForecast = new Chart(context, {
+        type: 'bar',
+        data: {
+            labels: forecast.labels,
+            datasets: [
+                {
+                    label: 'Total Pipeline',
+                    data: forecast.pipeline,
+                    backgroundColor: '#bfdbfe',
+                    borderColor: '#3b82f6',
+                    borderWidth: 1
+                },
+                {
+                    label: 'Weighted Forecast',
+                    data: forecast.weighted,
+                    backgroundColor: '#bbf7d0',
+                    borderColor: '#22c55e',
+                    borderWidth: 1
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    ticks: {
+                        callback: value => formatCurrency(value)
+                    }
+                }
+            },
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                },
+                tooltip: {
+                    callbacks: {
+                        label: context => `${context.dataset.label}: ${formatCurrency(context.parsed.y)}`
+                    }
+                }
+            }
+        }
+    });
+}
+
+function initializeCpqSection() {
+    const productSelect = document.getElementById('cpqProductSelect');
+    const opportunitySelect = document.getElementById('cpqOpportunitySelect');
+    const addButton = document.getElementById('cpqAddLineItem');
+    const resetButton = document.getElementById('cpqResetQuote');
+    const quoteButton = document.getElementById('cpqGenerateQuote');
+    const invoiceButton = document.getElementById('cpqGenerateInvoice');
+    const quotePreview = document.getElementById('cpqQuotePreview');
+    const invoiceStatus = document.getElementById('cpqInvoiceStatus');
+    const quantityInput = document.getElementById('cpqQuantity');
+    const discountInput = document.getElementById('cpqDiscount');
+    const catalogSummary = document.getElementById('cpqCatalogSummary');
+
+    if (!productSelect || !opportunitySelect) {
+        return;
+    }
+
+    productSelect.innerHTML = CPQ_PRODUCTS.map(product => `
+        <option value="${product.id}">${product.name} · ${formatCurrency(product.price)} (${product.unit})</option>
+    `).join('');
+
+    salesModuleState.cpq.lines = [];
+    salesModuleState.cpq.opportunityId = determineDefaultCpqOpportunity();
+    salesModuleState.cpq.lastGeneratedAt = null;
+
+    if (quantityInput) quantityInput.value = '1';
+    if (discountInput) discountInput.value = '0';
+    if (catalogSummary) catalogSummary.textContent = `0 line items · Catalog size ${CPQ_PRODUCTS.length}`;
+    if (quotePreview) quotePreview.innerHTML = '<p class="text-sm text-gray-500">Add line items and generate a quote preview.</p>';
+    if (invoiceStatus) invoiceStatus.textContent = '';
+
+    updateCpqOpportunityOptions();
+    renderCpqLineItems();
+    updateCpqTotals();
+
+    addButton?.addEventListener('click', handleAddCpqLineItem);
+    resetButton?.addEventListener('click', event => {
+        event.preventDefault();
+        resetCpqQuote();
+    });
+    quoteButton?.addEventListener('click', event => {
+        event.preventDefault();
+        generateQuotePreview();
+    });
+    invoiceButton?.addEventListener('click', event => {
+        event.preventDefault();
+        handleGenerateInvoice();
+    });
+    opportunitySelect.addEventListener('change', event => {
+        salesModuleState.cpq.opportunityId = event.target.value || null;
+    });
+}
+
+function determineDefaultCpqOpportunity() {
+    const activeOpportunity = salesModuleState.opportunities.find(opportunity => opportunity.stage !== 'Closed Lost');
+    return activeOpportunity ? activeOpportunity.id : (salesModuleState.opportunities[0]?.id || null);
+}
+
+function updateCpqOpportunityOptions() {
+    const select = document.getElementById('cpqOpportunitySelect');
+    if (!select) {
+        return;
+    }
+
+    if (salesModuleState.opportunities.length === 0) {
+        select.innerHTML = '<option value="">No opportunities available</option>';
+        select.disabled = true;
+        salesModuleState.cpq.opportunityId = null;
+        return;
+    }
+
+    select.disabled = false;
+    const previousSelection = salesModuleState.cpq.opportunityId;
+    select.innerHTML = salesModuleState.opportunities.map(opportunity => `
+        <option value="${opportunity.id}">${opportunity.name} • ${opportunity.stage}</option>
+    `).join('');
+
+    if (previousSelection && salesModuleState.opportunities.some(item => item.id === previousSelection)) {
+        select.value = previousSelection;
+    } else {
+        select.value = determineDefaultCpqOpportunity() || '';
+    }
+
+    salesModuleState.cpq.opportunityId = select.value || null;
+}
+
+function handleAddCpqLineItem(event) {
+    event.preventDefault();
+    const productSelect = document.getElementById('cpqProductSelect');
+    const quantityInput = document.getElementById('cpqQuantity');
+    const discountInput = document.getElementById('cpqDiscount');
+
+    if (!productSelect || !quantityInput || !discountInput) {
+        return;
+    }
+
+    const product = CPQ_PRODUCTS.find(item => item.id === productSelect.value);
+    if (!product) {
+        showToast('Select a catalog item to add to the quote', 'warning');
+        return;
+    }
+
+    let quantity = parseInt(quantityInput.value, 10);
+    if (!Number.isFinite(quantity) || quantity <= 0) {
+        quantity = 1;
+    }
+
+    let discount = parseFloat(discountInput.value);
+    if (!Number.isFinite(discount) || discount < 0) {
+        discount = 0;
+    }
+    discount = Math.min(discount, 100);
+
+    quantityInput.value = quantity;
+    discountInput.value = discount;
+
+    salesModuleState.cpq.lines.push({
+        id: `line-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        productId: product.id,
+        name: product.name,
+        unit: product.unit,
+        price: product.price,
+        quantity,
+        discount
+    });
+
+    renderCpqLineItems();
+    updateCpqTotals();
+    showToast('Line item added to quote', 'success');
+}
+
+function renderCpqLineItems() {
+    const tbody = document.getElementById('cpqLineItemsBody');
+    if (!tbody) {
+        return;
+    }
+
+    if (salesModuleState.cpq.lines.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="6" class="py-4 text-center text-gray-500">No line items yet. Use the catalog above to build a quote.</td>
+            </tr>
+        `;
+        return;
+    }
+
+    tbody.innerHTML = salesModuleState.cpq.lines.map(line => {
+        const lineAmount = line.price * line.quantity;
+        const netAmount = lineAmount * (1 - line.discount / 100);
+        return `
+            <tr class="border-b border-gray-100">
+                <td class="p-3">
+                    <div class="font-medium text-gray-800">${line.name}</div>
+                    <div class="text-xs text-gray-500">${line.unit}</div>
+                </td>
+                <td class="p-3 text-gray-600">${line.quantity}</td>
+                <td class="p-3 text-gray-600">${formatCurrency(line.price)}</td>
+                <td class="p-3 text-gray-600">${line.discount}%</td>
+                <td class="p-3 text-gray-800 font-semibold">${formatCurrency(netAmount)}</td>
+                <td class="p-3 text-right">
+                    <button class="text-sm text-red-600 hover:text-red-700" data-line-id="${line.id}">Remove</button>
+                </td>
+            </tr>
+        `;
+    }).join('');
+
+    tbody.querySelectorAll('button[data-line-id]').forEach(button => {
+        button.addEventListener('click', removeCpqLineItem);
+    });
+}
+
+function removeCpqLineItem(event) {
+    event.preventDefault();
+    const lineId = event.target.dataset.lineId;
+    salesModuleState.cpq.lines = salesModuleState.cpq.lines.filter(line => line.id !== lineId);
+    renderCpqLineItems();
+    updateCpqTotals();
+    showToast('Removed line item from quote', 'info');
+}
+
+function updateCpqTotals() {
+    const subtotalElement = document.getElementById('cpqSubtotal');
+    const discountElement = document.getElementById('cpqDiscountTotal');
+    const totalElement = document.getElementById('cpqGrandTotal');
+    const catalogSummary = document.getElementById('cpqCatalogSummary');
+
+    let subtotal = 0;
+    let discountTotal = 0;
+
+    salesModuleState.cpq.lines.forEach(line => {
+        const lineAmount = line.price * line.quantity;
+        const discountAmount = lineAmount * (line.discount / 100);
+        subtotal += lineAmount;
+        discountTotal += discountAmount;
+    });
+
+    const total = subtotal - discountTotal;
+
+    if (subtotalElement) subtotalElement.textContent = formatCurrency(subtotal);
+    if (discountElement) discountElement.textContent = `-${formatCurrency(discountTotal)}`;
+    if (totalElement) totalElement.textContent = formatCurrency(total);
+    if (catalogSummary) catalogSummary.textContent = `${salesModuleState.cpq.lines.length} line items · Catalog size ${CPQ_PRODUCTS.length}`;
+
+    return { subtotal, discountTotal, total };
+}
+
+function resetCpqQuote() {
+    salesModuleState.cpq.lines = [];
+    salesModuleState.cpq.lastGeneratedAt = null;
+    const opportunitySelect = document.getElementById('cpqOpportunitySelect');
+    if (opportunitySelect) {
+        opportunitySelect.value = determineDefaultCpqOpportunity() || '';
+        salesModuleState.cpq.opportunityId = opportunitySelect.value || null;
+    }
+
+    renderCpqLineItems();
+    updateCpqTotals();
+
+    const quotePreview = document.getElementById('cpqQuotePreview');
+    if (quotePreview) {
+        quotePreview.innerHTML = '<p class="text-sm text-gray-500">Quote cleared. Add new line items to continue.</p>';
+    }
+
+    const invoiceStatus = document.getElementById('cpqInvoiceStatus');
+    if (invoiceStatus) {
+        invoiceStatus.className = 'text-sm text-gray-500';
+        invoiceStatus.textContent = '';
+    }
+}
+
+function generateQuotePreview() {
+    if (salesModuleState.cpq.lines.length === 0) {
+        showToast('Add at least one line item before generating a quote', 'warning');
+        return;
+    }
+
+    const quotePreview = document.getElementById('cpqQuotePreview');
+    if (!quotePreview) {
+        return;
+    }
+
+    const opportunity = salesModuleState.opportunities.find(item => item.id === salesModuleState.cpq.opportunityId);
+    const totals = updateCpqTotals();
+    const generatedAt = new Date();
+    salesModuleState.cpq.lastGeneratedAt = generatedAt;
+
+    const lineRows = salesModuleState.cpq.lines.map(line => {
+        const lineAmount = line.price * line.quantity;
+        const netAmount = lineAmount * (1 - line.discount / 100);
+        return `
+            <tr class="border-t border-gray-100">
+                <td class="p-3">${line.name}</td>
+                <td class="p-3 text-right">${line.quantity}</td>
+                <td class="p-3 text-right">${formatCurrency(line.price)}</td>
+                <td class="p-3 text-right">${line.discount}%</td>
+                <td class="p-3 text-right">${formatCurrency(netAmount)}</td>
+            </tr>
+        `;
+    }).join('');
+
+    quotePreview.innerHTML = `
+        <div class="space-y-3">
+            <div class="flex items-center justify-between">
+                <h4 class="text-sm font-semibold text-gray-700">Quote Summary</h4>
+                <span class="text-xs text-gray-500">${generatedAt.toLocaleString()}</span>
+            </div>
+            <div class="text-sm text-gray-600">
+                <p><span class="font-medium text-gray-700">Opportunity:</span> ${opportunity ? opportunity.name : 'Unassigned quote'}</p>
+                <p><span class="font-medium text-gray-700">Account:</span> ${opportunity?.company_name || 'Not linked'}</p>
+            </div>
+            <div class="border border-gray-200 rounded-lg overflow-hidden">
+                <table class="w-full text-sm">
+                    <thead class="bg-gray-100 text-gray-600 uppercase text-xs">
+                        <tr>
+                            <th class="p-3 text-left">Product</th>
+                            <th class="p-3 text-right">Qty</th>
+                            <th class="p-3 text-right">Unit Price</th>
+                            <th class="p-3 text-right">Discount</th>
+                            <th class="p-3 text-right">Net Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${lineRows}
+                    </tbody>
+                </table>
+            </div>
+            <div class="flex justify-end text-sm text-gray-700">
+                <div class="space-y-1 text-right">
+                    <div><span class="font-medium">Subtotal:</span> ${formatCurrency(totals.subtotal)}</div>
+                    <div><span class="font-medium">Discounts:</span> -${formatCurrency(totals.discountTotal)}</div>
+                    <div class="text-base font-semibold text-gray-800"><span>Total Due:</span> ${formatCurrency(totals.total)}</div>
+                </div>
+            </div>
+        </div>
+    `;
+
+    showToast('Quote preview generated', 'success');
+}
+
+function handleGenerateInvoice() {
+    if (salesModuleState.cpq.lines.length === 0) {
+        showToast('Create a quote before generating an invoice draft', 'warning');
+        return;
+    }
+
+    const paymentProviders = Array.from(salesModuleState.billing.paymentProviders);
+    const accountingSystems = Array.from(salesModuleState.billing.accountingSystems);
+    const invoiceStatus = document.getElementById('cpqInvoiceStatus');
+
+    if (paymentProviders.length === 0 || accountingSystems.length === 0) {
+        showToast('Connect billing integrations to prepare invoices', 'warning');
+        if (invoiceStatus) {
+            invoiceStatus.className = 'text-sm text-red-600';
+            invoiceStatus.textContent = 'Connect at least one payment provider and accounting system to create invoices.';
+        }
+        return;
+    }
+
+    const totals = updateCpqTotals();
+    const opportunity = salesModuleState.opportunities.find(item => item.id === salesModuleState.cpq.opportunityId);
+    const paymentNames = paymentProviders.map(id => PAYMENT_PROVIDERS.find(provider => provider.id === id)?.name || id);
+    const accountingNames = accountingSystems.map(id => ACCOUNTING_SYSTEMS.find(system => system.id === id)?.name || id);
+
+    if (invoiceStatus) {
+        invoiceStatus.className = 'text-sm text-green-600';
+        invoiceStatus.innerHTML = `
+            Invoice draft prepared for <span class="font-semibold">${opportunity ? opportunity.name : 'unassigned opportunity'}</span>.<br>
+            Payments via ${paymentNames.join(', ')} · Syncing to ${accountingNames.join(', ')} with terms ${salesModuleState.billing.paymentTerms}.<br>
+            Total due: ${formatCurrency(totals.total)}.
+        `;
+    }
+
+    showToast('Invoice draft prepared with connected systems', 'success');
+}
+
+function initializeBillingIntegrations() {
+    const paymentsContainer = document.getElementById('paymentProvidersList');
+    const accountingContainer = document.getElementById('accountingSystemsList');
+    const termsSelect = document.getElementById('invoicePaymentTerms');
+    const autoSendCheckbox = document.getElementById('invoiceAutoSend');
+    const syncButton = document.getElementById('simulateInvoiceSync');
+    const syncStatus = document.getElementById('invoiceSyncStatus');
+
+    if (!paymentsContainer || !accountingContainer) {
+        return;
+    }
+
+    salesModuleState.billing.paymentProviders = new Set();
+    salesModuleState.billing.accountingSystems = new Set();
+    salesModuleState.billing.paymentTerms = termsSelect?.value || 'Net 30';
+    salesModuleState.billing.autoSendInvoices = autoSendCheckbox?.checked || false;
+    if (syncStatus) {
+        syncStatus.className = 'text-sm text-gray-500';
+        syncStatus.textContent = '';
+    }
+
+    paymentsContainer.innerHTML = PAYMENT_PROVIDERS.map(provider => createIntegrationOption(provider, 'payment')).join('');
+    accountingContainer.innerHTML = ACCOUNTING_SYSTEMS.map(system => createIntegrationOption(system, 'accounting')).join('');
+
+    paymentsContainer.querySelectorAll('input[type="checkbox"]').forEach(input => {
+        input.addEventListener('change', event => updateBillingSelection(event, 'payment'));
+    });
+
+    accountingContainer.querySelectorAll('input[type="checkbox"]').forEach(input => {
+        input.addEventListener('change', event => updateBillingSelection(event, 'accounting'));
+    });
+
+    termsSelect?.addEventListener('change', event => {
+        salesModuleState.billing.paymentTerms = event.target.value;
+        updateBillingConnectionSummary();
+    });
+
+    autoSendCheckbox?.addEventListener('change', event => {
+        salesModuleState.billing.autoSendInvoices = event.target.checked;
+        updateBillingConnectionSummary();
+    });
+
+    syncButton?.addEventListener('click', event => {
+        event.preventDefault();
+        simulateInvoiceSync();
+    });
+
+    updateBillingConnectionSummary();
+}
+
+function createIntegrationOption(item, group) {
+    return `
+        <label class="flex items-start space-x-3 border border-gray-200 rounded-lg px-3 py-2 hover:border-blue-300 cursor-pointer">
+            <input type="checkbox" value="${item.id}" data-integration-group="${group}" class="mt-1 h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
+            <div>
+                <p class="text-sm font-medium text-gray-700">${item.name}</p>
+                <p class="text-xs text-gray-500">${item.description}</p>
+            </div>
+        </label>
+    `;
+}
+
+function updateBillingSelection(event, group) {
+    const id = event.target.value;
+    const isChecked = event.target.checked;
+    const targetSet = group === 'payment' ? salesModuleState.billing.paymentProviders : salesModuleState.billing.accountingSystems;
+
+    if (isChecked) {
+        targetSet.add(id);
+    } else {
+        targetSet.delete(id);
+    }
+
+    updateBillingConnectionSummary();
+}
+
+function updateBillingConnectionSummary() {
+    const summary = document.getElementById('billingConnectionSummary');
+    if (!summary) {
+        return;
+    }
+
+    const paymentLabels = Array.from(salesModuleState.billing.paymentProviders).map(id =>
+        PAYMENT_PROVIDERS.find(provider => provider.id === id)?.name || id
+    );
+    const accountingLabels = Array.from(salesModuleState.billing.accountingSystems).map(id =>
+        ACCOUNTING_SYSTEMS.find(system => system.id === id)?.name || id
+    );
+
+    const autoSendText = salesModuleState.billing.autoSendInvoices ? 'Auto-send enabled' : 'Manual invoice dispatch';
+
+    summary.innerHTML = `
+        <div class="space-y-1">
+            <p><span class="font-semibold">Payments:</span> ${paymentLabels.length ? paymentLabels.join(', ') : 'No providers connected'}</p>
+            <p><span class="font-semibold">Accounting:</span> ${accountingLabels.length ? accountingLabels.join(', ') : 'No ledgers connected'}</p>
+            <p><span class="font-semibold">Terms:</span> ${salesModuleState.billing.paymentTerms} · ${autoSendText}</p>
+        </div>
+    `;
+}
+
+function simulateInvoiceSync() {
+    const status = document.getElementById('invoiceSyncStatus');
+    if (!status) {
+        return;
+    }
+
+    const paymentProviders = Array.from(salesModuleState.billing.paymentProviders);
+    const accountingSystems = Array.from(salesModuleState.billing.accountingSystems);
+
+    if (paymentProviders.length === 0 || accountingSystems.length === 0) {
+        status.className = 'text-sm text-red-600';
+        status.textContent = 'Connect at least one payment provider and one accounting platform to run the sync.';
+        showToast('Cannot run billing sync without integrations', 'warning');
+        return;
+    }
+
+    const autoSendText = salesModuleState.billing.autoSendInvoices ? 'Auto-send is enabled' : 'Auto-send is disabled';
+    const lineItemCount = salesModuleState.cpq.lines.length;
+
+    status.className = 'text-sm text-gray-600';
+    status.innerHTML = `
+        Sync completed at ${new Date().toLocaleTimeString()}.<br>
+        Prepared ${lineItemCount} quote line item(s) for invoicing through ${paymentProviders.length} payment provider(s) and ${accountingSystems.length} accounting system(s).<br>
+        ${autoSendText}.
+    `;
+
+    showToast('Invoice sync simulated successfully', 'success');
 }
 
 // Tasks Management
