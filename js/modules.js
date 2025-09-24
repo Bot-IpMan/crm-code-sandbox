@@ -1918,104 +1918,1496 @@ function getActivityTypeColor(type) {
     return colors[type] || 'bg-gray-500';
 }
 
-// Reports Management
-async function showReports() {
+// Analytics & BI Management
+const CAMPAIGN_PERFORMANCE_DATA = [
+    {
+        name: MARKETING_CAMPAIGNS[0] ? MARKETING_CAMPAIGNS[0].name : 'Lifecycle nurture · від заявки до продовження',
+        status: MARKETING_CAMPAIGNS[0] ? MARKETING_CAMPAIGNS[0].status : 'Активна',
+        spend: 5400,
+        generatedLeads: 148,
+        influencedDeals: 19,
+        influencedRevenue: 132000,
+        meetingsBooked: 32,
+        retentionLift: 0.18,
+        engagementRate: 0.64
+    },
+    {
+        name: MARKETING_CAMPAIGNS[1] ? MARKETING_CAMPAIGNS[1].name : 'Account-based програма для стратегічних клієнтів',
+        status: MARKETING_CAMPAIGNS[1] ? MARKETING_CAMPAIGNS[1].status : 'Підготовка',
+        spend: 8600,
+        generatedLeads: 58,
+        influencedDeals: 11,
+        influencedRevenue: 156000,
+        meetingsBooked: 21,
+        retentionLift: 0.12,
+        engagementRate: 0.58
+    },
+    {
+        name: MARKETING_CAMPAIGNS[2] ? MARKETING_CAMPAIGNS[2].name : 'Reactivation sprint · повернення неактивних користувачів',
+        status: MARKETING_CAMPAIGNS[2] ? MARKETING_CAMPAIGNS[2].status : 'Активна',
+        spend: 3900,
+        generatedLeads: 96,
+        influencedDeals: 14,
+        influencedRevenue: 84000,
+        meetingsBooked: 17,
+        retentionLift: 0.21,
+        engagementRate: 0.71
+    }
+];
+
+const ANALYTICS_WIDGETS_STORAGE_KEY = 'crmAnalyticsWidgets';
+
+const ANALYTICS_WIDGET_LIBRARY = {
+    pipelineByStage: {
+        label: 'Pipeline за стадіями',
+        description: 'Порівняння загальної та зваженої виручки у кожній стадії продажу.',
+        render(container, context, widget) {
+            const stageData = context.pipelineByStage || [];
+            if (!stageData.length) {
+                container.innerHTML = '<p class="text-sm text-gray-500">Недостатньо даних для побудови графіка.</p>';
+                return;
+            }
+
+            const canvasId = `${widget.id}-chart`;
+            container.innerHTML = `<div style="height: 240px;"><canvas id="${canvasId}"></canvas></div>`;
+
+            renderChartInstance(canvasId, {
+                type: 'bar',
+                data: {
+                    labels: stageData.map(item => item.stage),
+                    datasets: [
+                        {
+                            label: 'Pipeline',
+                            data: stageData.map(item => Number(item.totalValue || 0)),
+                            backgroundColor: 'rgba(96, 165, 250, 0.65)',
+                            borderRadius: 6
+                        },
+                        {
+                            label: 'Зважена виручка',
+                            data: stageData.map(item => Number(item.weightedValue || 0)),
+                            backgroundColor: 'rgba(37, 99, 235, 0.9)',
+                            borderRadius: 6
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            ticks: {
+                                callback(value) {
+                                    return formatCurrency(value);
+                                }
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: { position: 'bottom' }
+                    }
+                }
+            });
+
+            const topStage = stageData.slice().sort((a, b) => (b.weightedValue || 0) - (a.weightedValue || 0))[0];
+            if (topStage) {
+                const summary = document.createElement('p');
+                summary.className = 'mt-3 text-xs text-gray-500';
+                summary.innerHTML = `Найбільше очікуваної виручки у стадії <span class="font-medium text-gray-700">${topStage.stage}</span>: ${formatCurrency(topStage.weightedValue || 0)}.`;
+                container.appendChild(summary);
+            }
+        }
+    },
+    ownerPerformance: {
+        label: 'Продуктивність менеджерів',
+        description: 'Порівняння закритої виручки та активного pipeline по власниках угод.',
+        render(container, context, widget) {
+            const ownerData = context.ownerProductivity || [];
+            if (!ownerData.length) {
+                container.innerHTML = '<p class="text-sm text-gray-500">У CRM поки немає угод для аналізу менеджерів.</p>';
+                return;
+            }
+
+            const canvasId = `${widget.id}-chart`;
+            container.innerHTML = `<div style="height: 240px;"><canvas id="${canvasId}"></canvas></div>`;
+
+            renderChartInstance(canvasId, {
+                type: 'bar',
+                data: {
+                    labels: ownerData.map(item => item.owner),
+                    datasets: [
+                        {
+                            label: 'Закрито',
+                            data: ownerData.map(item => Number(item.wonValue || 0)),
+                            backgroundColor: 'rgba(16, 185, 129, 0.85)',
+                            borderRadius: 6
+                        },
+                        {
+                            label: 'Активний pipeline',
+                            data: ownerData.map(item => Number(item.openPipeline || 0)),
+                            backgroundColor: 'rgba(59, 130, 246, 0.6)',
+                            borderRadius: 6
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    indexAxis: 'y',
+                    scales: {
+                        x: {
+                            ticks: {
+                                callback(value) {
+                                    return formatCurrency(value);
+                                }
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: { position: 'bottom' }
+                    }
+                }
+            });
+
+            const leader = ownerData[0];
+            if (leader) {
+                const info = document.createElement('p');
+                info.className = 'mt-3 text-xs text-gray-500';
+                info.innerHTML = `${leader.owner} генерує ${formatCurrency(leader.wonValue || 0)} закритої виручки при win-rate ${formatPercentage(leader.winRate || 0)}.`;
+                container.appendChild(info);
+            }
+        }
+    },
+    campaignROI: {
+        label: 'ROI маркетингових кампаній',
+        description: 'ROI та конверсія по ключових кампаніях.',
+        render(container, context, widget) {
+            const campaignData = context.campaignEffectiveness?.enriched || [];
+            if (!campaignData.length) {
+                container.innerHTML = '<p class="text-sm text-gray-500">Додайте кампанії у модулі Marketing, щоб побачити їх ефективність.</p>';
+                return;
+            }
+
+            const canvasId = `${widget.id}-chart`;
+            container.innerHTML = `<div style="height: 240px;"><canvas id="${canvasId}"></canvas></div>`;
+
+            renderChartInstance(canvasId, {
+                data: {
+                    labels: campaignData.map(item => item.name),
+                    datasets: [
+                        {
+                            type: 'bar',
+                            label: 'ROI (x)',
+                            data: campaignData.map(item => Number((item.roi || 0).toFixed(2))),
+                            backgroundColor: 'rgba(251, 191, 36, 0.85)',
+                            borderRadius: 6,
+                            yAxisID: 'y'
+                        },
+                        {
+                            type: 'line',
+                            label: 'Конверсія %',
+                            data: campaignData.map(item => Number(((item.conversionRate || 0) * 100).toFixed(1))),
+                            borderColor: '#2563eb',
+                            backgroundColor: 'rgba(37, 99, 235, 0.1)',
+                            tension: 0.4,
+                            yAxisID: 'y1'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback(value) {
+                                    return `${value}x`;
+                                }
+                            }
+                        },
+                        y1: {
+                            beginAtZero: true,
+                            position: 'right',
+                            grid: { drawOnChartArea: false },
+                            ticks: {
+                                callback(value) {
+                                    return `${value}%`;
+                                }
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: { position: 'bottom' }
+                    }
+                }
+            });
+
+            const meanCpl = campaignData.reduce((sum, item) => sum + (item.costPerLead || 0), 0) / campaignData.length;
+            const helper = document.createElement('p');
+            helper.className = 'mt-3 text-xs text-gray-500';
+            helper.textContent = `Середня вартість ліда: ${formatCurrency(meanCpl || 0)}.`;
+            container.appendChild(helper);
+        }
+    },
+    forecastTrend: {
+        label: 'Тренд прогнозу виручки',
+        description: 'AI-модель порівнює історію угод та прогноз наступних місяців.',
+        render(container, context, widget) {
+            const series = context.revenueSeries || [];
+            const forecast = context.forecast || { predictions: [] };
+
+            if (!series.length) {
+                container.innerHTML = '<p class="text-sm text-gray-500">Недостатньо даних для побудови прогнозу.</p>';
+                return;
+            }
+
+            const historyLabels = series.map(item => getMonthLabel(item.month));
+            const forecastLabels = (forecast.predictions || []).map(item => getMonthLabel(item.month));
+            const labels = historyLabels.concat(forecastLabels);
+
+            const actualData = [];
+            const weightedData = [];
+            const forecastData = [];
+
+            series.forEach(item => {
+                actualData.push(Number(item.actual || 0));
+                weightedData.push(Number(item.weighted || 0));
+                forecastData.push(null);
+            });
+
+            (forecast.predictions || []).forEach(prediction => {
+                actualData.push(null);
+                weightedData.push(null);
+                forecastData.push(Number(Math.max(prediction.value || 0, 0)));
+            });
+
+            const canvasId = `${widget.id}-chart`;
+            container.innerHTML = `<div style="height: 240px;"><canvas id="${canvasId}"></canvas></div>`;
+
+            renderChartInstance(canvasId, {
+                type: 'line',
+                data: {
+                    labels,
+                    datasets: [
+                        {
+                            label: 'Фактична виручка',
+                            data: actualData,
+                            borderColor: '#10b981',
+                            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                            tension: 0.4,
+                            spanGaps: true
+                        },
+                        {
+                            label: 'Ймовірна виручка',
+                            data: weightedData,
+                            borderColor: '#2563eb',
+                            backgroundColor: 'rgba(37, 99, 235, 0.08)',
+                            borderDash: [6, 6],
+                            tension: 0.4,
+                            spanGaps: true
+                        },
+                        {
+                            label: 'AI прогноз',
+                            data: forecastData,
+                            borderColor: '#f97316',
+                            backgroundColor: 'rgba(249, 115, 22, 0.1)',
+                            borderDash: [4, 4],
+                            tension: 0.4,
+                            spanGaps: true
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom' }
+                    },
+                    scales: {
+                        y: {
+                            ticks: {
+                                callback(value) {
+                                    return formatCurrency(value);
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            const note = document.createElement('p');
+            note.className = 'mt-3 text-xs text-gray-500';
+            const nextMonth = forecast.predictions && forecast.predictions[0];
+            const nextValue = nextMonth ? nextMonth.value || 0 : 0;
+            note.textContent = `Наступний місяць: ${formatCurrency(nextValue)} (${forecast.trendLabel || 'тренд стабільний'}).`;
+            container.appendChild(note);
+        }
+    },
+    winRate: {
+        label: 'Win-rate команди',
+        description: 'Ключовий KPI з підказками щодо наступних кроків.',
+        render(container, context) {
+            const winRate = context.salesKPIs?.winRate || 0;
+            const wonCount = context.salesKPIs?.wonCount || 0;
+            const openCount = context.salesKPIs?.openCount || 0;
+            container.innerHTML = `
+                <div class="text-3xl font-semibold text-gray-800">${formatPercentage(winRate)}</div>
+                <p class="text-sm text-gray-500 mt-2">Win-rate команди за всіма угодами.</p>
+                <div class="mt-4 h-2 bg-gray-200 rounded-full overflow-hidden">
+                    <div class="h-full bg-emerald-500" style="width: ${Math.min(100, winRate * 100).toFixed(1)}%;"></div>
+                </div>
+                <p class="mt-3 text-xs text-gray-400">Закриті угоди: ${wonCount}. Активні: ${openCount}.</p>
+            `;
+        }
+    },
+    activityMix: {
+        label: 'Активність команди',
+        description: 'Баланс дзвінків, листів і зустрічей по типах активностей.',
+        render(container, context, widget) {
+            const metrics = context.activityMetrics || { breakdown: [] };
+            if (!metrics.total) {
+                container.innerHTML = '<p class="text-sm text-gray-500">Поки немає активностей для аналітики.</p>';
+                return;
+            }
+
+            const canvasId = `${widget.id}-chart`;
+            container.innerHTML = '<div class="space-y-4"><div style="height: 220px;"><canvas id="' + canvasId + '"></canvas></div></div>';
+
+            const colors = ['#2563eb', '#10b981', '#f59e0b', '#6366f1', '#f97316', '#ef4444', '#14b8a6'];
+            renderChartInstance(canvasId, {
+                type: 'doughnut',
+                data: {
+                    labels: metrics.breakdown.map(item => item.type),
+                    datasets: [{
+                        data: metrics.breakdown.map(item => item.count),
+                        backgroundColor: colors,
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom' }
+                    }
+                }
+            });
+
+            const summary = document.createElement('p');
+            summary.className = 'text-xs text-gray-500 text-center';
+            const topType = metrics.topType;
+            const topText = topType ? `${topType.type} (${formatPercentage(topType.percentage || 0)})` : '—';
+            summary.textContent = `Усього активностей: ${metrics.total}. Топ канал: ${topText}.`;
+            container.querySelector('.space-y-4').appendChild(summary);
+        }
+    }
+};
+
+async function renderAnalyticsAndBI() {
     showView('reports');
-    updatePageHeader('Reports', 'View comprehensive business reports');
-    
+    updatePageHeader('Analytics & BI', 'Будуйте дашборди, зрізи та AI-прогнози на базі CRM-даних.');
+
     const reportsView = document.getElementById('reportsView');
+    if (!reportsView) {
+        return;
+    }
+
     reportsView.innerHTML = `
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-            <!-- Sales Performance -->
-            <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                <h3 class="text-lg font-semibold text-gray-800 mb-4">Sales Performance</h3>
-                <div style="height: 300px;">
-                    <canvas id="salesPerformanceChart"></canvas>
+        <div class="space-y-6">
+            <section>
+                <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4" id="analyticsSummary"></div>
+            </section>
+
+            <section class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                    <div>
+                        <h3 class="text-lg font-semibold text-gray-800">Конструктор дашбордів</h3>
+                        <p class="text-sm text-gray-500">Обирайте віджети, щоб зібрати власний BI-набір. Налаштування зберігаються у браузері.</p>
+                    </div>
+                    <div class="flex flex-col sm:flex-row sm:items-center gap-3">
+                        <select id="analyticsWidgetSelect" class="border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                            <option value="">Оберіть віджет...</option>
+                        </select>
+                        <button id="addAnalyticsWidget" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                            <i class="fas fa-plus mr-2"></i>Додати
+                        </button>
+                        <button id="resetAnalyticsWidgets" class="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50">
+                            <i class="fas fa-rotate-left mr-2"></i>Скинути
+                        </button>
+                    </div>
                 </div>
-            </div>
-            
-            <!-- Lead Conversion -->
-            <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                <h3 class="text-lg font-semibold text-gray-800 mb-4">Lead Conversion Funnel</h3>
-                <div style="height: 300px;">
-                    <canvas id="conversionFunnelChart"></canvas>
+                <div id="customAnalyticsDashboard" class="mt-6 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4"></div>
+            </section>
+
+            <section class="space-y-4">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h3 class="text-lg font-semibold text-gray-800">Аналітичні зрізи</h3>
+                        <p class="text-sm text-gray-500">Фокус на продуктивності продажів, маркетингу та прогнозуванні.</p>
+                    </div>
+                    <span class="inline-flex items-center px-3 py-1 text-xs font-semibold uppercase rounded-full bg-blue-50 text-blue-600">
+                        Автооновлення
+                    </span>
                 </div>
-            </div>
-        </div>
-        
-        <!-- Reports Table -->
-        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-            <div class="flex items-center justify-between mb-6">
-                <h3 class="text-lg font-semibold text-gray-800">Detailed Reports</h3>
-                <div class="flex space-x-3">
-                    <button onclick="generateReport('contacts')" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-                        Contacts Report
-                    </button>
-                    <button onclick="generateReport('sales')" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">
-                        Sales Report
-                    </button>
-                    <button onclick="generateReport('activities')" class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700">
-                        Activities Report
-                    </button>
+                <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                        <span class="inline-flex items-center px-3 py-1 text-xs font-semibold uppercase rounded-full bg-emerald-50 text-emerald-600">Продажі</span>
+                        <div class="flex items-center justify-between mt-2">
+                            <h3 class="text-lg font-semibold text-gray-800">Продуктивність команди продажів</h3>
+                            <span class="text-xs text-gray-400">Автоматична візуалізація</span>
+                        </div>
+                        <div class="mt-4" style="height: 280px;">
+                            <canvas id="salesProductivityChart"></canvas>
+                        </div>
+                        <div id="salesInsights" class="mt-4 space-y-3 text-sm text-gray-600"></div>
+                    </div>
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                        <span class="inline-flex items-center px-3 py-1 text-xs font-semibold uppercase rounded-full bg-amber-50 text-amber-600">Маркетинг</span>
+                        <h3 class="text-lg font-semibold text-gray-800 mt-2">Ефективність маркетингових кампаній</h3>
+                        <div class="mt-4" style="height: 280px;">
+                            <canvas id="campaignPerformanceChart"></canvas>
+                        </div>
+                        <div id="campaignInsights" class="mt-4 space-y-3 text-sm text-gray-600"></div>
+                    </div>
                 </div>
-            </div>
-            
-            <div id="reportData" class="mt-6">
-                <div class="text-center text-gray-500 py-8">
-                    <i class="fas fa-chart-bar text-4xl mb-4"></i>
-                    <p>Select a report type to view detailed data</p>
+            </section>
+
+            <section class="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                    <span class="inline-flex items-center px-3 py-1 text-xs font-semibold uppercase rounded-full bg-indigo-50 text-indigo-600">Прогноз</span>
+                    <h3 class="text-lg font-semibold text-gray-800 mt-2">Прогноз виручки</h3>
+                    <p class="text-sm text-gray-500 mt-2">AI-модель використовує вагу угод, ймовірність закриття та історичні перемоги.</p>
+                    <div class="mt-4" style="height: 280px;">
+                        <canvas id="revenueForecastChart"></canvas>
+                    </div>
+                    <div id="forecastSummary" class="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm text-gray-600"></div>
                 </div>
-            </div>
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                    <span class="inline-flex items-center px-3 py-1 text-xs font-semibold uppercase rounded-full bg-purple-50 text-purple-600">AI</span>
+                    <h3 class="text-lg font-semibold text-gray-800 mt-2">AI-рекомендації</h3>
+                    <p class="text-sm text-gray-500 mt-2">Персональні поради щодо наступних кроків на основі ваших CRM-даних.</p>
+                    <div id="aiRecommendations" class="mt-4 space-y-4"></div>
+                </div>
+            </section>
         </div>
     `;
-    
-    initializeReportCharts();
+
+    showLoading();
+    try {
+        const dataset = await fetchAnalyticsDataset();
+        const context = buildAnalyticsContext(dataset);
+
+        renderAnalyticsSummary(context);
+        initializeDashboardBuilder(context);
+        renderSalesAnalytics(context);
+        renderCampaignAnalytics(context);
+        renderForecastAnalytics(context);
+        renderAIInsights(context);
+    } catch (error) {
+        console.error('Error loading analytics module:', error);
+        showToast('Не вдалося завантажити модуль аналітики', 'error');
+    } finally {
+        hideLoading();
+    }
 }
 
-function initializeReportCharts() {
-    // Sales Performance Chart
-    const salesCtx = document.getElementById('salesPerformanceChart').getContext('2d');
-    new Chart(salesCtx, {
-        type: 'line',
-        data: {
-            labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
-            datasets: [{
-                label: 'Revenue',
-                data: [65000, 85000, 75000, 95000, 120000, 140000],
-                borderColor: '#3b82f6',
-                backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                tension: 0.4
-            }]
+async function fetchAnalyticsDataset() {
+    const [opportunitiesRes, leadsRes, activitiesRes, tasksRes, companiesRes] = await Promise.all([
+        fetch('tables/opportunities').then(response => response.json()),
+        fetch('tables/leads').then(response => response.json()),
+        fetch('tables/activities').then(response => response.json()),
+        fetch('tables/tasks').then(response => response.json()),
+        fetch('tables/companies').then(response => response.json())
+    ]);
+
+    return {
+        opportunities: opportunitiesRes.data || opportunitiesRes || [],
+        leads: leadsRes.data || leadsRes || [],
+        activities: activitiesRes.data || activitiesRes || [],
+        tasks: tasksRes.data || tasksRes || [],
+        companies: companiesRes.data || companiesRes || [],
+        campaigns: Array.isArray(MARKETING_CAMPAIGNS) ? MARKETING_CAMPAIGNS.slice() : [],
+        campaignPerformance: CAMPAIGN_PERFORMANCE_DATA.map(item => ({ ...item }))
+    };
+}
+
+function buildAnalyticsContext(dataset) {
+    const pipelineByStage = calculatePipelineByStage(dataset.opportunities);
+    const salesKPIs = calculateSalesKPIs(dataset.opportunities);
+    const ownerProductivity = calculateOwnerProductivity(dataset.opportunities);
+    const activityMetrics = calculateActivityMetrics(dataset.activities);
+    const revenueSeries = buildRevenueSeries(dataset.opportunities);
+    const forecast = generateRevenueForecast(revenueSeries);
+    const campaignEffectiveness = calculateCampaignEffectiveness(dataset.campaignPerformance);
+
+    return {
+        ...dataset,
+        pipelineByStage,
+        salesKPIs,
+        ownerProductivity,
+        activityMetrics,
+        revenueSeries,
+        forecast,
+        campaignEffectiveness
+    };
+}
+
+function renderAnalyticsSummary(context) {
+    const container = document.getElementById('analyticsSummary');
+    if (!container) {
+        return;
+    }
+
+    const cards = [
+        {
+            title: 'Зважений pipeline',
+            value: formatCurrency(context.salesKPIs.weightedPipeline || 0),
+            helper: `Середня ймовірність: ${formatPercentage((context.salesKPIs.averageProbability || 0) / 100)}`,
+            icon: 'fa-diagram-project',
+            accent: 'bg-blue-50 text-blue-600'
         },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: { display: false }
+        {
+            title: 'Win-rate команди',
+            value: formatPercentage(context.salesKPIs.winRate || 0),
+            helper: `Середній чек: ${formatCurrency(context.salesKPIs.averageDealSize || 0)}`,
+            icon: 'fa-bullseye',
+            accent: 'bg-emerald-50 text-emerald-600'
+        },
+        {
+            title: 'Прогноз (90 днів)',
+            value: formatCurrency(context.forecast.projectedNextQuarter || 0),
+            helper: context.forecast.trendLabel || 'Тренд: стабільний',
+            icon: 'fa-chart-line',
+            accent: 'bg-indigo-50 text-indigo-600'
+        },
+        {
+            title: 'ROI маркетингу',
+            value: `x${(context.campaignEffectiveness.overallROI || 0).toFixed(1)}`,
+            helper: context.campaignEffectiveness.topROI ? `Найкраща: ${context.campaignEffectiveness.topROI.name}` : 'Додайте кампанії для аналізу',
+            icon: 'fa-bullhorn',
+            accent: 'bg-amber-50 text-amber-600'
+        }
+    ];
+
+    container.innerHTML = cards.map(card => `
+        <div class="bg-white border border-gray-100 rounded-xl p-5 shadow-sm">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-xs uppercase tracking-wide text-gray-500">${card.title}</p>
+                    <p class="mt-2 text-2xl font-semibold text-gray-800">${card.value}</p>
+                </div>
+                <span class="w-10 h-10 rounded-lg flex items-center justify-center ${card.accent}">
+                    <i class="fas ${card.icon}"></i>
+                </span>
+            </div>
+            <p class="mt-3 text-sm text-gray-500">${card.helper}</p>
+        </div>
+    `).join('');
+}
+
+function initializeDashboardBuilder(context) {
+    const select = document.getElementById('analyticsWidgetSelect');
+    const addBtn = document.getElementById('addAnalyticsWidget');
+    const resetBtn = document.getElementById('resetAnalyticsWidgets');
+
+    if (!select || !addBtn || !resetBtn) {
+        return;
+    }
+
+    select.innerHTML = '<option value="">Оберіть віджет...</option>' + Object.entries(ANALYTICS_WIDGET_LIBRARY)
+        .map(([key, definition]) => `<option value="${key}">${definition.label}</option>`)
+        .join('');
+
+    let activeWidgets = loadStoredAnalyticsWidgets();
+    const updateWidgets = nextWidgets => {
+        activeWidgets = nextWidgets;
+        saveAnalyticsWidgets(activeWidgets);
+        renderCustomDashboard(activeWidgets, context, updateWidgets);
+    };
+
+    renderCustomDashboard(activeWidgets, context, updateWidgets);
+
+    addBtn.addEventListener('click', () => {
+        const type = select.value;
+        if (!type) {
+            showToast('Оберіть віджет для додавання', 'warning');
+            return;
+        }
+        const widget = {
+            id: `widget-${type}-${Date.now()}`,
+            type
+        };
+        updateWidgets(activeWidgets.concat(widget));
+        showToast('Віджет додано до дашборду', 'success');
+    });
+
+    resetBtn.addEventListener('click', () => {
+        updateWidgets([]);
+        showToast('Аналітичні віджети очищено', 'info');
+    });
+}
+
+function loadStoredAnalyticsWidgets() {
+    if (typeof window === 'undefined' || !window.localStorage) {
+        return [];
+    }
+    try {
+        const raw = window.localStorage.getItem(ANALYTICS_WIDGETS_STORAGE_KEY);
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+            return parsed.filter(widget => widget && widget.type);
+        }
+    } catch (error) {
+        console.warn('Failed to read analytics widgets from storage', error);
+    }
+    return [];
+}
+
+function saveAnalyticsWidgets(widgets) {
+    if (typeof window === 'undefined' || !window.localStorage) {
+        return;
+    }
+    try {
+        window.localStorage.setItem(ANALYTICS_WIDGETS_STORAGE_KEY, JSON.stringify(widgets));
+    } catch (error) {
+        console.warn('Failed to persist analytics widgets', error);
+    }
+}
+
+function renderCustomDashboard(widgets, context, onUpdate) {
+    const container = document.getElementById('customAnalyticsDashboard');
+    if (!container) {
+        return;
+    }
+
+    if (typeof charts === 'object' && charts) {
+        Object.keys(charts).forEach(chartId => {
+            if (chartId.startsWith('widget-')) {
+                destroyChartById(chartId);
             }
+        });
+    }
+
+    container.innerHTML = '';
+
+    if (!widgets || !widgets.length) {
+        container.innerHTML = `
+            <div class="col-span-full border border-dashed border-gray-300 rounded-lg p-6 text-sm text-gray-500 bg-gray-50">
+                Додайте один або кілька віджетів, щоб сформувати персональний дашборд. Налаштування буде збережено у вашому браузері.
+            </div>
+        `;
+        return;
+    }
+
+    widgets.forEach(widget => {
+        const definition = ANALYTICS_WIDGET_LIBRARY[widget.type];
+        if (!definition) {
+            return;
+        }
+        const card = document.createElement('div');
+        card.className = 'bg-white border border-gray-100 rounded-xl shadow-sm p-5 flex flex-col';
+        card.setAttribute('data-widget-id', widget.id);
+
+        card.innerHTML = `
+            <div class="flex items-start justify-between">
+                <div>
+                    <p class="text-xs uppercase tracking-wide text-blue-500 font-semibold">Віджет</p>
+                    <h4 class="text-base font-semibold text-gray-800 mt-1">${definition.label}</h4>
+                    <p class="text-xs text-gray-500 mt-1">${definition.description}</p>
+                </div>
+                <button type="button" data-remove-widget class="text-gray-400 hover:text-gray-600 transition-colors">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="mt-4 flex-1 widget-body"></div>
+        `;
+
+        container.appendChild(card);
+        const body = card.querySelector('.widget-body');
+        try {
+            definition.render(body, context, widget);
+        } catch (error) {
+            console.error('Failed to render analytics widget', widget.type, error);
+            body.innerHTML = '<p class="text-sm text-red-500">Не вдалося відобразити віджет.</p>';
         }
     });
-    
-    // Conversion Funnel Chart
-    const funnelCtx = document.getElementById('conversionFunnelChart').getContext('2d');
-    new Chart(funnelCtx, {
-        type: 'bar',
-        data: {
-            labels: ['Leads', 'Qualified', 'Proposals', 'Negotiations', 'Won'],
-            datasets: [{
-                label: 'Count',
-                data: [100, 75, 45, 25, 18],
-                backgroundColor: ['#ef4444', '#f59e0b', '#3b82f6', '#10b981', '#059669']
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: { display: false }
+
+    container.querySelectorAll('[data-remove-widget]').forEach(button => {
+        button.addEventListener('click', () => {
+            const card = button.closest('[data-widget-id]');
+            if (!card) {
+                return;
             }
+            const widgetId = card.getAttribute('data-widget-id');
+            destroyChartById(`${widgetId}-chart`);
+            const nextWidgets = widgets.filter(item => item.id !== widgetId);
+            if (typeof onUpdate === 'function') {
+                onUpdate(nextWidgets);
+            }
+        });
+    });
+}
+
+function destroyChartById(chartId) {
+    if (typeof charts === 'object' && charts && charts[chartId]) {
+        charts[chartId].destroy();
+        delete charts[chartId];
+    }
+}
+
+function renderChartInstance(chartId, config) {
+    const canvas = document.getElementById(chartId);
+    if (!canvas || typeof Chart === 'undefined') {
+        return null;
+    }
+    destroyChartById(chartId);
+    const chart = new Chart(canvas.getContext('2d'), config);
+    if (typeof charts === 'object' && charts) {
+        charts[chartId] = chart;
+    }
+    return chart;
+}
+
+function calculateSalesKPIs(opportunities = []) {
+    const result = {
+        pipelineValue: 0,
+        weightedPipeline: 0,
+        wonRevenue: 0,
+        wonCount: 0,
+        lostCount: 0,
+        openCount: 0,
+        averageDealSize: 0,
+        winRate: 0,
+        averageProbability: 0
+    };
+
+    let probabilitySum = 0;
+    let probabilityCount = 0;
+
+    opportunities.forEach(opportunity => {
+        const value = Number(opportunity.value) || 0;
+        const stage = (opportunity.stage || '').toString();
+
+        if (stage === 'Closed Won') {
+            result.wonRevenue += value;
+            result.wonCount += 1;
+            result.weightedPipeline += value;
+        } else if (stage === 'Closed Lost') {
+            result.lostCount += 1;
+        } else {
+            result.pipelineValue += value;
+            result.openCount += 1;
+            const probability = determineProbability(opportunity);
+            result.weightedPipeline += value * probability;
+            probabilitySum += probability * 100;
+            probabilityCount += 1;
         }
     });
+
+    result.winRate = result.wonCount / Math.max(1, result.wonCount + result.lostCount);
+    result.averageDealSize = result.wonCount ? result.wonRevenue / result.wonCount : 0;
+    result.averageProbability = probabilityCount ? probabilitySum / probabilityCount : 0;
+
+    return result;
+}
+
+function determineProbability(opportunity) {
+    const stage = (opportunity.stage || '').toString();
+    if (stage === 'Closed Won') {
+        return 1;
+    }
+    if (stage === 'Closed Lost') {
+        return 0;
+    }
+    const candidate = Number(opportunity.probability);
+    if (Number.isFinite(candidate)) {
+        return Math.min(Math.max(candidate, 0), 100) / 100;
+    }
+    return 0.5;
+}
+
+function calculatePipelineByStage(opportunities = []) {
+    const stageOrder = ['Qualification', 'Discovery', 'Proposal', 'Negotiation', 'Closed Won', 'Closed Lost'];
+    const stageMap = new Map();
+
+    opportunities.forEach(opportunity => {
+        const stage = (opportunity.stage || 'Інше').toString();
+        const value = Number(opportunity.value) || 0;
+        const probability = determineProbability(opportunity);
+
+        if (!stageMap.has(stage)) {
+            stageMap.set(stage, { stage, totalValue: 0, weightedValue: 0, count: 0 });
+        }
+
+        const entry = stageMap.get(stage);
+        entry.totalValue += value;
+        entry.weightedValue += value * probability;
+        entry.count += 1;
+    });
+
+    return Array.from(stageMap.values())
+        .map(entry => ({
+            ...entry,
+            lossRatio: entry.totalValue > 0 ? 1 - (entry.weightedValue / entry.totalValue) : 0
+        }))
+        .sort((a, b) => {
+            const indexA = stageOrder.indexOf(a.stage);
+            const indexB = stageOrder.indexOf(b.stage);
+            if (indexA === -1 && indexB === -1) {
+                return a.stage.localeCompare(b.stage);
+            }
+            if (indexA === -1) return 1;
+            if (indexB === -1) return -1;
+            return indexA - indexB;
+        });
+}
+
+function calculateOwnerProductivity(opportunities = []) {
+    const map = new Map();
+
+    opportunities.forEach(opportunity => {
+        const owner = opportunity.assigned_to || 'Без власника';
+        const value = Number(opportunity.value) || 0;
+        const probability = determineProbability(opportunity);
+        const stage = (opportunity.stage || '').toString();
+
+        if (!map.has(owner)) {
+            map.set(owner, {
+                owner,
+                wonValue: 0,
+                openPipeline: 0,
+                deals: 0,
+                wonDeals: 0,
+                totalProbability: 0
+            });
+        }
+
+        const entry = map.get(owner);
+        entry.deals += 1;
+        entry.totalProbability += probability;
+
+        if (stage === 'Closed Won') {
+            entry.wonDeals += 1;
+            entry.wonValue += value;
+        } else if (stage !== 'Closed Lost') {
+            entry.openPipeline += value * probability;
+        }
+    });
+
+    return Array.from(map.values())
+        .map(entry => ({
+            owner: entry.owner,
+            wonValue: entry.wonValue,
+            openPipeline: entry.openPipeline,
+            deals: entry.deals,
+            winRate: entry.deals ? entry.wonDeals / entry.deals : 0,
+            averageProbability: entry.deals ? entry.totalProbability / entry.deals : 0
+        }))
+        .sort((a, b) => (b.wonValue || 0) - (a.wonValue || 0));
+}
+
+function calculateActivityMetrics(activities = []) {
+    if (!Array.isArray(activities) || !activities.length) {
+        return { total: 0, breakdown: [], topType: null, avgDuration: 0 };
+    }
+
+    const counts = new Map();
+    let durationSum = 0;
+
+    activities.forEach(activity => {
+        const type = activity.type || 'Інше';
+        const entry = counts.get(type) || { type, count: 0 };
+        entry.count += 1;
+        counts.set(type, entry);
+
+        if (typeof activity.duration === 'number') {
+            durationSum += activity.duration;
+        }
+    });
+
+    const total = activities.length;
+    const breakdown = Array.from(counts.values())
+        .map(entry => ({
+            type: entry.type,
+            count: entry.count,
+            percentage: total ? entry.count / total : 0
+        }))
+        .sort((a, b) => b.count - a.count);
+
+    const topType = breakdown[0] || null;
+    const avgDuration = total ? durationSum / total : 0;
+
+    return { total, breakdown, topType, avgDuration };
+}
+
+function buildRevenueSeries(opportunities = []) {
+    const monthly = new Map();
+
+    opportunities.forEach(opportunity => {
+        if (!opportunity.expected_close_date) {
+            return;
+        }
+
+        const date = new Date(opportunity.expected_close_date);
+        if (Number.isNaN(date.getTime())) {
+            return;
+        }
+
+        const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+        if (!monthly.has(key)) {
+            monthly.set(key, { month: key, actual: 0, weighted: 0 });
+        }
+
+        const entry = monthly.get(key);
+        const value = Number(opportunity.value) || 0;
+        const probability = determineProbability(opportunity);
+        const stage = (opportunity.stage || '').toString();
+
+        entry.weighted += value * probability;
+        if (stage === 'Closed Won') {
+            entry.actual += value;
+        }
+    });
+
+    return Array.from(monthly.values()).sort((a, b) => a.month.localeCompare(b.month));
+}
+
+function generateRevenueForecast(series = []) {
+    const predictions = [];
+    if (!Array.isArray(series) || !series.length) {
+        return {
+            predictions,
+            projectedNextQuarter: 0,
+            trend: 'flat',
+            trendLabel: 'Тренд: недостатньо даних',
+            growthRate: 0
+        };
+    }
+
+    const points = series.map((item, index) => ({ x: index, y: Number(item.weighted || 0) }));
+    if (points.length === 1) {
+        const baseValue = points[0].y;
+        let monthCursor = parseMonthKey(series[0].month);
+        for (let i = 0; i < 3; i++) {
+            monthCursor = addMonths(monthCursor, 1);
+            predictions.push({
+                month: formatMonthKey(monthCursor),
+                value: baseValue
+            });
+        }
+        return {
+            predictions,
+            projectedNextQuarter: baseValue * 3,
+            trend: 'flat',
+            trendLabel: 'Тренд: стабільний',
+            growthRate: 0
+        };
+    }
+
+    let sumX = 0;
+    let sumY = 0;
+    let sumXY = 0;
+    let sumXX = 0;
+
+    points.forEach(point => {
+        sumX += point.x;
+        sumY += point.y;
+        sumXY += point.x * point.y;
+        sumXX += point.x * point.x;
+    });
+
+    const n = points.length;
+    const denominator = (n * sumXX) - (sumX * sumX);
+    const slope = denominator !== 0 ? ((n * sumXY) - (sumX * sumY)) / denominator : 0;
+    const intercept = (sumY - (slope * sumX)) / n;
+
+    let monthCursor = parseMonthKey(series[series.length - 1].month);
+    for (let i = 1; i <= 3; i++) {
+        monthCursor = addMonths(monthCursor, 1);
+        const predictionIndex = points[points.length - 1].x + i;
+        const value = slope * predictionIndex + intercept;
+        predictions.push({
+            month: formatMonthKey(monthCursor),
+            value: Math.max(0, value)
+        });
+    }
+
+    const projectedNextQuarter = predictions.reduce((sum, item) => sum + (item.value || 0), 0);
+    const lastWeighted = points[points.length - 1].y || 1;
+    const growthRate = lastWeighted ? slope / lastWeighted : 0;
+    let trendLabel = 'Тренд: стабільний';
+    let trend = 'flat';
+
+    if (growthRate > 0.01) {
+        trend = 'up';
+        trendLabel = `Тренд: зростання ${formatPercentage(growthRate)} на місяць`;
+    } else if (growthRate < -0.01) {
+        trend = 'down';
+        trendLabel = `Тренд: зниження ${formatPercentage(Math.abs(growthRate))} на місяць`;
+    }
+
+    return {
+        predictions,
+        projectedNextQuarter,
+        trend,
+        trendLabel,
+        growthRate
+    };
+}
+
+function addMonths(date, months) {
+    const next = new Date(date.getTime());
+    next.setMonth(next.getMonth() + months);
+    return next;
+}
+
+function formatMonthKey(date) {
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+}
+
+function parseMonthKey(monthKey) {
+    const [year, month] = (monthKey || '').split('-').map(Number);
+    if (!year || !month) {
+        return new Date();
+    }
+    return new Date(year, month - 1, 1);
+}
+
+function getMonthLabel(monthKey) {
+    const date = parseMonthKey(monthKey);
+    return date.toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
+}
+
+function calculateCampaignEffectiveness(performanceData = []) {
+    const enriched = (performanceData || []).map(item => {
+        const spend = Number(item.spend) || 0;
+        const influencedRevenue = Number(item.influencedRevenue) || 0;
+        const generatedLeads = Number(item.generatedLeads) || 0;
+        const influencedDeals = Number(item.influencedDeals) || 0;
+        const roi = spend ? influencedRevenue / spend : 0;
+        const conversionRate = generatedLeads ? influencedDeals / generatedLeads : 0;
+        const costPerLead = generatedLeads ? spend / generatedLeads : 0;
+
+        return {
+            ...item,
+            roi,
+            conversionRate,
+            costPerLead
+        };
+    });
+
+    const totalRevenue = enriched.reduce((sum, item) => sum + (item.influencedRevenue || 0), 0);
+    const totalSpend = enriched.reduce((sum, item) => sum + (item.spend || 0), 0);
+    const overallROI = totalSpend ? totalRevenue / totalSpend : 0;
+    const topROI = enriched.slice().sort((a, b) => (b.roi || 0) - (a.roi || 0))[0] || null;
+    const topEngagement = enriched.slice().sort((a, b) => (b.engagementRate || 0) - (a.engagementRate || 0))[0] || null;
+    const averageConversion = enriched.length ? enriched.reduce((sum, item) => sum + (item.conversionRate || 0), 0) / enriched.length : 0;
+
+    return {
+        enriched,
+        totalRevenue,
+        totalSpend,
+        overallROI,
+        topROI,
+        topEngagement,
+        averageConversion
+    };
+}
+
+function renderSalesAnalytics(context) {
+    const ownerData = context.ownerProductivity || [];
+    if (ownerData.length) {
+        renderChartInstance('salesProductivityChart', {
+            type: 'bar',
+            data: {
+                labels: ownerData.map(item => item.owner),
+                datasets: [
+                    {
+                        label: 'Закрито',
+                        data: ownerData.map(item => Number(item.wonValue || 0)),
+                        backgroundColor: 'rgba(16, 185, 129, 0.85)',
+                        borderRadius: 6
+                    },
+                    {
+                        label: 'Активний pipeline',
+                        data: ownerData.map(item => Number(item.openPipeline || 0)),
+                        backgroundColor: 'rgba(59, 130, 246, 0.65)',
+                        borderRadius: 6
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                indexAxis: 'y',
+                plugins: { legend: { position: 'bottom' } },
+                scales: {
+                    x: {
+                        ticks: {
+                            callback(value) {
+                                return formatCurrency(value);
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    const insights = document.getElementById('salesInsights');
+    if (!insights) {
+        return;
+    }
+
+    if (!ownerData.length) {
+        insights.innerHTML = '<p class="text-sm text-gray-500">У CRM ще немає достатньо угод для аналізу.</p>';
+        return;
+    }
+
+    const leader = ownerData[0];
+    const slowestStage = (context.pipelineByStage || []).slice().sort((a, b) => (b.lossRatio || 0) - (a.lossRatio || 0))[0];
+
+    insights.innerHTML = `
+        <div class="flex items-start space-x-3">
+            <i class="fas fa-arrow-trend-up text-blue-500 mt-1"></i>
+            <p><span class="font-medium text-gray-800">${leader.owner}</span> генерує ${formatCurrency(leader.wonValue || 0)} закритої виручки із win-rate ${formatPercentage(leader.winRate || 0)}.</p>
+        </div>
+        <div class="flex items-start space-x-3">
+            <i class="fas fa-gauge-high text-emerald-500 mt-1"></i>
+            <p>Середній чек по перемогах: <span class="font-medium text-gray-800">${formatCurrency(context.salesKPIs.averageDealSize || 0)}</span>.</p>
+        </div>
+        ${slowestStage ? `<div class="flex items-start space-x-3">
+            <i class="fas fa-triangle-exclamation text-amber-500 mt-1"></i>
+            <p>Найбільше втрат на стадії <span class="font-medium text-gray-800">${slowestStage.stage}</span> — ${formatPercentage(slowestStage.lossRatio || 0)} pipeline.</p>
+        </div>` : ''}
+    `;
+}
+
+function renderCampaignAnalytics(context) {
+    const campaignData = context.campaignEffectiveness?.enriched || [];
+    if (campaignData.length) {
+        renderChartInstance('campaignPerformanceChart', {
+            data: {
+                labels: campaignData.map(item => item.name),
+                datasets: [
+                    {
+                        type: 'bar',
+                        label: 'ROI (x)',
+                        data: campaignData.map(item => Number((item.roi || 0).toFixed(2))),
+                        backgroundColor: 'rgba(251, 191, 36, 0.85)',
+                        borderRadius: 6,
+                        yAxisID: 'y'
+                    },
+                    {
+                        type: 'line',
+                        label: 'Конверсія %',
+                        data: campaignData.map(item => Number(((item.conversionRate || 0) * 100).toFixed(1))),
+                        borderColor: '#2563eb',
+                        backgroundColor: 'rgba(37, 99, 235, 0.1)',
+                        tension: 0.4,
+                        yAxisID: 'y1'
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { position: 'bottom' } },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback(value) {
+                                return `${value}x`;
+                            }
+                        }
+                    },
+                    y1: {
+                        beginAtZero: true,
+                        position: 'right',
+                        grid: { drawOnChartArea: false },
+                        ticks: {
+                            callback(value) {
+                                return `${value}%`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    const insights = document.getElementById('campaignInsights');
+    if (!insights) {
+        return;
+    }
+
+    if (!campaignData.length) {
+        insights.innerHTML = '<p class="text-sm text-gray-500">Поки немає маркетингових даних для аналізу.</p>';
+        return;
+    }
+
+    const topROI = context.campaignEffectiveness.topROI;
+    const topEngagement = context.campaignEffectiveness.topEngagement;
+    const overallROI = context.campaignEffectiveness.overallROI || 0;
+    const averageConversion = context.campaignEffectiveness.averageConversion || 0;
+    const avgCpl = campaignData.reduce((sum, item) => sum + (item.costPerLead || 0), 0) / campaignData.length;
+
+    insights.innerHTML = `
+        <div class="flex items-start space-x-3">
+            <i class="fas fa-bullhorn text-amber-500 mt-1"></i>
+            <p>ROI портфелю: <span class="font-medium text-gray-800">x${overallROI.toFixed(1)}</span>. Середня вартість ліда — ${formatCurrency(avgCpl || 0)}.</p>
+        </div>
+        ${topROI ? `<div class="flex items-start space-x-3">
+            <i class="fas fa-trophy text-yellow-500 mt-1"></i>
+            <p>Найкраща кампанія — <span class="font-medium text-gray-800">${topROI.name}</span> з ROI x${topROI.roi.toFixed(1)} та конверсією ${formatPercentage(topROI.conversionRate || 0)}.</p>
+        </div>` : ''}
+        ${topEngagement ? `<div class="flex items-start space-x-3">
+            <i class="fas fa-people-line text-blue-500 mt-1"></i>
+            <p>Найвищий engagement (${formatPercentage(topEngagement.engagementRate || 0)}) у кампанії «${topEngagement.name}».</p>
+        </div>` : ''}
+        <div class="flex items-start space-x-3">
+            <i class="fas fa-wave-square text-emerald-500 mt-1"></i>
+            <p>Середня конверсія по кампаніях — ${formatPercentage(averageConversion || 0)}. Перевірте узгодженість сегментації та контенту.</p>
+        </div>
+    `;
+}
+
+function renderForecastAnalytics(context) {
+    const series = context.revenueSeries || [];
+    const forecast = context.forecast || { predictions: [] };
+
+    if (series.length || (forecast.predictions && forecast.predictions.length)) {
+        const historyLabels = series.map(item => getMonthLabel(item.month));
+        const forecastLabels = (forecast.predictions || []).map(item => getMonthLabel(item.month));
+        const labels = historyLabels.concat(forecastLabels);
+
+        const actualData = [];
+        const weightedData = [];
+        const forecastData = [];
+
+        series.forEach(item => {
+            actualData.push(Number(item.actual || 0));
+            weightedData.push(Number(item.weighted || 0));
+            forecastData.push(null);
+        });
+
+        (forecast.predictions || []).forEach(prediction => {
+            actualData.push(null);
+            weightedData.push(null);
+            forecastData.push(Number(Math.max(prediction.value || 0, 0)));
+        });
+
+        renderChartInstance('revenueForecastChart', {
+            type: 'line',
+            data: {
+                labels,
+                datasets: [
+                    {
+                        label: 'Фактична виручка',
+                        data: actualData,
+                        borderColor: '#10b981',
+                        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                        tension: 0.4,
+                        spanGaps: true
+                    },
+                    {
+                        label: 'Ймовірна виручка',
+                        data: weightedData,
+                        borderColor: '#2563eb',
+                        backgroundColor: 'rgba(37, 99, 235, 0.08)',
+                        borderDash: [6, 6],
+                        tension: 0.4,
+                        spanGaps: true
+                    },
+                    {
+                        label: 'AI прогноз',
+                        data: forecastData,
+                        borderColor: '#f97316',
+                        backgroundColor: 'rgba(249, 115, 22, 0.1)',
+                        borderDash: [4, 4],
+                        tension: 0.4,
+                        spanGaps: true
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'bottom' }
+                },
+                scales: {
+                    y: {
+                        ticks: {
+                            callback(value) {
+                                return formatCurrency(value);
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    const summary = document.getElementById('forecastSummary');
+    if (!summary) {
+        return;
+    }
+
+    if (!series.length && !(forecast.predictions && forecast.predictions.length)) {
+        summary.innerHTML = '<p class="text-sm text-gray-500">Накопичіть більше даних, щоб побачити прогноз.</p>';
+        return;
+    }
+
+    const nextMonth = forecast.predictions && forecast.predictions[0] ? forecast.predictions[0] : null;
+    const lastWeighted = series.length ? series[series.length - 1].weighted : 0;
+    const delta = nextMonth ? (nextMonth.value || 0) - (lastWeighted || 0) : 0;
+    const coverageRatio = forecast.projectedNextQuarter ? (context.salesKPIs.weightedPipeline || 0) / forecast.projectedNextQuarter : 0;
+
+    const cards = [
+        {
+            label: 'Наступний квартал',
+            value: formatCurrency(forecast.projectedNextQuarter || 0),
+            helper: forecast.trendLabel || 'Тренд: стабільний',
+            icon: 'fa-chart-line',
+            accent: 'bg-indigo-50 text-indigo-600'
+        },
+        {
+            label: nextMonth ? `Прогноз на ${getMonthLabel(nextMonth.month)}` : 'Прогноз на наступний місяць',
+            value: formatCurrency(nextMonth ? nextMonth.value || 0 : 0),
+            helper: nextMonth ? `Δ до поточного: ${formatCurrency(delta)} (${formatPercentage(lastWeighted ? delta / lastWeighted : 0)})` : 'Очікуємо нові дані',
+            icon: 'fa-calendar-days',
+            accent: 'bg-emerald-50 text-emerald-600'
+        },
+        {
+            label: 'Покриття pipeline',
+            value: formatPercentage(coverageRatio || 0),
+            helper: `Зважений pipeline: ${formatCurrency(context.salesKPIs.weightedPipeline || 0)}`,
+            icon: 'fa-diagram-project',
+            accent: 'bg-blue-50 text-blue-600'
+        }
+    ];
+
+    summary.innerHTML = cards.map(card => `
+        <div class="border border-gray-100 rounded-xl bg-white p-4 shadow-sm">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-xs uppercase tracking-wide text-gray-500">${card.label}</p>
+                    <p class="mt-2 text-xl font-semibold text-gray-800">${card.value}</p>
+                </div>
+                <span class="w-10 h-10 rounded-lg flex items-center justify-center ${card.accent}">
+                    <i class="fas ${card.icon}"></i>
+                </span>
+            </div>
+            <p class="mt-3 text-xs text-gray-500">${card.helper}</p>
+        </div>
+    `).join('');
+}
+
+function renderAIInsights(context) {
+    const container = document.getElementById('aiRecommendations');
+    if (!container) {
+        return;
+    }
+
+    const recommendations = generateAIRecommendations(context);
+
+    if (!recommendations.length) {
+        container.innerHTML = '<div class="border border-dashed border-gray-300 rounded-lg p-4 text-sm text-gray-500 bg-gray-50">Поки що недостатньо даних для AI-висновків.</div>';
+        return;
+    }
+
+    container.innerHTML = recommendations.map(rec => `
+        <div class="border border-gray-200 rounded-lg p-4 hover:border-blue-200 transition-colors">
+            <div class="flex items-center justify-between text-xs uppercase tracking-wide font-semibold text-blue-500">
+                <span>AI Insight</span>
+                <span class="text-gray-400 normal-case">${rec.impact || ''}</span>
+            </div>
+            <h4 class="mt-2 text-base font-semibold text-gray-800">${rec.title}</h4>
+            <p class="mt-2 text-sm text-gray-600 leading-relaxed">${rec.description}</p>
+            ${rec.action ? `<p class="mt-3 text-sm text-blue-600"><i class="fas fa-lightbulb mr-2"></i>${rec.action}</p>` : ''}
+        </div>
+    `).join('');
+}
+
+function generateAIRecommendations(context) {
+    const recommendations = [];
+    const winRate = context.salesKPIs?.winRate || 0;
+    const pipelineStages = context.pipelineByStage || [];
+    const stageWithLoss = pipelineStages.slice().sort((a, b) => (b.lossRatio || 0) - (a.lossRatio || 0))[0];
+
+    if (stageWithLoss) {
+        if (winRate < 0.45) {
+            recommendations.push({
+                title: `Підсиліть стадію «${stageWithLoss.stage}»`,
+                description: `Win-rate команди ${formatPercentage(winRate)}. На стадії «${stageWithLoss.stage}» втрачається ${formatPercentage(stageWithLoss.lossRatio || 0)} pipeline. Залучіть коучинг та контроль якості дзвінків.`,
+                impact: 'High impact',
+                action: 'Проведіть воркшоп зі скриптів та додайте критерії перевірки у чек-листи цього тижня.'
+            });
+        } else {
+            recommendations.push({
+                title: `Тримайте фокус на «${stageWithLoss.stage}»`,
+                description: `Навіть із win-rate ${formatPercentage(winRate)} стадія «${stageWithLoss.stage}» має найбільший відтік (${formatPercentage(stageWithLoss.lossRatio || 0)}).`,
+                impact: 'Monitor',
+                action: 'Налаштуйте нагадування в Automation, щоб менеджери оновлювали наступні кроки після кожної зустрічі.'
+            });
+        }
+    }
+
+    const topCampaign = context.campaignEffectiveness?.topROI;
+    if (topCampaign) {
+        recommendations.push({
+            title: `Масштабуйте кампанію «${topCampaign.name}»`,
+            description: `ROI x${topCampaign.roi.toFixed(1)} з конверсією ${formatPercentage(topCampaign.conversionRate || 0)} та CPL ${formatCurrency(topCampaign.costPerLead || 0)}. Це найшвидший драйвер виручки.`,
+            impact: 'Revenue growth',
+            action: 'Розширте сегменти кампанії та синхронізуйтеся з sales щодо follow-up сценаріїв.'
+        });
+    }
+
+    const growthRate = context.forecast?.growthRate || 0;
+    const nextMonth = context.forecast?.predictions && context.forecast.predictions[0];
+    if (nextMonth) {
+        if (growthRate < 0) {
+            recommendations.push({
+                title: 'Ризик просідання прогнозу',
+                description: `AI прогнозує падіння на ${formatPercentage(Math.abs(growthRate))} у ${getMonthLabel(nextMonth.month)}. Зосередьтесь на угодах з найвищою ймовірністю.`,
+                impact: 'Forecast risk',
+                action: 'Додайте 2-3 пріоритетні угоди до воркфлоу рев’ю та посильте follow-up через Automation.'
+            });
+        } else if (growthRate > 0.08) {
+            recommendations.push({
+                title: 'Підтримайте позитивний тренд',
+                description: `Очікується приріст ~${formatPercentage(growthRate)} наступного місяця. Забезпечте команду ресурсами та контентом.`,
+                impact: 'Growth opportunity',
+                action: 'Перевірте завантаження команди та підготуйте матеріали для фінальних презентацій.'
+            });
+        }
+    }
+
+    const owners = context.ownerProductivity || [];
+    if (owners.length > 1) {
+        const leader = owners[0];
+        const totalWon = owners.reduce((sum, item) => sum + (item.wonValue || 0), 0);
+        const leaderShare = totalWon ? (leader.wonValue || 0) / totalWon : 0;
+        if (leaderShare > 0.6) {
+            recommendations.push({
+                title: 'Збалансуйте навантаження між менеджерами',
+                description: `${leader.owner} закриває ${formatPercentage(leaderShare)} всієї виручки. Це підвищує ризик залежності.`,
+                impact: 'Operational',
+                action: 'Перерозподіліть частину лідів та запустіть програму менторства для колег.'
+            });
+        }
+    }
+
+    return recommendations.slice(0, 4);
+}
+
+function formatPercentage(value, digits = 1) {
+    if (!Number.isFinite(value)) {
+        return '0%';
+    }
+    return `${(value * 100).toFixed(digits)}%`;
 }
 
 // Utility functions for additional modules
