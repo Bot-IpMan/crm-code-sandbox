@@ -339,57 +339,71 @@ async function loadRecentActivities() {
 
 function initializeDashboardCharts() {
     // Initialize pipeline chart
-    const pipelineCtx = document.getElementById('pipelineChart').getContext('2d');
-    charts.pipeline = new Chart(pipelineCtx, {
-        type: 'bar',
-        data: {
-            labels: ['Qualification', 'Needs Analysis', 'Proposal', 'Negotiation', 'Closed Won', 'Closed Lost'],
-            datasets: [{
-                label: 'Opportunities',
-                data: [12, 8, 6, 4, 15, 3],
-                backgroundColor: [
-                    '#3b82f6', '#f59e0b', '#10b981', '#ef4444', '#059669', '#6b7280'
-                ]
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: { display: false }
+    const pipelineCanvas = document.getElementById('pipelineChart');
+    if (pipelineCanvas) {
+        if (charts.pipeline) {
+            charts.pipeline.destroy();
+        }
+
+        const pipelineCtx = pipelineCanvas.getContext('2d');
+        charts.pipeline = new Chart(pipelineCtx, {
+            type: 'bar',
+            data: {
+                labels: ['Qualification', 'Needs Analysis', 'Proposal', 'Negotiation', 'Closed Won', 'Closed Lost'],
+                datasets: [{
+                    label: 'Opportunities',
+                    data: [12, 8, 6, 4, 15, 3],
+                    backgroundColor: [
+                        '#3b82f6', '#f59e0b', '#10b981', '#ef4444', '#059669', '#6b7280'
+                    ]
+                }]
             },
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    ticks: { precision: 0 }
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: { precision: 0 }
+                    }
                 }
             }
-        }
-    });
-    
+        });
+    }
+
     // Initialize lead source chart
-    const leadSourceCtx = document.getElementById('leadSourceChart').getContext('2d');
-    charts.leadSource = new Chart(leadSourceCtx, {
-        type: 'doughnut',
-        data: {
-            labels: ['Website', 'Cold Call', 'Email Campaign', 'Referral', 'Social Media', 'Trade Show'],
-            datasets: [{
-                data: [35, 20, 15, 12, 10, 8],
-                backgroundColor: [
-                    '#3b82f6', '#f59e0b', '#10b981', '#ef4444', '#8b5cf6', '#06b6d4'
-                ]
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: {
-                    position: 'bottom'
+    const leadSourceCanvas = document.getElementById('leadSourceChart');
+    if (leadSourceCanvas) {
+        if (charts.leadSource) {
+            charts.leadSource.destroy();
+        }
+
+        const leadSourceCtx = leadSourceCanvas.getContext('2d');
+        charts.leadSource = new Chart(leadSourceCtx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Website', 'Cold Call', 'Email Campaign', 'Referral', 'Social Media', 'Trade Show'],
+                datasets: [{
+                    data: [35, 20, 15, 12, 10, 8],
+                    backgroundColor: [
+                        '#3b82f6', '#f59e0b', '#10b981', '#ef4444', '#8b5cf6', '#06b6d4'
+                    ]
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom'
+                    }
                 }
             }
-        }
-    });
+        });
+    }
 }
 
 // Contacts functions
