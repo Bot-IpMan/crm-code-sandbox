@@ -1607,6 +1607,633 @@ function simulateInvoiceSync() {
     showToast('Invoice sync simulated successfully', 'success');
 }
 
+function ensureCompetitorHubStyles() {
+    if (document.getElementById('competitorHubStyles')) {
+        return;
+    }
+
+    const style = document.createElement('style');
+    style.id = 'competitorHubStyles';
+    style.textContent = `
+        .cih-root {
+            background: radial-gradient(circle at top left, rgba(56, 189, 248, 0.08), transparent 45%),
+                radial-gradient(circle at bottom right, rgba(147, 51, 234, 0.12), transparent 35%),
+                #020617;
+            min-height: calc(100vh - 120px);
+            padding: 2.5rem 2rem;
+            border-radius: 1.25rem;
+            color: #e2e8f0;
+        }
+
+        .cih-grid {
+            display: grid;
+            gap: 1.5rem;
+        }
+
+        .cih-summary-card {
+            background: rgba(15, 23, 42, 0.75);
+            border: 1px solid rgba(148, 163, 184, 0.15);
+            box-shadow: 0 20px 45px -20px rgba(15, 23, 42, 0.8);
+            border-radius: 1rem;
+            padding: 1.5rem;
+            position: relative;
+            overflow: hidden;
+            transition: transform 0.3s ease, border-color 0.3s ease;
+        }
+
+        .cih-summary-card:hover {
+            transform: translateY(-4px);
+            border-color: rgba(96, 165, 250, 0.45);
+        }
+
+        .cih-summary-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.25rem 0.6rem;
+            background: rgba(96, 165, 250, 0.16);
+            color: #bfdbfe;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .cih-section {
+            background: rgba(15, 23, 42, 0.78);
+            border: 1px solid rgba(148, 163, 184, 0.18);
+            border-radius: 1.25rem;
+            padding: 1.75rem;
+            box-shadow: 0 25px 60px -35px rgba(30, 64, 175, 0.55);
+        }
+
+        .cih-section-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 1.5rem;
+        }
+
+        .cih-section-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: #f8fafc;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .cih-section-title i {
+            color: #38bdf8;
+        }
+
+        .cih-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            background: rgba(71, 85, 105, 0.45);
+            border-radius: 9999px;
+            padding: 0.25rem 0.75rem;
+            font-size: 0.75rem;
+            letter-spacing: 0.02em;
+        }
+
+        .cih-card {
+            background: rgba(2, 6, 23, 0.7);
+            border: 1px solid rgba(148, 163, 184, 0.15);
+            border-radius: 1.15rem;
+            padding: 1.25rem;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .cih-card::before {
+            content: '';
+            position: absolute;
+            inset: -30% auto auto -30%;
+            width: 65%;
+            height: 65%;
+            background: radial-gradient(circle at center, rgba(56, 189, 248, 0.25), transparent 70%);
+            opacity: 0;
+            transition: opacity 0.35s ease;
+        }
+
+        .cih-card:hover {
+            transform: translateY(-6px);
+            border-color: rgba(59, 130, 246, 0.35);
+        }
+
+        .cih-card:hover::before {
+            opacity: 1;
+        }
+
+        .cih-card h4 {
+            font-size: 1.05rem;
+            font-weight: 600;
+            color: #f1f5f9;
+        }
+
+        .cih-card p {
+            color: #94a3b8;
+        }
+
+        .cih-flag {
+            width: 0.6rem;
+            height: 0.6rem;
+            border-radius: 9999px;
+        }
+
+        .cih-status-active { background: #34d399; box-shadow: 0 0 0 3px rgba(52, 211, 153, 0.25); }
+        .cih-status-monitor { background: #facc15; box-shadow: 0 0 0 3px rgba(250, 204, 21, 0.18); }
+        .cih-status-watch { background: #a855f7; box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.18); }
+
+        .cih-compare-panel {
+            background: rgba(2, 6, 23, 0.6);
+            border: 1px dashed rgba(148, 163, 184, 0.25);
+            border-radius: 1rem;
+            padding: 1.25rem;
+        }
+
+        .cih-compare-panel h4 {
+            font-size: 1rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        .cih-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            padding: 0.35rem 0.8rem;
+            border-radius: 999px;
+            background: rgba(51, 65, 85, 0.6);
+            color: #cbd5f5;
+            font-size: 0.78rem;
+        }
+
+        .cih-chip i {
+            color: #38bdf8;
+        }
+
+        .cih-competitor-card {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .cih-outline-button {
+            border: 1px solid rgba(148, 163, 184, 0.35);
+            background: rgba(15, 23, 42, 0.65);
+            padding: 0.45rem 0.85rem;
+            border-radius: 0.8rem;
+            color: #e2e8f0;
+            font-size: 0.85rem;
+            transition: all 0.25s ease;
+        }
+
+        .cih-outline-button:hover,
+        .cih-outline-button.active {
+            border-color: rgba(59, 130, 246, 0.65);
+            color: #bfdbfe;
+            background: rgba(59, 130, 246, 0.18);
+        }
+
+        .cih-module {
+            border-radius: 1rem;
+            border: 1px solid rgba(148, 163, 184, 0.15);
+            background: rgba(2, 6, 23, 0.7);
+            overflow: hidden;
+        }
+
+        .cih-module-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 1rem 1.25rem;
+            border-bottom: 1px solid rgba(148, 163, 184, 0.1);
+        }
+
+        .cih-module-header button {
+            background: rgba(59, 130, 246, 0.12);
+            border: 1px solid rgba(59, 130, 246, 0.35);
+            color: #bfdbfe;
+            font-size: 0.8rem;
+            padding: 0.35rem 0.85rem;
+            border-radius: 0.65rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            transition: all 0.25s ease;
+        }
+
+        .cih-module-header button:hover {
+            background: rgba(59, 130, 246, 0.2);
+        }
+
+        .cih-module-body {
+            padding: 1.1rem 1.35rem 1.5rem;
+            display: grid;
+            gap: 1.25rem;
+        }
+
+        .cih-module-preview {
+            display: grid;
+            gap: 1rem;
+        }
+
+        .cih-module-expanded {
+            display: none;
+            gap: 1.2rem;
+        }
+
+        .cih-module.expanded .cih-module-preview {
+            display: none;
+        }
+
+        .cih-module.expanded .cih-module-expanded {
+            display: grid;
+        }
+
+        .cih-kanban-column {
+            background: rgba(15, 23, 42, 0.65);
+            border-radius: 0.85rem;
+            border: 1px solid rgba(148, 163, 184, 0.12);
+            padding: 1rem;
+            min-height: 220px;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .cih-kanban-card {
+            background: rgba(2, 6, 23, 0.75);
+            border-radius: 0.8rem;
+            border: 1px solid rgba(148, 163, 184, 0.12);
+            padding: 0.75rem;
+            display: grid;
+            gap: 0.5rem;
+        }
+
+        .cih-mini-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .cih-mini-table th,
+        .cih-mini-table td {
+            padding: 0.55rem 0.65rem;
+            text-align: left;
+            border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+            font-size: 0.82rem;
+        }
+
+        .cih-mini-table th {
+            font-weight: 600;
+            color: #cbd5f5;
+        }
+
+        .cih-sentiment-positive { color: #4ade80; }
+        .cih-sentiment-neutral { color: #facc15; }
+        .cih-sentiment-negative { color: #f87171; }
+
+        .cih-tech-chip {
+            background: rgba(2, 132, 199, 0.2);
+            border: 1px solid rgba(14, 165, 233, 0.35);
+            color: #bae6fd;
+            padding: 0.35rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.78rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+        }
+
+        .cih-swatch {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            background: rgba(30, 41, 59, 0.55);
+            border-radius: 9999px;
+            padding: 0.25rem 0.6rem;
+            font-size: 0.75rem;
+        }
+
+        .cih-dot {
+            width: 0.55rem;
+            height: 0.55rem;
+            border-radius: 9999px;
+        }
+
+        .cih-rel-diagram {
+            display: grid;
+            gap: 1rem;
+        }
+
+        .cih-rel-nodes {
+            display: grid;
+            gap: 0.75rem;
+        }
+
+        .cih-rel-link {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            background: rgba(15, 23, 42, 0.65);
+            padding: 0.65rem 0.85rem;
+            border-radius: 0.75rem;
+            border: 1px solid rgba(148, 163, 184, 0.12);
+        }
+
+        .cih-rel-node {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: rgba(2, 6, 23, 0.7);
+            border-radius: 0.8rem;
+            border: 1px solid rgba(148, 163, 184, 0.12);
+            padding: 0.75rem 0.85rem;
+        }
+
+        .cih-swot-grid {
+            display: grid;
+            gap: 1.1rem;
+        }
+
+        @media (min-width: 768px) {
+            .cih-grid-cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+            .cih-grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+            .cih-grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        }
+
+        @media (max-width: 1024px) {
+            .cih-root {
+                padding: 1.75rem 1.25rem;
+            }
+        }
+    `;
+
+    document.head.appendChild(style);
+}
+
+
+function competitorHubToDate(value) {
+    if (!value) return null;
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function competitorHubFormatRelative(value) {
+    const date = competitorHubToDate(value);
+    if (!date) return '—';
+    const diff = Math.round((Date.now() - date.getTime()) / (1000 * 60 * 60 * 24));
+    if (diff < 1) return 'today';
+    if (diff === 1) return '1 day ago';
+    if (diff < 30) return `${diff} days ago`;
+    const months = Math.round(diff / 30);
+    if (months === 1) return '1 month ago';
+    return `${months} months ago`;
+}
+
+function competitorHubFormatDateShort(value) {
+    const date = competitorHubToDate(value);
+    if (!date) return '—';
+    return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
+
+function competitorHubTierRank(tier) {
+    const normalized = (tier || '').toLowerCase();
+    if (normalized.includes('tier 1')) return 0;
+    if (normalized.includes('tier 2')) return 1;
+    if (normalized.includes('tier 3')) return 2;
+    return 3;
+}
+
+function competitorHubRiskBadge(level) {
+    const normalized = (level || '').toLowerCase();
+    if (normalized === 'high') return 'bg-rose-500/30 text-rose-200 border border-rose-500/50';
+    if (normalized === 'medium') return 'bg-amber-500/20 text-amber-200 border border-amber-400/40';
+    return 'bg-emerald-500/20 text-emerald-200 border border-emerald-400/30';
+}
+
+function competitorHubResolveColumn(status) {
+    const normalized = (status || '').toLowerCase();
+    if (normalized.includes('progress')) return 'In Progress';
+    if (normalized.includes('review') || normalized.includes('waiting')) return 'Review';
+    if (normalized.includes('done') || normalized.includes('complete')) return 'Done';
+    return 'Backlog';
+}
+
+const COMPETITOR_ENHANCEMENTS = {
+    'competitor-insightsphere': {
+        contacts: [
+            { name: 'Eva Neumann', title: 'VP Competitive Strategy', email: 'eva.neumann@insightsphere.ai', phone: '+49 30 555 120', segment: 'Executive', linkedin: 'linkedin.com/in/evaneumann', notes: 'Primary spokesperson for enterprise analytics deals.' },
+            { name: 'Mateusz Brunner', title: 'Head of Solution Engineering', email: 'mateusz.brunner@insightsphere.ai', phone: '+48 22 601 440', segment: 'Solutions', linkedin: 'linkedin.com/in/mateuszbrunner', notes: 'Runs technical evaluations and POC approvals.' },
+            { name: 'Ivy Salazar', title: 'Strategic Partnerships Lead', email: 'ivy.salazar@insightsphere.ai', phone: '+1 415 200 9981', segment: 'Alliances', linkedin: 'linkedin.com/in/ivysalazar', notes: 'Signs co-marketing agreements in North America.' },
+            { name: 'Tomasz Ricci', title: 'Head of Pricing', email: 't.ricci@insightsphere.ai', phone: '+39 02 555 880', segment: 'Product', linkedin: 'linkedin.com/in/tomaszricci', notes: 'Owns price experimentation and enterprise bids.' }
+        ],
+        relationships: {
+            nodes: [
+                { id: 'insightsphere', label: 'InsightSphere', type: 'Competitor' },
+                { id: 'techcorp', label: 'TechCorp Solutions', type: 'Client' },
+                { id: 'startupxyz', label: 'StartupXYZ', type: 'Client' },
+                { id: 'databridge', label: 'DataBridge Partners', type: 'Partner' },
+                { id: 'forecastai', label: 'ForecastAI', type: 'Product' }
+            ],
+            links: [
+                { source: 'insightsphere', target: 'techcorp', type: 'Competition', description: 'Head-to-head in predictive intelligence RFP.' },
+                { source: 'insightsphere', target: 'startupxyz', type: 'Competition', description: 'Battling for usage analytics expansion.' },
+                { source: 'insightsphere', target: 'databridge', type: 'Partnership', description: 'Data ingestion alliance for EU compliance.' },
+                { source: 'insightsphere', target: 'forecastai', type: 'Ownership', description: 'Acquired ForecastAI in 2023 for AI copilot tech.' }
+            ]
+        },
+        pricing: {
+            summary: 'Enterprise suite increased by 6% QoQ, usage add-ons now metered.',
+            series: [
+                { plan: 'Enterprise', points: [
+                    { label: 'Jan', value: 1190 },
+                    { label: 'Feb', value: 1190 },
+                    { label: 'Mar', value: 1225 },
+                    { label: 'Apr', value: 1260 },
+                    { label: 'May', value: 1260 }
+                ] },
+                { plan: 'Growth', points: [
+                    { label: 'Jan', value: 780 },
+                    { label: 'Feb', value: 780 },
+                    { label: 'Mar', value: 795 },
+                    { label: 'Apr', value: 805 },
+                    { label: 'May', value: 805 }
+                ] }
+            ],
+            table: [
+                { plan: 'Starter', price: '$480/mo', positioning: 'Below our Growth plan', movement: '+3% QoQ' },
+                { plan: 'Growth', price: '$805/mo', positioning: 'Matches our Scale plan', movement: '+2% QoQ' },
+                { plan: 'Enterprise', price: '$1,260/mo', positioning: 'Higher than Elite plan', movement: '+6% QoQ' }
+            ],
+            alerts: [
+                { label: 'Usage-based add-ons', status: 'Active' },
+                { label: 'Annual uplift threshold', status: 'Monitor' }
+            ]
+        },
+        media: [
+            { title: 'InsightSphere launches AI forecasting copilot', source: 'TechCrunch', date: '2024-05-10', sentiment: 'Positive', summary: 'Highlights predictive workflows for enterprise accounts.' },
+            { title: 'InsightSphere doubles EU data center footprint', source: 'EU SaaS Weekly', date: '2024-05-02', sentiment: 'Neutral', summary: 'Capacity expansion to support regulated markets.' },
+            { title: 'Analysts question InsightSphere pricing flexibility', source: 'RevenueOps Digest', date: '2024-04-26', sentiment: 'Negative', summary: 'Concerns around price lock-ins raised by customers.' }
+        ],
+        documents: [
+            { title: 'Battlecard Q2 2024', type: 'PDF', updated: '2024-05-09', owner: 'Competitive Research Guild' },
+            { title: 'Pricing objection handling', type: 'Slides', updated: '2024-04-22', owner: 'Enablement' },
+            { title: 'Latest security posture brief', type: 'Doc', updated: '2024-04-18', owner: 'Product Marketing' }
+        ],
+        swot: {
+            strengths: ['AI-first roadmap resonates with enterprise buyers', 'Deep partner ecosystem in DACH region'],
+            weaknesses: ['High implementation costs vs. peers', 'Limited SMB enablement playbooks'],
+            opportunities: ['Customers asking for compliance automation', 'Upsell via predictive benchmarking bundles'],
+            threats: ['Emerging regional analytics challengers', 'Our new freemium analytics add-on']
+        },
+        tech: {
+            highlights: 'Snowflake-based warehouse with dbt and Kubernetes orchestration.',
+            categories: [
+                { label: 'Data & AI', items: ['Snowflake', 'dbt', 'Airflow', 'Python'] },
+                { label: 'Platform', items: ['React', 'GraphQL', 'Kubernetes', 'Istio'] },
+                { label: 'GTM Stack', items: ['HubSpot', 'Gong', 'Pendo'] }
+            ]
+        }
+    },
+    'competitor-marketpulse': {
+        contacts: [
+            { name: 'Laura Vaitkus', title: 'Head of Market Strategy', email: 'laura.vaitkus@marketpulse.io', phone: '+370 5 777 120', segment: 'Strategy', linkedin: 'linkedin.com/in/lauravaitkus', notes: 'Coordinates Baltic go-to-market plays.' },
+            { name: 'Anders Holm', title: 'Director of Pricing Research', email: 'anders.holm@marketpulse.io', phone: '+45 70 55 210', segment: 'Research', linkedin: 'linkedin.com/in/andersholm', notes: 'Owner of pricing benchmark methodology.' },
+            { name: 'Milda Janule', title: 'Enterprise Account Executive', email: 'milda.janule@marketpulse.io', phone: '+370 6 210 998', segment: 'Sales', linkedin: 'linkedin.com/in/mildajanule', notes: 'Works Baltic logistics enterprise accounts.' }
+        ],
+        relationships: {
+            nodes: [
+                { id: 'marketpulse', label: 'MarketPulse', type: 'Competitor' },
+                { id: 'globalmanufacturing', label: 'Global Manufacturing', type: 'Client' },
+                { id: 'balticalliance', label: 'Baltic SaaS Consortium', type: 'Partner' },
+                { id: 'alertengine', label: 'AlertEngine', type: 'Product' }
+            ],
+            links: [
+                { source: 'marketpulse', target: 'globalmanufacturing', type: 'Competition', description: 'Pitching logistics pricing benchmarks.' },
+                { source: 'marketpulse', target: 'balticalliance', type: 'Partnership', description: 'New data sharing agreement (2024).' },
+                { source: 'marketpulse', target: 'alertengine', type: 'Product', description: 'Core alert automation workflow.' }
+            ]
+        },
+        pricing: {
+            summary: 'Stabilized base pricing while introducing pay-per-alert surcharges.',
+            series: [
+                { plan: 'Growth', points: [
+                    { label: 'Jan', value: 540 },
+                    { label: 'Feb', value: 540 },
+                    { label: 'Mar', value: 560 },
+                    { label: 'Apr', value: 560 },
+                    { label: 'May', value: 565 }
+                ] },
+                { plan: 'Enterprise', points: [
+                    { label: 'Jan', value: 920 },
+                    { label: 'Feb', value: 940 },
+                    { label: 'Mar', value: 940 },
+                    { label: 'Apr', value: 955 },
+                    { label: 'May', value: 955 }
+                ] }
+            ],
+            table: [
+                { plan: 'Essential', price: '$390/mo', positioning: 'Undercuts our entry plan', movement: '+0% QoQ' },
+                { plan: 'Growth', price: '$565/mo', positioning: 'Matches our Standard plan', movement: '+5% QoQ' },
+                { plan: 'Enterprise', price: '$955/mo', positioning: 'Lower than Elite', movement: '+4% QoQ' }
+            ],
+            alerts: [
+                { label: 'Alert surcharges', status: 'Active' },
+                { label: 'Consortium bundle pricing', status: 'Monitor' }
+            ]
+        },
+        media: [
+            { title: 'MarketPulse joins Baltic SaaS consortium', source: 'Baltic Tech Wire', date: '2024-05-08', sentiment: 'Positive', summary: 'Expands coverage in maritime and logistics sectors.' },
+            { title: 'MarketPulse adds cross-border pricing alerts', source: 'Logistics Today', date: '2024-04-30', sentiment: 'Positive', summary: 'New alert types covering import/export fees.' }
+        ],
+        documents: [
+            { title: 'MarketPulse Q2 positioning', type: 'PDF', updated: '2024-05-05', owner: 'Regional Desk' },
+            { title: 'Competitive pricing grid', type: 'Spreadsheet', updated: '2024-04-24', owner: 'Revenue Ops' }
+        ],
+        swot: {
+            strengths: ['Deep Baltic market coverage', 'Alert automation differentiator'],
+            weaknesses: ['Limited enterprise support hours', 'Data latency outside Baltics'],
+            opportunities: ['Alliances expand dataset reach', 'Partnership upsell potential'],
+            threats: ['Local challengers in Poland', 'Our freight benchmark launch']
+        },
+        tech: {
+            highlights: 'Alert engine powered by Go microservices, front-end in Vue 3.',
+            categories: [
+                { label: 'Data', items: ['PostgreSQL', 'Metabase', 'Fivetran'] },
+                { label: 'Platform', items: ['Vue 3', 'Tailwind', 'Go'] },
+                { label: 'Integrations', items: ['Slack', 'Outlook', 'Zapier'] }
+            ]
+        }
+    },
+    'competitor-atlaslogix': {
+        contacts: [
+            { name: 'Justyna Kowalski', title: 'Founder & CEO', email: 'justyna@atlaslogix.io', phone: '+48 71 300 450', segment: 'Executive', linkedin: 'linkedin.com/in/justynak', notes: 'Active on LinkedIn about freight automation.' },
+            { name: 'Rafael Silva', title: 'Head of Product', email: 'rafael.silva@atlaslogix.io', phone: '+351 21 650 778', segment: 'Product', linkedin: 'linkedin.com/in/rafaelsilva', notes: 'Owns modular dashboard roadmap.' }
+        ],
+        relationships: {
+            nodes: [
+                { id: 'atlaslogix', label: 'AtlasLogix', type: 'Competitor' },
+                { id: 'northwind', label: 'Northwind Logistics', type: 'Client' },
+                { id: 'routeai', label: 'RouteAI', type: 'Partner' }
+            ],
+            links: [
+                { source: 'atlaslogix', target: 'northwind', type: 'Competition', description: 'Chasing our automation footprint.' },
+                { source: 'atlaslogix', target: 'routeai', type: 'Partnership', description: 'Joint go-to-market for SMB fleets.' }
+            ]
+        },
+        pricing: {
+            summary: 'Usage-based bundles introduced for telemetry features.',
+            series: [
+                { plan: 'Core', points: [
+                    { label: 'Jan', value: 320 },
+                    { label: 'Feb', value: 320 },
+                    { label: 'Mar', value: 335 },
+                    { label: 'Apr', value: 340 },
+                    { label: 'May', value: 340 }
+                ] },
+                { plan: 'Scale', points: [
+                    { label: 'Jan', value: 520 },
+                    { label: 'Feb', value: 530 },
+                    { label: 'Mar', value: 540 },
+                    { label: 'Apr', value: 555 },
+                    { label: 'May', value: 560 }
+                ] }
+            ],
+            table: [
+                { plan: 'Core', price: '$340/mo', positioning: 'Undercuts our base price', movement: '+6% QoQ' },
+                { plan: 'Scale', price: '$560/mo', positioning: 'Matches Standard tier', movement: '+8% QoQ' }
+            ],
+            alerts: [
+                { label: 'Telemetry surcharge', status: 'Active' }
+            ]
+        },
+        media: [
+            { title: 'AtlasLogix introduces freight playbooks', source: 'Logistics Innovation', date: '2024-05-06', sentiment: 'Positive', summary: 'Adds packaged workflows for brokers.' }
+        ],
+        documents: [
+            { title: 'AtlasLogix differentiation notes', type: 'Doc', updated: '2024-05-04', owner: 'Product Marketing' }
+        ],
+        swot: {
+            strengths: ['Modular deployment approach', 'Fast-moving product experiments'],
+            weaknesses: ['Limited enterprise references'],
+            opportunities: ['SMB fleets digitizing quickly'],
+            threats: ['Pricing pressure from incumbent ERPs']
+        },
+        tech: {
+            highlights: 'BuiltWith scan shows heavy usage of Node.js services.',
+            categories: [
+                { label: 'Platform', items: ['Node.js', 'Next.js', 'Tailwind'] },
+                { label: 'Analytics', items: ['Looker', 'Segment'] }
+            ]
+        }
+    }
+};
+
 async function showCompetitorIntel() {
     showView('competitorIntel');
     updatePageHeader('Competitor Intelligence Hub', 'Monitor rivals, linked clients, and research tasks');
@@ -1616,402 +2243,905 @@ async function showCompetitorIntel() {
         return;
     }
 
+    ensureCompetitorHubStyles();
+
     hubView.innerHTML = `
-        <div class="bg-white border border-dashed border-gray-300 rounded-xl p-6 text-gray-500 flex items-center space-x-3">
-            <i class="fas fa-circle-notch fa-spin"></i>
-            <span>Loading competitor intelligence workspace...</span>
+        <div class="cih-section text-sm text-slate-300 flex items-center gap-3">
+            <i class="fas fa-circle-notch fa-spin text-sky-400"></i>
+            <span>Compiling competitive intelligence workspace...</span>
         </div>
     `;
 
     showLoading();
 
     try {
-        const [competitorsResponse, tasksResponse, activitiesResponse] = await Promise.all([
+        const [companiesResponse, competitorsResponse, tasksResponse, activitiesResponse, contactsResponse] = await Promise.all([
+            fetch('tables/companies').then(res => res.json()),
             fetch('tables/competitors').then(res => res.json()),
             fetch('tables/tasks').then(res => res.json()),
-            fetch('tables/activities').then(res => res.json())
+            fetch('tables/activities').then(res => res.json()),
+            fetch('tables/contacts').then(res => res.json())
         ]);
 
-        const competitors = (competitorsResponse.data || []).slice().sort((a, b) => {
-            const resolveTier = tier => {
-                const normalized = (tier || '').toLowerCase();
-                if (normalized.includes('tier 1')) return 0;
-                if (normalized.includes('tier 2')) return 1;
-                return 2;
-            };
-            const tierDiff = resolveTier(a.tier) - resolveTier(b.tier);
+        const companies = companiesResponse?.data || [];
+        const competitorsRaw = competitorsResponse?.data || [];
+        const tasks = tasksResponse?.data || [];
+        const activities = activitiesResponse?.data || [];
+        const contacts = contactsResponse?.data || [];
+
+        const tasksByCompetitor = new Map();
+        const tasksByClient = new Map();
+
+        tasks.forEach(task => {
+            const related = task?.related_to;
+            if (related) {
+                if (!tasksByCompetitor.has(related)) {
+                    tasksByCompetitor.set(related, []);
+                }
+                tasksByCompetitor.get(related).push(task);
+            }
+            const clientId = task?.related_to?.startsWith('company-') ? task.related_to : task?.company_id;
+            if (clientId) {
+                if (!tasksByClient.has(clientId)) {
+                    tasksByClient.set(clientId, []);
+                }
+                tasksByClient.get(clientId).push(task);
+            }
+        });
+
+        const intelActivities = activities.filter(activity => (
+            activity?.category === 'Competitive Intelligence'
+            || (activity.subject && activity.subject.toLowerCase().includes('competitor'))
+            || (activity.description && activity.description.toLowerCase().includes('competitor'))
+        ));
+
+        const activitiesByCompetitor = new Map();
+        intelActivities.forEach(activity => {
+            const related = Array.isArray(activity.related_competitors) ? activity.related_competitors : [];
+            related.forEach(id => {
+                if (!activitiesByCompetitor.has(id)) {
+                    activitiesByCompetitor.set(id, []);
+                }
+                activitiesByCompetitor.get(id).push(activity);
+            });
+        });
+
+        const sortedCompetitors = competitorsRaw.slice().sort((a, b) => {
+            const tierDiff = competitorHubTierRank(a.tier) - competitorHubTierRank(b.tier);
             if (tierDiff !== 0) {
                 return tierDiff;
             }
-            const dateA = new Date(a.last_update || a.updated_at || 0);
-            const dateB = new Date(b.last_update || b.updated_at || 0);
+            const dateA = competitorHubToDate(a.last_update || a.updated_at)?.getTime() || 0;
+            const dateB = competitorHubToDate(b.last_update || b.updated_at)?.getTime() || 0;
             return dateB - dateA;
         });
 
-        const competitorIndex = new Map(competitors.map(comp => [comp.id, comp.name]));
+        const competitorProfiles = sortedCompetitors.map(comp => {
+            const enhancement = COMPETITOR_ENHANCEMENTS[comp.id] || {};
+            const relatedTasks = tasksByCompetitor.get(comp.id) || [];
+            const kanbanColumns = ['Backlog', 'In Progress', 'Review', 'Done'].map(column => ({
+                name: column,
+                tasks: relatedTasks
+                    .filter(task => competitorHubResolveColumn(task.status) === column)
+                    .map(task => ({
+                        id: task.id,
+                        title: task.title,
+                        status: task.status,
+                        priority: task.priority,
+                        due_date: task.due_date,
+                        assigned_to: task.assigned_to
+                    }))
+            }));
 
-        const tasks = tasksResponse.data || [];
-        const activities = activitiesResponse.data || [];
+            const activeSignals = (activitiesByCompetitor.get(comp.id) || []).slice().sort((a, b) => {
+                const dateA = competitorHubToDate(a.date || a.updated_at)?.getTime() || 0;
+                const dateB = competitorHubToDate(b.date || b.updated_at)?.getTime() || 0;
+                return dateB - dateA;
+            });
 
-        const intelTasks = tasks
-            .filter(task => task.category === 'Competitive Intelligence'
-                || task.type === 'Research'
-                || (Array.isArray(task.tags) && task.tags.includes('competitor')))
-            .sort((a, b) => new Date(a.due_date || a.updated_at || 0) - new Date(b.due_date || b.updated_at || 0))
-            .slice(0, 5);
+            const linkedContacts = contacts.filter(contact => (contact.company_name || '').toLowerCase().includes((comp.name || '').toLowerCase()));
 
-        const intelSignals = activities
-            .filter(activity => activity.category === 'Competitive Intelligence'
-                || (activity.subject && activity.subject.toLowerCase().includes('competitor'))
-                || (activity.description && activity.description.toLowerCase().includes('competitor')))
-            .sort((a, b) => new Date(b.date || b.updated_at || 0) - new Date(a.date || a.updated_at || 0))
-            .slice(0, 5);
+            return {
+                ...comp,
+                kanbanColumns,
+                signals: activeSignals,
+                enhancement,
+                linkedContacts
+            };
+        });
+        const clientsWithCoverage = companies.map(company => {
+            const coverage = competitorProfiles.filter(comp => (comp.linked_clients || []).includes(company.name));
+            const watchers = Array.from(new Set(coverage.flatMap(comp => (comp.enhancement?.contacts || []).slice(0, 2).map(c => c.name))));
+            const tierValue = coverage.reduce((acc, comp) => Math.min(acc, competitorHubTierRank(comp.tier)), 3);
+            const tierLabel = tierValue === 0 ? 'Tier 1 focus' : tierValue === 1 ? 'Tier 2 coverage' : 'Monitoring';
+            const intelTasksForClient = tasksByClient.get(company.id) || [];
+            const openTasks = intelTasksForClient.filter(task => !String(task.status || '').toLowerCase().includes('completed'));
+            const earliestDue = openTasks.reduce((acc, task) => {
+                const date = competitorHubToDate(task.due_date);
+                if (!date) return acc;
+                if (!acc || date < acc) return date;
+                return acc;
+            }, null);
+            const activityHits = intelActivities.filter(activity => {
+                const related = Array.isArray(activity.related_competitors) ? activity.related_competitors : [];
+                return coverage.some(comp => related.includes(comp.id));
+            });
+            const riskLevel = coverage.length === 0 ? 'Low' : (openTasks.some(task => {
+                const due = competitorHubToDate(task.due_date);
+                return due && due.getTime() < Date.now();
+            }) || coverage.length > 2) ? 'High' : coverage.length === 1 ? 'Medium' : 'Medium';
 
-        const tier1Count = competitors.filter(comp => (comp.tier || '').toLowerCase().includes('tier 1')).length;
-        const trackedClients = new Set();
-        competitors.forEach(comp => (Array.isArray(comp.linked_clients) ? comp.linked_clients : []).forEach(client => trackedClients.add(client)));
+            return {
+                id: company.id,
+                name: company.name,
+                industry: company.industry || '—',
+                location: [company.city, company.state || company.country].filter(Boolean).join(', '),
+                competitorCount: coverage.length,
+                watchers,
+                tierLabel,
+                lastIntel: coverage.reduce((latest, comp) => {
+                    const date = competitorHubToDate(comp.last_update || comp.updated_at);
+                    if (!latest || (date && date > latest)) return date;
+                    return latest;
+                }, null),
+                earliestDue,
+                riskLevel,
+                activitiesCount: activityHits.length,
+                openTasks,
+                coverageNames: coverage.map(comp => comp.name),
+                tierValue,
+                intelScore: Math.min(100, (coverage.length * 22) + (activityHits.length * 6) + (openTasks.length ? 12 : 0))
+            };
+        });
 
-        const mostRecentUpdate = competitors.reduce((latest, comp) => {
-            const candidate = new Date(comp.last_update || comp.updated_at || 0);
-            if (!latest || candidate > latest) {
-                return candidate;
-            }
+        const trackedClients = clientsWithCoverage.filter(client => client.competitorCount > 0);
+
+        const recentIntelDate = competitorProfiles.reduce((latest, comp) => {
+            const date = competitorHubToDate(comp.last_update || comp.updated_at);
+            if (!latest || (date && date > latest)) return date;
             return latest;
         }, null);
-        const mostRecentText = mostRecentUpdate ? mostRecentUpdate.toLocaleDateString() : '—';
 
-        const formatDateOnly = value => {
-            if (!value) {
-                return 'Not set';
-            }
-            const date = new Date(value);
-            if (Number.isNaN(date.getTime())) {
-                return value;
-            }
-            return date.toLocaleDateString();
-        };
-
-        const formatList = list => (Array.isArray(list) && list.length ? list.join(', ') : '—');
-
-        const tierClass = tier => {
-            const normalized = (tier || '').toLowerCase();
-            if (normalized.includes('tier 1')) return 'bg-red-100 text-red-700';
-            if (normalized.includes('tier 2')) return 'bg-amber-100 text-amber-700';
-            return 'bg-gray-100 text-gray-700';
-        };
-
-        const statusClass = status => {
-            const normalized = (status || '').toLowerCase();
-            if (normalized.includes('active')) return 'bg-blue-100 text-blue-700';
-            if (normalized.includes('monitor')) return 'bg-yellow-100 text-yellow-700';
-            if (normalized.includes('watch')) return 'bg-purple-100 text-purple-700';
-            return 'bg-gray-100 text-gray-700';
-        };
-
-        const taskStatusClass = status => {
-            const normalized = (status || '').toLowerCase();
-            if (normalized.includes('progress')) return 'bg-blue-100 text-blue-700';
-            if (normalized.includes('not started')) return 'bg-gray-100 text-gray-700';
-            if (normalized.includes('completed')) return 'bg-green-100 text-green-700';
-            if (normalized.includes('blocked') || normalized.includes('overdue')) return 'bg-red-100 text-red-700';
-            return 'bg-gray-100 text-gray-700';
-        };
-
-        const buildNoteLink = fileName => {
-            if (!fileName) {
-                return null;
-            }
-            return `vault/Competitors/${encodeURIComponent(fileName)}`;
-        };
-
-        const competitorRows = competitors.length ? competitors.map(comp => {
-            const noteHref = buildNoteLink(comp.note_file);
-            return `
-                <tr class="hover:bg-gray-50 transition-colors">
-                    <td class="p-4 align-top">
-                        <div class="flex items-start justify-between gap-3">
-                            <div>
-                                <p class="font-semibold text-gray-800">${comp.name}</p>
-                                <p class="text-sm text-gray-500">${comp.industry || '—'}</p>
-                            </div>
-                            ${noteHref
-                                ? `<a href="${noteHref}" target="_blank" class="text-blue-600 text-xs font-medium hover:text-blue-700 flex items-center space-x-1">
-                                        <i class="fas fa-arrow-up-right-from-square"></i>
-                                        <span>Obsidian</span>
-                                   </a>`
-                                : '<span class="text-xs text-gray-400">Create workspace</span>'}
-                        </div>
-                        <div class="mt-3 text-sm text-gray-600 border-t border-gray-100 pt-3">
-                            <p class="font-medium text-gray-700">Latest move</p>
-                            <p>${comp.latest_move || 'No recent intel captured yet.'}</p>
-                        </div>
-                    </td>
-                    <td class="p-4 align-top">
-                        <span class="px-2 py-1 rounded-full text-xs font-medium ${tierClass(comp.tier)}">${comp.tier || '—'}</span>
-                    </td>
-                    <td class="p-4 align-top">
-                        <span class="px-2 py-1 rounded-full text-xs font-medium ${statusClass(comp.status)}">${comp.status || '—'}</span>
-                    </td>
-                    <td class="p-4 align-top text-sm text-gray-600">${formatList(comp.focus_areas)}</td>
-                    <td class="p-4 align-top text-sm text-gray-600">${formatList(comp.linked_clients)}</td>
-                    <td class="p-4 align-top text-sm text-gray-600">
-                        <p class="font-medium text-gray-700">${comp.intel_owner || 'Unassigned'}</p>
-                        <p class="text-xs text-gray-500 mt-1">Updated ${formatDateOnly(comp.last_update)}</p>
-                    </td>
-                </tr>
-            `;
-        }).join('') : `
-            <tr>
-                <td colspan="6" class="p-6 text-center text-gray-500">
-                    <i class="fas fa-chess-board text-3xl mb-3"></i>
-                    <p>No competitors tracked yet. Use the Obsidian template to add your first profile.</p>
-                </td>
-            </tr>
-        `;
-
-        const watchlistTable = `
-            <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-                <div class="flex items-center justify-between mb-4">
-                    <h3 class="text-lg font-semibold text-gray-800">Competitor Watchlist</h3>
-                    <span class="text-sm text-gray-500">${competitors.length} profile${competitors.length === 1 ? '' : 's'}</span>
-                </div>
-                <div class="overflow-x-auto">
-                    <table class="w-full text-sm">
-                        <thead class="bg-gray-50 text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                            <tr>
-                                <th class="p-3 text-left">Competitor</th>
-                                <th class="p-3 text-left">Tier</th>
-                                <th class="p-3 text-left">Status</th>
-                                <th class="p-3 text-left">Focus Areas</th>
-                                <th class="p-3 text-left">Linked Clients</th>
-                                <th class="p-3 text-left">Owner &amp; Update</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-gray-100">
-                            ${competitorRows}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        `;
-
-        const hubNoteLink = `vault/Competitors/${encodeURIComponent('Competitor Intelligence Hub.md')}`;
-
-        const quickActions = `
-            <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-                <div class="flex items-center justify-between mb-4">
-                    <h3 class="text-lg font-semibold text-gray-800 flex items-center space-x-2">
-                        <i class="fas fa-compass text-blue-500"></i>
-                        <span>Quick Actions</span>
-                    </h3>
-                </div>
-                <div class="space-y-3">
-                    <a href="${hubNoteLink}" target="_blank" class="flex items-center justify-between px-4 py-3 border border-blue-100 rounded-lg text-blue-600 hover:bg-blue-50 transition">
-                        <span><i class="fas fa-arrow-up-right-from-square mr-2"></i>Open Obsidian hub</span>
-                        <i class="fas fa-external-link-alt text-xs"></i>
-                    </a>
-                    <a href="vault/Competitors/" target="_blank" class="flex items-center justify-between px-4 py-3 border border-gray-200 rounded-lg text-gray-700 hover:bg-gray-50 transition">
-                        <span><i class="fas fa-folder-tree mr-2"></i>Browse competitor folder</span>
-                        <i class="fas fa-external-link-alt text-xs"></i>
-                    </a>
-                </div>
-                <p class="text-xs text-gray-500 mt-4">Tip: Use the Competitor template to add kanban boards, diagrams, contacts, pricing, and documents for each rival.</p>
-            </div>
-        `;
-
-        const clientCoverageEntries = (() => {
-            const coverage = new Map();
-            competitors.forEach(comp => {
-                (Array.isArray(comp.linked_clients) ? comp.linked_clients : []).forEach(client => {
-                    coverage.set(client, (coverage.get(client) || 0) + 1);
-                });
-            });
-            const entries = Array.from(coverage.entries()).sort((a, b) => b[1] - a[1]);
-            const maxCount = entries.length ? Math.max(...entries.map(([, count]) => count)) : 1;
-            if (!entries.length) {
-                return '<p class="text-sm text-gray-500">Link competitors to client notes to see coverage here.</p>';
-            }
-            return entries.map(([client, count]) => {
-                const width = Math.round((count / maxCount) * 100);
-                return `
-                    <div>
-                        <div class="flex items-center justify-between text-sm text-gray-600">
-                            <span class="font-medium text-gray-700">${client}</span>
-                            <span class="text-xs text-gray-500">${count} competitor${count === 1 ? '' : 's'}</span>
-                        </div>
-                        <div class="mt-2 h-2 bg-gray-100 rounded-full overflow-hidden">
-                            <div class="h-2 bg-blue-500" style="width: ${width}%;"></div>
-                        </div>
-                    </div>
-                `;
-            }).join('');
+        const avgDaysSinceUpdate = (() => {
+            const dates = competitorProfiles
+                .map(comp => competitorHubToDate(comp.last_update || comp.updated_at))
+                .filter(Boolean);
+            if (!dates.length) return '—';
+            const avg = dates.reduce((sum, date) => sum + (Date.now() - date.getTime()), 0) / dates.length;
+            return `${Math.round(avg / (1000 * 60 * 60 * 24))} days avg`;
         })();
 
-        const clientCoverage = `
-            <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-                <div class="flex items-center justify-between mb-4">
-                    <h3 class="text-lg font-semibold text-gray-800">Client Coverage</h3>
-                    <span class="text-sm text-gray-500">${trackedClients.size} client${trackedClients.size === 1 ? '' : 's'}</span>
+        const summaryMetrics = [
+            {
+                title: 'Tracked Competitors',
+                value: competitorProfiles.length,
+                badge: `${competitorProfiles.filter(comp => competitorHubTierRank(comp.tier) === 0).length} Tier 1`,
+                caption: recentIntelDate ? `Last update ${competitorHubFormatRelative(recentIntelDate)}` : 'No updates recorded',
+                icon: 'fa-chess-knight'
+            },
+            {
+                title: 'Clients Covered',
+                value: trackedClients.length,
+                badge: `${trackedClients.reduce((sum, client) => sum + client.competitorCount, 0)} overlaps`,
+                caption: 'Linked via competitor field',
+                icon: 'fa-layer-group'
+            },
+            {
+                title: 'Intel Workstreams',
+                value: tasks.filter(task => (task.category === 'Competitive Intelligence' || (task.tags || []).includes('competitor')) && !String(task.status || '').toLowerCase().includes('completed')).length,
+                badge: `${intelActivities.length} signals`,
+                caption: avgDaysSinceUpdate,
+                icon: 'fa-clipboard-list'
+            },
+            {
+                title: 'Media Mentions',
+                value: competitorProfiles.reduce((sum, comp) => sum + (comp.enhancement.media?.length || 0), 0),
+                badge: 'Alerts & sentiment',
+                caption: 'Across all tracked rivals',
+                icon: 'fa-bullhorn'
+            }
+        ];
+
+        const summaryCardsHtml = summaryMetrics.map(metric => `
+            <div class="cih-summary-card">
+                <div class="flex items-start justify-between">
+                    <div>
+                        <p class="cih-summary-badge"><i class="fas ${metric.icon} mr-2"></i>${metric.title}</p>
+                        <p class="mt-3 text-3xl font-semibold text-slate-50">${metric.value}</p>
+                    </div>
+                    <span class="cih-chip"><i class="fas fa-signal"></i>${metric.badge}</span>
                 </div>
-                <div class="space-y-4">
-                    ${clientCoverageEntries}
+                <p class="mt-4 text-sm text-slate-300">${metric.caption}</p>
+            </div>
+        `).join('');
+        const clientCardsHtml = trackedClients.map(client => `
+            <div class="cih-card cih-client-card" data-client-name="${client.name.toLowerCase()}" data-client-risk="${client.riskLevel.toLowerCase()}" data-client-industry="${(client.industry || '').toLowerCase()}" data-intel-score="${client.intelScore}">
+                <div class="flex items-start justify-between gap-4">
+                    <div>
+                        <h4>${client.name}</h4>
+                        <p class="text-xs uppercase tracking-wide text-slate-400 mt-1">${client.industry} · ${client.location || 'No location'}</p>
+                    </div>
+                    <span class="cih-tag"><i class="fas fa-shield-alt"></i>${client.tierLabel}</span>
+                </div>
+                <div class="mt-4 grid gap-3">
+                    <div class="flex items-center justify-between text-sm">
+                        <span class="text-slate-400">Competitors linked</span>
+                        <span class="font-medium text-slate-100">${client.competitorCount}</span>
+                    </div>
+                    <div class="flex items-center justify-between text-sm">
+                        <span class="text-slate-400">Intel owners</span>
+                        <span class="text-slate-100">${client.watchers.slice(0, 3).join(', ') || '—'}</span>
+                    </div>
+                    <div class="flex items-center justify-between text-sm">
+                        <span class="text-slate-400">Last intel</span>
+                        <span class="text-slate-100">${client.lastIntel ? competitorHubFormatRelative(client.lastIntel) : '—'}</span>
+                    </div>
+                    <div class="flex items-center justify-between text-sm">
+                        <span class="text-slate-400">Next due</span>
+                        <span class="text-slate-100">${client.earliestDue ? competitorHubFormatDateShort(client.earliestDue) : '—'}</span>
+                    </div>
+                </div>
+                <div class="mt-4">
+                    <div class="flex items-center justify-between text-xs text-slate-300 mb-2">
+                        <span>Coverage intensity</span>
+                        <span>${client.intelScore}</span>
+                    </div>
+                    <div class="w-full h-2 rounded-full bg-slate-800 overflow-hidden">
+                        <div class="h-full bg-sky-500" style="width: ${client.intelScore}%;"></div>
+                    </div>
+                </div>
+                <div class="mt-4 flex items-center justify-between">
+                    <div class="flex flex-wrap gap-2">
+                        ${client.coverageNames.map(name => `<span class="cih-swatch"><span class="cih-dot" style="background: rgba(56,189,248,0.6);"></span>${name}</span>`).join('')}
+                    </div>
+                    <span class="cih-swatch ${competitorHubRiskBadge(client.riskLevel)}"><span class="cih-dot" style="background: currentColor;"></span>${client.riskLevel} risk</span>
                 </div>
             </div>
-        `;
+        `).join('');
 
-        const nextTaskDue = intelTasks.length ? formatDateOnly(intelTasks[0].due_date || intelTasks[0].updated_at) : '—';
-
-        const tasksPanel = `
-            <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-                <div class="flex items-center justify-between mb-4">
-                    <h3 class="text-lg font-semibold text-gray-800">Active Intel Tasks</h3>
-                    <button onclick="showTasks()" class="text-sm text-blue-600 hover:text-blue-700">View all</button>
-                </div>
-                <div class="space-y-3">
-                    ${intelTasks.length ? intelTasks.map(task => {
-                        const relatedName = competitorIndex.get(task.related_to) || task.related_to || '—';
-                        return `
-                            <div class="border border-gray-100 rounded-lg p-4">
-                                <div class="flex items-start justify-between gap-3">
-                                    <div>
-                                        <p class="font-medium text-gray-800">${task.title}</p>
-                                        <p class="text-sm text-gray-500">${task.description || 'No description provided.'}</p>
-                                    </div>
-                                    <span class="px-2 py-1 rounded-full text-xs font-medium ${taskStatusClass(task.status)}">${task.status || '—'}</span>
-                                </div>
-                                <div class="mt-3 flex flex-wrap items-center gap-4 text-xs text-gray-500">
-                                    <span><i class="fas fa-calendar-day mr-1"></i>${formatDateOnly(task.due_date || task.updated_at)}</span>
-                                    <span><i class="fas fa-user mr-1"></i>${task.assigned_to || 'Unassigned'}</span>
-                                    <span><i class="fas fa-chess-knight mr-1"></i>${relatedName}</span>
-                                </div>
+        const competitorCardsHtml = competitorProfiles.map(comp => {
+            const statusClass = (() => {
+                const normalized = (comp.status || '').toLowerCase();
+                if (normalized.includes('active')) return 'cih-status-active';
+                if (normalized.includes('monitor')) return 'cih-status-monitor';
+                return 'cih-status-watch';
+            })();
+            return `
+                <div class="cih-card cih-competitor-card" data-competitor-id="${comp.id}">
+                    <div class="flex items-start justify-between gap-3">
+                        <div>
+                            <div class="flex items-center gap-2">
+                                <span class="cih-flag ${statusClass}"></span>
+                                <p class="uppercase tracking-wide text-xs text-slate-400">${comp.tier || 'Tier 3'}</p>
                             </div>
-                        `;
-                    }).join('') : '<p class="text-sm text-gray-500">Tag tasks with <code>Competitive Intelligence</code> to surface them here.</p>'}
+                            <h4 class="mt-2">${comp.name}</h4>
+                            <p class="text-sm text-slate-400 mt-1">${comp.industry || 'No industry set'} · ${comp.headquarters || '—'}</p>
+                        </div>
+                        <button class="cih-outline-button" data-compare-toggle="${comp.id}"><i class="fas fa-balance-scale"></i> Compare</button>
+                    </div>
+                    <div class="grid gap-3 text-sm">
+                        <div class="flex items-center justify-between text-slate-300">
+                            <span>Primary markets</span>
+                            <span class="text-right text-slate-100">${(comp.primary_markets || []).slice(0, 2).join(', ') || '—'}</span>
+                        </div>
+                        <div class="flex items-center justify-between text-slate-300">
+                            <span>Focus areas</span>
+                            <span class="text-right text-slate-100">${(comp.focus_areas || []).slice(0, 3).join(', ') || '—'}</span>
+                        </div>
+                        <div class="flex items-center justify-between text-slate-300">
+                            <span>Intel owner</span>
+                            <span class="text-right text-slate-100">${comp.intel_owner || 'Unassigned'}</span>
+                        </div>
+                        <div class="flex items-center justify-between text-slate-300">
+                            <span>Last move</span>
+                            <span class="text-right text-slate-100">${competitorHubFormatRelative(comp.last_update || comp.updated_at)}</span>
+                        </div>
+                    </div>
+                    <div class="flex flex-wrap gap-2">
+                        ${(comp.linked_clients || []).map(client => `<span class="cih-chip"><i class="fas fa-building"></i>${client}</span>`).join('')}
+                    </div>
+                    <div class="flex items-center justify-between text-xs text-slate-400">
+                        <span>${comp.enhancement?.pricing?.summary || comp.latest_move || 'No latest move logged.'}</span>
+                        ${comp.note_file ? `<a class="text-sky-300 hover:text-sky-200" href="vault/Competitors/${encodeURIComponent(comp.note_file)}" target="_blank"><i class="fas fa-file-lines mr-2"></i>Battlecard</a>` : ''}
+                    </div>
                 </div>
-            </div>
-        `;
+            `;
+        }).join('');
 
-        const signalsPanel = `
-            <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-                <div class="flex items-center justify-between mb-4">
-                    <h3 class="text-lg font-semibold text-gray-800">Latest Signals</h3>
-                    <span class="text-sm text-gray-500">${intelSignals.length} captured</span>
+        const competitorSelectorHtml = competitorProfiles.map((comp, index) => `
+            <button class="cih-outline-button ${index === 0 ? 'active' : ''}" data-module-competitor="${comp.id}">
+                <i class="fas fa-chess"></i>
+                ${comp.name}
+            </button>
+        `).join('');
+        const sentimentClass = sentiment => {
+            const normalized = (sentiment || '').toLowerCase();
+            if (normalized.includes('positive')) return 'cih-sentiment-positive';
+            if (normalized.includes('negative')) return 'cih-sentiment-negative';
+            return 'cih-sentiment-neutral';
+        };
+
+        const renderRelationshipPreview = relationships => {
+            const nodeCount = relationships?.nodes?.length || 0;
+            const linkCount = relationships?.links?.length || 0;
+            return `
+                <div class="grid gap-3 md:grid-cols-2">
+                    <div class="cih-card">
+                        <p class="text-xs uppercase tracking-wide text-slate-400">Entities</p>
+                        <p class="text-2xl font-semibold text-slate-100">${nodeCount}</p>
+                        <p class="text-sm text-slate-300 mt-2">Companies, partners, and products mapped.</p>
+                    </div>
+                    <div class="cih-card">
+                        <p class="text-xs uppercase tracking-wide text-slate-400">Connections</p>
+                        <p class="text-2xl font-semibold text-slate-100">${linkCount}</p>
+                        <p class="text-sm text-slate-300 mt-2">Competitive, partnership, ownership ties.</p>
+                    </div>
                 </div>
-                <div class="space-y-3">
-                    ${intelSignals.length ? intelSignals.map(signal => {
-                        const relatedNames = (Array.isArray(signal.related_competitors) ? signal.related_competitors : [])
-                            .map(id => competitorIndex.get(id) || id)
-                            .filter(Boolean)
-                            .join(', ');
-                        return `
-                            <div class="border border-gray-100 rounded-lg p-4">
-                                <div class="flex items-start justify-between gap-3">
-                                    <div>
-                                        <p class="font-medium text-gray-800">${signal.subject || signal.type || 'Signal'}</p>
-                                        <p class="text-sm text-gray-500">${signal.description || 'No description provided.'}</p>
-                                    </div>
-                                    <span class="text-xs text-gray-400 whitespace-nowrap">${formatDateOnly(signal.date || signal.updated_at)}</span>
-                                </div>
-                                <div class="mt-3 flex flex-wrap items-center gap-4 text-xs text-gray-500">
-                                    <span><i class="fas fa-user mr-1"></i>${signal.assigned_to || 'Unassigned'}</span>
-                                    ${relatedNames ? `<span><i class="fas fa-chess-knight mr-1"></i>${relatedNames}</span>` : ''}
-                                </div>
+            `;
+        };
+
+        const renderRelationshipExpanded = relationships => `
+            <div class="cih-rel-diagram">
+                <div>
+                    <h4 class="text-slate-200 font-semibold mb-3">Key nodes</h4>
+                    <div class="cih-rel-nodes">
+                        ${(relationships?.nodes || []).map(node => `
+                            <div class="cih-rel-node">
+                                <span class="text-slate-200 font-medium">${node.label}</span>
+                                <span class="text-xs uppercase tracking-wide text-slate-400">${node.type}</span>
                             </div>
-                        `;
-                    }).join('') : '<p class="text-sm text-gray-500">Log competitor mentions as activities to keep the team aligned.</p>'}
+                        `).join('')}
+                    </div>
+                </div>
+                <div>
+                    <h4 class="text-slate-200 font-semibold mb-3">Connections</h4>
+                    <div class="grid gap-2">
+                        ${(relationships?.links || []).map(link => `
+                            <div class="cih-rel-link">
+                                <span class="cih-chip"><i class="fas fa-arrows-alt-h"></i>${link.type}</span>
+                                <p class="text-sm text-slate-200">${link.description}</p>
+                            </div>
+                        `).join('')}
+                    </div>
                 </div>
             </div>
         `;
 
-        const summaryCards = `
-            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
-                <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <p class="text-sm font-medium text-gray-500">Tracked Competitors</p>
-                            <p class="text-3xl font-semibold text-gray-800">${competitors.length}</p>
-                        </div>
-                        <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                            <i class="fas fa-chess-rook text-blue-600 text-xl"></i>
-                        </div>
-                    </div>
-                    <p class="text-xs text-gray-500 mt-4">Most recent update: ${mostRecentText}</p>
+        const renderContactsPreview = contactsList => `
+            <div class="grid gap-2">
+                <div class="cih-card">
+                    <p class="text-xs uppercase tracking-wide text-slate-400">Total contacts</p>
+                    <p class="text-2xl font-semibold text-slate-100">${contactsList?.length || 0}</p>
+                    <p class="text-xs text-slate-400 mt-2">Synced into intel workspace</p>
                 </div>
-                <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <p class="text-sm font-medium text-gray-500">Tier 1 Watchlist</p>
-                            <p class="text-3xl font-semibold text-gray-800">${tier1Count}</p>
-                        </div>
-                        <div class="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center">
-                            <i class="fas fa-fire text-red-500 text-xl"></i>
-                        </div>
-                    </div>
-                    <p class="text-xs text-gray-500 mt-4">Prioritize counter-messaging for high-impact rivals.</p>
-                </div>
-                <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <p class="text-sm font-medium text-gray-500">Active Intel Tasks</p>
-                            <p class="text-3xl font-semibold text-gray-800">${intelTasks.length}</p>
-                        </div>
-                        <div class="w-12 h-12 bg-emerald-100 rounded-lg flex items-center justify-center">
-                            <i class="fas fa-list-check text-emerald-500 text-xl"></i>
-                        </div>
-                    </div>
-                    <p class="text-xs text-gray-500 mt-4">Next due: ${nextTaskDue}</p>
-                </div>
-                <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <p class="text-sm font-medium text-gray-500">Impacted Clients</p>
-                            <p class="text-3xl font-semibold text-gray-800">${trackedClients.size}</p>
-                        </div>
-                        <div class="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
-                            <i class="fas fa-wave-square text-purple-500 text-xl"></i>
-                        </div>
-                    </div>
-                    <p class="text-xs text-gray-500 mt-4">Signals logged: ${intelSignals.length}</p>
+                <div class="cih-card">
+                    <p class="text-xs uppercase tracking-wide text-slate-400">Key relationships</p>
+                    <p class="text-sm text-slate-100 mt-2">${(contactsList || []).slice(0, 3).map(contact => contact.name).join(', ') || 'No named contacts'}</p>
                 </div>
             </div>
         `;
 
-        const playbookCard = `
-            <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-                <h3 class="text-lg font-semibold text-gray-800 mb-3">Workspace Playbook</h3>
-                <ul class="list-disc list-inside space-y-2 text-sm text-gray-600">
-                    <li>Use the Competitor template to add collapsible kanban boards, diagrams, contacts, pricing, and document cells.</li>
-                    <li>Populate the <code>competitors</code> field in client notes to surface overlaps in the coverage panel.</li>
-                    <li>Tag research tasks with <code>category:: Competitive Intelligence</code> so they appear in the task roll-up automatically.</li>
-                </ul>
+        const renderContactsExpanded = contactsList => `
+            <div class="overflow-x-auto">
+                <table class="cih-mini-table">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Title</th>
+                            <th>Segment</th>
+                            <th>Contact</th>
+                            <th>Notes</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${(contactsList || []).map(contact => `
+                            <tr>
+                                <td>${contact.name}</td>
+                                <td>${contact.title}</td>
+                                <td>${contact.segment}</td>
+                                <td>
+                                    <div class="flex flex-col">
+                                        <span>${contact.email}</span>
+                                        <span>${contact.phone}</span>
+                                        <span>${contact.linkedin}</span>
+                                    </div>
+                                </td>
+                                <td>${contact.notes || '—'}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
             </div>
         `;
 
+        const renderMediaPreview = mediaList => {
+            const latest = (mediaList || [])[0];
+            if (!latest) {
+                return '<div class="cih-card"><p class="text-sm text-slate-300">No recent media captured.</p></div>';
+            }
+            return `
+                <div class="cih-card">
+                    <p class="text-xs uppercase tracking-wide text-slate-400">Latest mention</p>
+                    <p class="text-lg text-slate-100 mt-2">${latest.title}</p>
+                    <p class="text-sm text-slate-400">${latest.source} · ${competitorHubFormatDateShort(latest.date)}</p>
+                    <p class="text-sm ${sentimentClass(latest.sentiment)} mt-2">${latest.sentiment}</p>
+                </div>
+            `;
+        };
+
+        const renderMediaExpanded = mediaList => `
+            <div class="grid gap-3">
+                ${(mediaList || []).map(item => `
+                    <div class="cih-card">
+                        <div class="flex items-start justify-between">
+                            <div>
+                                <p class="text-slate-100 font-medium">${item.title}</p>
+                                <p class="text-xs text-slate-400 mt-1">${item.source} · ${competitorHubFormatDateShort(item.date)}</p>
+                            </div>
+                            <span class="cih-chip ${sentimentClass(item.sentiment)}">${item.sentiment}</span>
+                        </div>
+                        <p class="text-sm text-slate-300 mt-3">${item.summary}</p>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+
+        const renderDocumentsExpanded = documentsList => `
+            <div class="grid gap-3">
+                ${(documentsList || []).map(doc => `
+                    <div class="cih-card">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-slate-100 font-medium">${doc.title}</p>
+                                <p class="text-xs text-slate-400">${doc.type} · ${doc.owner}</p>
+                            </div>
+                            <span class="text-xs text-slate-400">${competitorHubFormatDateShort(doc.updated)}</span>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+
+        const renderSwotExpanded = swot => {
+            const renderList = (title, items, accent) => `
+                <div class="cih-card" style="border-left: 3px solid ${accent};">
+                    <h4 class="text-slate-200 font-semibold mb-3">${title}</h4>
+                    <ul class="list-disc list-inside space-y-2 text-sm text-slate-300">
+                        ${(items || []).map(item => `<li>${item}</li>`).join('') || '<li>No entries logged</li>'}
+                    </ul>
+                </div>
+            `;
+            return `
+                <div class="cih-swot-grid md:grid-cols-2">
+                    ${renderList('Strengths', swot?.strengths, '#22c55e')}
+                    ${renderList('Weaknesses', swot?.weaknesses, '#ef4444')}
+                    ${renderList('Opportunities', swot?.opportunities, '#facc15')}
+                    ${renderList('Threats', swot?.threats, '#6366f1')}
+                </div>
+            `;
+        };
+        const priceCharts = new Map();
+
+        const renderPriceExpanded = (pricing, competitorId) => {
+            const canvasId = `cihPriceChart-${competitorId}`;
+            const tableRows = (pricing?.table || []).map(row => `
+                <tr>
+                    <td>${row.plan}</td>
+                    <td>${row.price}</td>
+                    <td>${row.positioning}</td>
+                    <td>${row.movement}</td>
+                </tr>
+            `).join('');
+
+            const alerts = (pricing?.alerts || []).map(alert => `<span class="cih-chip"><i class="fas fa-bell"></i>${alert.label} (${alert.status})</span>`).join('');
+
+            setTimeout(() => {
+                const ctx = document.getElementById(canvasId);
+                if (!ctx || !pricing?.series?.length || typeof Chart === 'undefined') {
+                    return;
+                }
+                if (priceCharts.has(competitorId)) {
+                    priceCharts.get(competitorId).destroy();
+                }
+                const labels = pricing.series[0].points.map(point => point.label);
+                const datasets = pricing.series.map((series, index) => ({
+                    label: series.plan,
+                    data: series.points.map(point => point.value),
+                    borderColor: index === 0 ? '#38bdf8' : '#a855f7',
+                    backgroundColor: 'transparent',
+                    tension: 0.35
+                }));
+                const chart = new Chart(ctx, {
+                    type: 'line',
+                    data: { labels, datasets },
+                    options: {
+                        plugins: { legend: { labels: { color: '#cbd5f5' } } },
+                        scales: {
+                            x: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(148,163,184,0.2)' } },
+                            y: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(148,163,184,0.15)' } }
+                        }
+                    }
+                });
+                priceCharts.set(competitorId, chart);
+            }, 50);
+
+            return `
+                <div class="grid gap-4 md:grid-cols-2">
+                    <div class="cih-card">
+                        <canvas id="${canvasId}" height="180"></canvas>
+                    </div>
+                    <div class="cih-card">
+                        <table class="cih-mini-table">
+                            <thead>
+                                <tr>
+                                    <th>Plan</th>
+                                    <th>Price</th>
+                                    <th>Positioning</th>
+                                    <th>Movement</th>
+                                </tr>
+                            </thead>
+                            <tbody>${tableRows}</tbody>
+                        </table>
+                        <div class="flex flex-wrap gap-2 mt-4">${alerts}</div>
+                    </div>
+                </div>
+            `;
+        };
+
+        const renderTechExpanded = tech => `
+            <div class="grid gap-3">
+                ${(tech?.categories || []).map(category => `
+                    <div class="cih-card">
+                        <h4 class="text-slate-200 font-semibold mb-2">${category.label}</h4>
+                        <div class="flex flex-wrap gap-2">
+                            ${category.items.map(item => `<span class="cih-tech-chip"><i class="fas fa-circle"></i>${item}</span>`).join('')}
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+
+        const renderModulesForCompetitor = competitorId => {
+            const competitor = competitorProfiles.find(comp => comp.id === competitorId) || competitorProfiles[0];
+            if (!competitor) {
+                return '<p class="text-slate-300">No competitor selected.</p>';
+            }
+            const enhancement = competitor.enhancement || {};
+            const modules = [
+                {
+                    id: 'kanban',
+                    icon: 'fa-columns',
+                    title: 'Task Kanban Board',
+                    subtitle: 'Research, enablement, and alerts',
+                    preview: competitor.kanbanColumns.map(column => `
+                        <div class="cih-card">
+                            <p class="text-xs uppercase tracking-wide text-slate-400">${column.name}</p>
+                            <p class="text-2xl font-semibold text-slate-100">${column.tasks.length}</p>
+                            <p class="text-xs text-slate-400 mt-2">Active items in column</p>
+                        </div>
+                    `).join(''),
+                    expanded: `
+                        <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                            ${competitor.kanbanColumns.map(column => `
+                                <div class="cih-kanban-column">
+                                    <div class="flex items-center justify-between">
+                                        <span class="text-slate-200 font-medium">${column.name}</span>
+                                        <span class="text-xs text-slate-400">${column.tasks.length}</span>
+                                    </div>
+                                    ${column.tasks.map(task => `
+                                        <div class="cih-kanban-card">
+                                            <div class="flex items-start justify-between">
+                                                <p class="text-sm text-slate-100 font-medium">${task.title}</p>
+                                                <span class="cih-chip">${task.priority || '—'}</span>
+                                            </div>
+                                            <div class="flex items-center justify-between text-xs text-slate-400">
+                                                <span><i class="far fa-calendar mr-1"></i>${competitorHubFormatDateShort(task.due_date)}</span>
+                                                <span><i class="far fa-user mr-1"></i>${task.assigned_to || 'Unassigned'}</span>
+                                            </div>
+                                        </div>
+                                    `).join('') || '<p class="text-xs text-slate-400">No tasks logged.</p>'}
+                                </div>
+                            `).join('')}
+                        </div>
+                    `
+                },
+                {
+                    id: 'relationships',
+                    icon: 'fa-diagram-project',
+                    title: 'Relationship Diagram',
+                    subtitle: 'Ecosystem view of ties',
+                    preview: renderRelationshipPreview(enhancement.relationships),
+                    expanded: renderRelationshipExpanded(enhancement.relationships)
+                },
+                {
+                    id: 'contacts',
+                    icon: 'fa-address-book',
+                    title: 'Contact Database',
+                    subtitle: 'Key buyer and partner personas',
+                    preview: renderContactsPreview(enhancement.contacts),
+                    expanded: renderContactsExpanded(enhancement.contacts)
+                },
+                {
+                    id: 'pricing',
+                    icon: 'fa-chart-line',
+                    title: 'Price Intelligence',
+                    subtitle: 'Trendline and positioning',
+                    preview: `<div class="cih-card"><p class="text-sm text-slate-200">${enhancement.pricing?.summary || 'Add pricing research to view trendlines.'}</p></div>`,
+                    expanded: renderPriceExpanded(enhancement.pricing, competitor.id)
+                },
+                {
+                    id: 'media',
+                    icon: 'fa-rss',
+                    title: 'Media Monitoring',
+                    subtitle: 'News & social signals',
+                    preview: renderMediaPreview(enhancement.media),
+                    expanded: renderMediaExpanded(enhancement.media)
+                },
+                {
+                    id: 'documents',
+                    icon: 'fa-folder-open',
+                    title: 'Document Repository',
+                    subtitle: 'Battlecards, notes, and assets',
+                    preview: `<div class="cih-card"><p class="text-sm text-slate-200">${(enhancement.documents && enhancement.documents[0]) ? `Latest: ${enhancement.documents[0].title}` : 'No documents stored.'}</p></div>`,
+                    expanded: renderDocumentsExpanded(enhancement.documents)
+                },
+                {
+                    id: 'swot',
+                    icon: 'fa-table',
+                    title: 'SWOT Analysis',
+                    subtitle: 'Strategic positioning matrix',
+                    preview: `<div class="cih-card"><p class="text-sm text-slate-200">${['strengths','weaknesses','opportunities','threats'].map(key => enhancement.swot?.[key]?.length || 0).reduce((a, b) => a + b, 0)} entries logged</p></div>`,
+                    expanded: renderSwotExpanded(enhancement.swot)
+                },
+                {
+                    id: 'tech',
+                    icon: 'fa-microchip',
+                    title: 'Tech Stack Tracker',
+                    subtitle: 'Observed tooling & platforms',
+                    preview: `<div class="cih-card"><p class="text-sm text-slate-200">${enhancement.tech?.highlights || 'No stack intel captured.'}</p></div>`,
+                    expanded: renderTechExpanded(enhancement.tech)
+                }
+            ];
+
+            return modules.map(module => `
+                <div class="cih-module" data-module-block="${module.id}">
+                    <div class="cih-module-header">
+                        <div class="flex items-center gap-3">
+                            <span class="cih-chip"><i class="fas ${module.icon}"></i>${module.title}</span>
+                            <p class="text-sm text-slate-400">${module.subtitle}</p>
+                        </div>
+                        <button type="button" data-module-toggle="${module.id}"><i class="fas fa-maximize"></i><span>Toggle view</span></button>
+                    </div>
+                    <div class="cih-module-body">
+                        <div class="cih-module-preview">${module.preview}</div>
+                        <div class="cih-module-expanded">${module.expanded}</div>
+                    </div>
+                </div>
+            `).join('');
+        };
         hubView.innerHTML = `
-            <div class="space-y-6">
-                ${summaryCards}
-                <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
-                    <div class="xl:col-span-2 space-y-6">
-                        ${watchlistTable}
-                        ${clientCoverage}
-                        ${playbookCard}
+            <div class="cih-root">
+                <div class="cih-grid cih-grid-cols-4">
+                    ${summaryCardsHtml}
+                </div>
+                <div class="cih-section mt-8">
+                    <div class="cih-section-header">
+                        <h3 class="cih-section-title"><i class="fas fa-building"></i>Client Portfolio Overview</h3>
+                        <div class="flex flex-wrap gap-3">
+                            <div class="relative">
+                                <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-500"></i>
+                                <input id="cihClientSearch" type="search" placeholder="Search clients" class="bg-slate-900/70 border border-slate-700 rounded-lg pl-9 pr-4 py-2 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-500">
+                            </div>
+                            <select id="cihClientFilter" class="bg-slate-900/70 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-sky-500">
+                                <option value="all">All coverage</option>
+                                <option value="high">High risk</option>
+                                <option value="medium">Medium risk</option>
+                                <option value="low">Low risk</option>
+                            </select>
+                            <select id="cihClientSort" class="bg-slate-900/70 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-sky-500">
+                                <option value="recent">Sort: Latest intel</option>
+                                <option value="competitors">Sort: Competitor count</option>
+                                <option value="score">Sort: Coverage score</option>
+                            </select>
+                        </div>
                     </div>
-                    <div class="space-y-6">
-                        ${quickActions}
-                        ${tasksPanel}
-                        ${signalsPanel}
+                    <div id="cihClientCards" class="cih-grid md:cih-grid-cols-2 xl:cih-grid-cols-3">
+                        ${clientCardsHtml || '<p class="text-slate-400">Link competitors to clients to populate this section.</p>'}
+                    </div>
+                </div>
+
+                <div class="cih-section mt-8">
+                    <div class="cih-section-header">
+                        <h3 class="cih-section-title"><i class="fas fa-chess"></i>Competitor Portfolio</h3>
+                        <div class="cih-compare-panel" id="cihComparePanel">
+                            <h4 class="text-slate-200">Comparison Drawer</h4>
+                            <p class="text-sm text-slate-400">Select competitors to compare tier, status, pricing and watchlist focus.</p>
+                        </div>
+                    </div>
+                    <div class="cih-grid md:cih-grid-cols-2 xl:cih-grid-cols-3" id="cihCompetitorCards">
+                        ${competitorCardsHtml}
+                    </div>
+                </div>
+
+                <div class="cih-section mt-8">
+                    <div class="cih-section-header">
+                        <h3 class="cih-section-title"><i class="fas fa-cubes"></i>Modular Intelligence Workbench</h3>
+                        <div class="flex flex-wrap gap-2" id="cihCompetitorSelector">
+                            ${competitorSelectorHtml}
+                        </div>
+                    </div>
+                    <div id="cihModuleBlocks" class="cih-grid gap-4">
+                        ${renderModulesForCompetitor(competitorProfiles[0]?.id)}
                     </div>
                 </div>
             </div>
         `;
+
+        const clientSearchInput = document.getElementById('cihClientSearch');
+        const clientFilterSelect = document.getElementById('cihClientFilter');
+        const clientSortSelect = document.getElementById('cihClientSort');
+        const clientCardsContainer = document.getElementById('cihClientCards');
+
+        const applyClientFilters = () => {
+            const searchValue = clientSearchInput.value.trim().toLowerCase();
+            const riskFilter = clientFilterSelect.value;
+            const sortValue = clientSortSelect.value;
+
+            let cards = trackedClients.slice();
+
+            if (searchValue) {
+                cards = cards.filter(client => client.name.toLowerCase().includes(searchValue) || (client.industry || '').toLowerCase().includes(searchValue));
+            }
+
+            if (riskFilter !== 'all') {
+                cards = cards.filter(client => client.riskLevel.toLowerCase() === riskFilter);
+            }
+
+            if (sortValue === 'competitors') {
+                cards.sort((a, b) => b.competitorCount - a.competitorCount);
+            } else if (sortValue === 'score') {
+                cards.sort((a, b) => b.intelScore - a.intelScore);
+            } else {
+                cards.sort((a, b) => {
+                    const dateA = a.lastIntel ? a.lastIntel.getTime() : 0;
+                    const dateB = b.lastIntel ? b.lastIntel.getTime() : 0;
+                    return dateB - dateA;
+                });
+            }
+
+            clientCardsContainer.innerHTML = cards.length ? cards.map(client => `
+                <div class="cih-card cih-client-card">
+                    <div class="flex items-start justify-between gap-4">
+                        <div>
+                            <h4>${client.name}</h4>
+                            <p class="text-xs uppercase tracking-wide text-slate-400 mt-1">${client.industry} · ${client.location || 'No location'}</p>
+                        </div>
+                        <span class="cih-tag"><i class="fas fa-shield-alt"></i>${client.tierLabel}</span>
+                    </div>
+                    <div class="mt-4 grid gap-3">
+                        <div class="flex items-center justify-between text-sm">
+                            <span class="text-slate-400">Competitors linked</span>
+                            <span class="font-medium text-slate-100">${client.competitorCount}</span>
+                        </div>
+                        <div class="flex items-center justify-between text-sm">
+                            <span class="text-slate-400">Intel owners</span>
+                            <span class="text-slate-100">${client.watchers.slice(0, 3).join(', ') || '—'}</span>
+                        </div>
+                        <div class="flex items-center justify-between text-sm">
+                            <span class="text-slate-400">Last intel</span>
+                            <span class="text-slate-100">${client.lastIntel ? competitorHubFormatRelative(client.lastIntel) : '—'}</span>
+                        </div>
+                        <div class="flex items-center justify-between text-sm">
+                            <span class="text-slate-400">Next due</span>
+                            <span class="text-slate-100">${client.earliestDue ? competitorHubFormatDateShort(client.earliestDue) : '—'}</span>
+                        </div>
+                    </div>
+                    <div class="mt-4">
+                        <div class="flex items-center justify-between text-xs text-slate-300 mb-2">
+                            <span>Coverage intensity</span>
+                            <span>${client.intelScore}</span>
+                        </div>
+                        <div class="w-full h-2 rounded-full bg-slate-800 overflow-hidden">
+                            <div class="h-full bg-sky-500" style="width: ${client.intelScore}%;"></div>
+                        </div>
+                    </div>
+                    <div class="mt-4 flex items-center justify-between">
+                        <div class="flex flex-wrap gap-2">
+                            ${client.coverageNames.map(name => `<span class="cih-swatch"><span class="cih-dot" style="background: rgba(56,189,248,0.6);"></span>${name}</span>`).join('')}
+                        </div>
+                        <span class="cih-swatch ${competitorHubRiskBadge(client.riskLevel)}"><span class="cih-dot" style="background: currentColor;"></span>${client.riskLevel} risk</span>
+                    </div>
+                </div>
+            `).join('') : '<p class="text-slate-400">No client coverage matches the current filters.</p>';
+        };
+
+        clientSearchInput.addEventListener('input', applyClientFilters);
+        clientFilterSelect.addEventListener('change', applyClientFilters);
+        clientSortSelect.addEventListener('change', applyClientFilters);
+
+        const comparePanel = document.getElementById('cihComparePanel');
+        const compareSelection = new Set();
+
+        const renderComparePanel = () => {
+            if (!compareSelection.size) {
+                comparePanel.innerHTML = `
+                    <h4 class="text-slate-200">Comparison Drawer</h4>
+                    <p class="text-sm text-slate-400">Select competitors to compare tier, status, pricing and watchlist focus.</p>
+                `;
+                return;
+            }
+            const selectedCompetitors = Array.from(compareSelection).map(id => competitorProfiles.find(comp => comp.id === id)).filter(Boolean);
+            comparePanel.innerHTML = `
+                <h4 class="text-slate-200">${selectedCompetitors.length} competitor${selectedCompetitors.length > 1 ? 's' : ''} selected</h4>
+                <div class="grid gap-3 md:grid-cols-${Math.min(selectedCompetitors.length, 3)}">
+                    ${selectedCompetitors.map(comp => `
+                        <div class="cih-card">
+                            <div class="flex items-center justify-between">
+                                <p class="text-slate-100 font-semibold">${comp.name}</p>
+                                <span class="cih-tag">${comp.tier || 'Tier 3'}</span>
+                            </div>
+                            <p class="text-xs text-slate-400 mt-2">${comp.status || 'Monitoring'} · ${comp.intel_owner || 'Unassigned'}</p>
+                            <p class="text-sm text-slate-300 mt-3">${comp.enhancement?.pricing?.summary || comp.latest_move || 'No latest move logged.'}</p>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        };
+
+        document.querySelectorAll('[data-compare-toggle]').forEach(button => {
+            button.addEventListener('click', () => {
+                const competitorId = button.getAttribute('data-compare-toggle');
+                if (compareSelection.has(competitorId)) {
+                    compareSelection.delete(competitorId);
+                    button.classList.remove('active');
+                } else {
+                    if (compareSelection.size >= 3) {
+                        const first = compareSelection.values().next().value;
+                        compareSelection.delete(first);
+                        document.querySelector(`[data-compare-toggle="${first}"]`)?.classList.remove('active');
+                    }
+                    compareSelection.add(competitorId);
+                    button.classList.add('active');
+                }
+                renderComparePanel();
+            });
+        });
+
+        const moduleContainer = document.getElementById('cihModuleBlocks');
+        const competitorSelector = document.getElementById('cihCompetitorSelector');
+
+        competitorSelector.addEventListener('click', event => {
+            const button = event.target.closest('[data-module-competitor]');
+            if (!button) {
+                return;
+            }
+            const competitorId = button.getAttribute('data-module-competitor');
+            competitorSelector.querySelectorAll('[data-module-competitor]').forEach(btn => btn.classList.remove('active'));
+            button.classList.add('active');
+            moduleContainer.innerHTML = renderModulesForCompetitor(competitorId);
+        });
+
+        hubView.addEventListener('click', event => {
+            const toggle = event.target.closest('[data-module-toggle]');
+            if (!toggle) {
+                return;
+            }
+            const block = toggle.closest('[data-module-block]');
+            if (!block) {
+                return;
+            }
+            block.classList.toggle('expanded');
+        });
+
+        applyClientFilters();
 
     } catch (error) {
         console.error('Error loading competitor intelligence hub:', error);
         showToast('Failed to load competitor intelligence hub', 'error');
         hubView.innerHTML = `
-            <div class="bg-red-50 border border-red-200 text-red-700 rounded-xl p-6">
-                <p class="font-semibold mb-2">We could not load the competitor hub.</p>
-                <p class="text-sm">Please refresh the page or check your mock data configuration.</p>
+            <div class="cih-section text-sm text-rose-200 border border-rose-500/40 bg-rose-500/10">
+                <p class="font-semibold">We could not load the competitor hub.</p>
+                <p class="mt-2 text-rose-100">Please refresh the page or check your mock data configuration.</p>
             </div>
         `;
     } finally {
