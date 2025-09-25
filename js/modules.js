@@ -4910,6 +4910,18 @@ async function showTasks() {
                     <option value="Proposal">Proposal</option>
                     <option value="Demo">Demo</option>
                 </select>
+                <select id="taskRelationTypeFilter" class="border border-gray-300 rounded-lg px-3 py-2">
+                    <option value="">All linked records</option>
+                    <option value="unlinked">Unlinked only</option>
+                    <option value="deal">Deals</option>
+                    <option value="lead">Leads</option>
+                    <option value="company">Companies</option>
+                    <option value="contact">Contacts</option>
+                    <option value="competitor">Competitors</option>
+                </select>
+                <select id="taskRelationRecordFilter" class="border border-gray-300 rounded-lg px-3 py-2" disabled>
+                    <option value="">All records</option>
+                </select>
             </div>
             
             <div class="overflow-x-auto">
@@ -4939,18 +4951,22 @@ async function showTasks() {
     setupTaskFilters();
 }
 
-async function loadTasks(page = 1, search, status, priority, type) {
+async function loadTasks(page = 1, search, status, priority, type, relationType, relationRecord) {
     showLoading();
     try {
         const searchInput = document.getElementById('taskSearch');
         const statusSelect = document.getElementById('taskStatusFilter');
         const prioritySelect = document.getElementById('taskPriorityFilter');
         const typeSelect = document.getElementById('taskTypeFilter');
+        const relationTypeSelect = document.getElementById('taskRelationTypeFilter');
+        const relationRecordSelect = document.getElementById('taskRelationRecordFilter');
 
         const searchValue = search !== undefined ? search : (searchInput?.value ?? '');
         const statusValue = status !== undefined ? status : (statusSelect?.value ?? '');
         const priorityValue = priority !== undefined ? priority : (prioritySelect?.value ?? '');
         const typeValue = type !== undefined ? type : (typeSelect?.value ?? '');
+        const relationTypeValue = relationType !== undefined ? relationType : (relationTypeSelect?.value ?? '');
+        const relationRecordValue = relationRecord !== undefined ? relationRecord : (relationRecordSelect?.value ?? '');
 
         const params = new URLSearchParams({
             page: String(page),
@@ -4964,8 +4980,24 @@ async function loadTasks(page = 1, search, status, priority, type) {
 
         const response = await fetch(`tables/tasks?${params.toString()}`);
         const data = await response.json();
+        const relatedDataset = await fetchRelatedRecordsForLinking();
+        const relationConfig = getRelatedLinkConfigByType(relationTypeValue);
+        const allLabel = relationConfig ? `All ${relationConfig.pluralLabel || `${relationConfig.label}s`}` : 'All records';
 
-        displayTasks(data.data || []);
+        if (relationRecordSelect) {
+            updateRelatedRecordSelect(relationRecordSelect, relatedDataset, relationTypeValue, relationRecordValue, {
+                includeAllOption: true,
+                allLabel,
+                placeholderLabel: relationConfig ? `Select ${relationConfig.label.toLowerCase()}` : 'Select related record',
+                noTypeLabel: 'All records',
+                unlinkedLabel: 'Unlinked only'
+            });
+        }
+
+        const tasks = Array.isArray(data.data) ? data.data : [];
+        const filteredTasks = filterItemsByRelation(tasks, relationTypeValue, relationRecordValue);
+
+        displayTasks(filteredTasks, relatedDataset);
         const paginationContainer = document.getElementById('tasksPagination');
         if (paginationContainer) {
             if (typeof data.total === 'number' && typeof data.limit === 'number') {
@@ -4983,9 +5015,9 @@ async function loadTasks(page = 1, search, status, priority, type) {
     }
 }
 
-function displayTasks(tasks) {
+function displayTasks(tasks, relatedDataset = null) {
     const tbody = document.getElementById('tasksTableBody');
-    
+
     if (tasks.length === 0) {
         tbody.innerHTML = `
             <tr>
@@ -4999,12 +5031,23 @@ function displayTasks(tasks) {
         return;
     }
     
-    tbody.innerHTML = tasks.map(task => `
+    tbody.innerHTML = tasks.map(task => {
+        const relation = resolveRelatedRecordDisplay(task.related_to, relatedDataset);
+        const relationHtml = relation
+            ? `<p class="mt-1 text-xs text-blue-600 flex items-center gap-2"><i class="fas fa-link"></i><span>${safeText(relation.typeLabel)}: ${safeText(relation.label)}</span></p>`
+            : '';
+        const rawDescription = task.description || '';
+        const description = rawDescription
+            ? safeText(rawDescription.length > 50 ? `${rawDescription.substring(0, 50)}...` : rawDescription)
+            : 'No description';
+
+        return `
         <tr class="border-b border-gray-100 hover:bg-gray-50">
             <td class="p-3">
                 <div>
                     <p class="font-medium text-gray-800">${task.title}</p>
-                    <p class="text-sm text-gray-600">${task.description ? task.description.substring(0, 50) + '...' : 'No description'}</p>
+                    <p class="text-sm text-gray-600">${description}</p>
+                    ${relationHtml}
                 </div>
             </td>
             <td class="p-3">
@@ -5032,7 +5075,8 @@ function displayTasks(tasks) {
                 </div>
             </td>
         </tr>
-    `).join('');
+    `;
+    }).join('');
 }
 
 function getTaskStatusClass(status) {
@@ -5050,27 +5094,49 @@ function setupTaskFilters() {
     const statusFilter = document.getElementById('taskStatusFilter');
     const priorityFilter = document.getElementById('taskPriorityFilter');
     const typeFilter = document.getElementById('taskTypeFilter');
-    
+    const relationTypeFilter = document.getElementById('taskRelationTypeFilter');
+    const relationRecordFilter = document.getElementById('taskRelationRecordFilter');
+
     let filterTimeout;
-    
+
     const applyFilters = () => {
         clearTimeout(filterTimeout);
         filterTimeout = setTimeout(() => {
-            loadTasks(1, searchInput.value, statusFilter.value, priorityFilter.value, typeFilter.value);
+            loadTasks(
+                1,
+                searchInput?.value ?? '',
+                statusFilter?.value ?? '',
+                priorityFilter?.value ?? '',
+                typeFilter?.value ?? '',
+                relationTypeFilter?.value ?? '',
+                relationRecordFilter?.value ?? ''
+            );
         }, 300);
     };
-    
+
     searchInput.addEventListener('input', applyFilters);
     statusFilter.addEventListener('change', applyFilters);
     priorityFilter.addEventListener('change', applyFilters);
     typeFilter.addEventListener('change', applyFilters);
+    if (relationTypeFilter) {
+        relationTypeFilter.addEventListener('change', async () => {
+            await fetchRelatedRecordsForLinking();
+            if (relationRecordFilter) {
+                relationRecordFilter.disabled = true;
+                relationRecordFilter.innerHTML = '<option value="">All records</option>';
+                relationRecordFilter.value = '';
+            }
+            applyFilters();
+        });
+    }
+    relationRecordFilter?.addEventListener('change', applyFilters);
 }
 
 // Activities Management
 async function showActivities() {
     showView('activities');
     setPageHeader('activities');
-    
+
     const activitiesView = document.getElementById('activitiesView');
     activitiesView.innerHTML = `
         <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
@@ -5089,23 +5155,84 @@ async function showActivities() {
                     </button>
                 </div>
             </div>
-            
+
+            <div class="flex items-center space-x-4 mb-6">
+                <select id="activityTypeFilter" class="border border-gray-300 rounded-lg px-3 py-2">
+                    <option value="">All types</option>
+                    <option value="Call">Call</option>
+                    <option value="Email">Email</option>
+                    <option value="Meeting">Meeting</option>
+                    <option value="Note">Note</option>
+                    <option value="Task">Task</option>
+                    <option value="Appointment">Appointment</option>
+                    <option value="Document">Document</option>
+                    <option value="Other">Other</option>
+                </select>
+                <select id="activityRelationTypeFilter" class="border border-gray-300 rounded-lg px-3 py-2">
+                    <option value="">All linked records</option>
+                    <option value="unlinked">Unlinked only</option>
+                    <option value="deal">Deals</option>
+                    <option value="lead">Leads</option>
+                    <option value="company">Companies</option>
+                    <option value="contact">Contacts</option>
+                    <option value="competitor">Competitors</option>
+                </select>
+                <select id="activityRelationRecordFilter" class="border border-gray-300 rounded-lg px-3 py-2" disabled>
+                    <option value="">All records</option>
+                </select>
+            </div>
+
             <div class="space-y-4" id="activitiesTimeline">
             </div>
         </div>
     `;
-    
+
     await loadActivities();
+    setupActivityFilters();
 }
 
-async function loadActivities() {
+async function loadActivities(options = {}) {
     showLoading();
     try {
-        const response = await fetch('tables/activities?limit=50&sort=date');
+        const searchInput = document.getElementById('activitySearch');
+        const typeSelect = document.getElementById('activityTypeFilter');
+        const relationTypeSelect = document.getElementById('activityRelationTypeFilter');
+        const relationRecordSelect = document.getElementById('activityRelationRecordFilter');
+
+        const searchValue = options.search !== undefined ? options.search : (searchInput?.value ?? '');
+        const typeValue = options.type !== undefined ? options.type : (typeSelect?.value ?? '');
+        const relationTypeValue = options.relationType !== undefined ? options.relationType : (relationTypeSelect?.value ?? '');
+        const relationRecordValue = options.relationRecord !== undefined ? options.relationRecord : (relationRecordSelect?.value ?? '');
+
+        const params = new URLSearchParams({ limit: '100', sort: 'date' });
+        if (searchValue && searchValue.trim()) {
+            params.append('search', searchValue.trim());
+        }
+        if (typeValue) {
+            params.append('type', typeValue);
+        }
+
+        const response = await fetch(`tables/activities?${params.toString()}`);
         const data = await response.json();
-        
-        displayActivitiesTimeline(data.data || []);
-        
+        const relatedDataset = await fetchRelatedRecordsForLinking();
+        const relationConfig = getRelatedLinkConfigByType(relationTypeValue);
+        const allLabel = relationConfig ? `All ${relationConfig.pluralLabel || `${relationConfig.label}s`}` : 'All records';
+
+        if (relationRecordSelect) {
+            updateRelatedRecordSelect(relationRecordSelect, relatedDataset, relationTypeValue, relationRecordValue, {
+                includeAllOption: true,
+                allLabel,
+                placeholderLabel: relationConfig ? `Select ${relationConfig.label.toLowerCase()}` : 'Select related record',
+                noTypeLabel: 'All records',
+                unlinkedLabel: 'Unlinked only'
+            });
+        }
+
+        const activities = Array.isArray(data.data) ? data.data : [];
+        const filteredActivities = filterItemsByRelation(activities, relationTypeValue, relationRecordValue);
+
+        displayActivitiesTimeline(filteredActivities, relatedDataset);
+
     } catch (error) {
         console.error('Error loading activities:', error);
         showToast('Не вдалося завантажити активності', 'error');
@@ -5114,9 +5241,9 @@ async function loadActivities() {
     }
 }
 
-function displayActivitiesTimeline(activities) {
+function displayActivitiesTimeline(activities, relatedDataset = null) {
     const timeline = document.getElementById('activitiesTimeline');
-    
+
     if (activities.length === 0) {
         timeline.innerHTML = `
             <div class="text-center py-8 text-gray-500">
@@ -5128,7 +5255,13 @@ function displayActivitiesTimeline(activities) {
         return;
     }
     
-    timeline.innerHTML = activities.map(activity => `
+    timeline.innerHTML = activities.map(activity => {
+        const relation = resolveRelatedRecordDisplay(activity.related_to, relatedDataset);
+        const relationHtml = relation
+            ? `<div class="mt-2 text-xs text-blue-600 flex items-center gap-2"><i class="fas fa-link"></i><span>${safeText(relation.typeLabel)}: ${safeText(relation.label)}</span></div>`
+            : '';
+
+        return `
         <div class="flex items-start space-x-4 p-4 border border-gray-200 rounded-lg hover:bg-gray-50">
             <div class="w-10 h-10 rounded-full flex items-center justify-center ${getActivityTypeColor(activity.type)}">
                 <i class="fas fa-${getActivityIcon(activity.type)} text-white"></i>
@@ -5147,6 +5280,7 @@ function displayActivitiesTimeline(activities) {
                     ${activity.duration ? `<span><i class="fas fa-clock mr-1"></i>${activity.duration} min</span>` : ''}
                     ${activity.outcome ? `<span class="px-2 py-1 bg-gray-100 rounded-full">${activity.outcome}</span>` : ''}
                 </div>
+                ${relationHtml}
             </div>
             <div class="flex items-center space-x-2">
                 <button onclick="editActivity('${activity.id}')" class="p-2 text-blue-600 hover:bg-blue-50 rounded">
@@ -5156,8 +5290,44 @@ function displayActivitiesTimeline(activities) {
                     <i class="fas fa-trash"></i>
                 </button>
             </div>
-        </div>
-    `).join('');
+        </div>`;
+    }).join('');
+}
+
+function setupActivityFilters() {
+    const searchInput = document.getElementById('activitySearch');
+    const typeFilter = document.getElementById('activityTypeFilter');
+    const relationTypeFilter = document.getElementById('activityRelationTypeFilter');
+    const relationRecordFilter = document.getElementById('activityRelationRecordFilter');
+
+    let filterTimeout;
+
+    const applyFilters = () => {
+        clearTimeout(filterTimeout);
+        filterTimeout = setTimeout(() => {
+            loadActivities({
+                search: searchInput?.value ?? '',
+                type: typeFilter?.value ?? '',
+                relationType: relationTypeFilter?.value ?? '',
+                relationRecord: relationRecordFilter?.value ?? ''
+            });
+        }, 300);
+    };
+
+    searchInput?.addEventListener('input', applyFilters);
+    typeFilter?.addEventListener('change', applyFilters);
+    if (relationTypeFilter) {
+        relationTypeFilter.addEventListener('change', async () => {
+            await fetchRelatedRecordsForLinking();
+            if (relationRecordFilter) {
+                relationRecordFilter.disabled = true;
+                relationRecordFilter.innerHTML = '<option value="">All records</option>';
+                relationRecordFilter.value = '';
+            }
+            applyFilters();
+        });
+    }
+    relationRecordFilter?.addEventListener('change', applyFilters);
 }
 
 function getActivityTypeColor(type) {
@@ -6980,17 +7150,21 @@ async function viewCompany(id) {
             return [];
         };
 
-        const [contactsPayload, leadsPayload, dealsPayload, competitorsPayload] = await Promise.all([
+        const [contactsPayload, leadsPayload, dealsPayload, competitorsPayload, tasksPayload, activitiesPayload] = await Promise.all([
             fetch(`tables/contacts?company_id=${encodeURIComponent(company.id)}&limit=1000`).then(res => res.json()).catch(() => ({ data: [] })),
             fetch(`tables/leads?company_id=${encodeURIComponent(company.id)}&limit=1000`).then(res => res.json()).catch(() => ({ data: [] })),
             fetch(`tables/opportunities?company_id=${encodeURIComponent(company.id)}&limit=1000`).then(res => res.json()).catch(() => ({ data: [] })),
-            fetch('tables/competitors?limit=1000').then(res => res.json()).catch(() => ({ data: [] }))
+            fetch('tables/competitors?limit=1000').then(res => res.json()).catch(() => ({ data: [] })),
+            fetch('tables/tasks?limit=1000').then(res => res.json()).catch(() => ({ data: [] })),
+            fetch('tables/activities?limit=1000').then(res => res.json()).catch(() => ({ data: [] }))
         ]);
 
         const contacts = parseList(contactsPayload);
         const leads = parseList(leadsPayload);
         const deals = parseList(dealsPayload);
         const allCompetitors = parseList(competitorsPayload);
+        const tasks = parseList(tasksPayload);
+        const activities = parseList(activitiesPayload);
 
         const companyLookup = new Map();
         if (typeof entityDirectories === 'object' && entityDirectories?.companies?.list) {
@@ -7005,6 +7179,57 @@ async function viewCompany(id) {
         }
 
         const relevantCompetitors = allCompetitors.filter(comp => competitorTargetsCompany(comp, company, companyLookup));
+
+        const contactsById = new Map();
+        contacts.forEach(contact => {
+            if (contact?.id) {
+                contactsById.set(contact.id, contact);
+            }
+        });
+
+        const leadsById = new Map();
+        leads.forEach(lead => {
+            if (lead?.id) {
+                leadsById.set(lead.id, lead);
+            }
+        });
+
+        const dealsById = new Map();
+        deals.forEach(deal => {
+            if (deal?.id) {
+                dealsById.set(deal.id, deal);
+            }
+        });
+
+        const relationContext = { contactsById, leadsById, dealsById };
+
+        const relevantTasks = tasks.filter(task => {
+            if (matchesCompanyByRelation(task?.related_to, company, relationContext)) {
+                return true;
+            }
+            if (task?.company_id && String(task.company_id) === company.id) {
+                return true;
+            }
+            return false;
+        });
+
+        const relevantActivities = activities.filter(activity => {
+            if (matchesCompanyByRelation(activity?.related_to, company, relationContext)) {
+                return true;
+            }
+            if (activity?.company_id && String(activity.company_id) === company.id) {
+                return true;
+            }
+            return false;
+        });
+
+        const relatedDatasetForCompany = {
+            opportunities: deals,
+            leads,
+            companies: [company],
+            contacts,
+            competitors: relevantCompetitors
+        };
 
         const formatDateOnly = value => {
             if (!value) {
@@ -7079,6 +7304,100 @@ async function viewCompany(id) {
             </div>
         `).join('');
 
+        const taskCards = relevantTasks.map(task => {
+            const statusBadge = task.status ? `<span class="px-2 py-1 rounded-full text-xs ${getTaskStatusClass(task.status)}">${sanitizeText(task.status)}</span>` : '';
+            const priorityBadge = task.priority ? `<span class="px-2 py-1 rounded-full text-xs ${getPriorityClass(task.priority)}">${sanitizeText(task.priority)}</span>` : '';
+            const dueBadge = task.due_date ? `<span class="px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-600">Due ${formatDateOnly(task.due_date)}</span>` : '';
+            const relationInfo = resolveRelatedRecordDisplay(task.related_to, relatedDatasetForCompany);
+            const relationBadge = relationInfo ? `<span class="inline-flex items-center px-2 py-1 rounded-full bg-blue-50 text-blue-600 text-xs"><i class="fas fa-link mr-1"></i>${sanitizeText(relationInfo.typeLabel)}: ${sanitizeText(relationInfo.label)}</span>` : '';
+            const assignedBadge = task.assigned_to ? `<span class="flex items-center gap-1 text-xs text-gray-500"><i class="fas fa-user"></i>${sanitizeText(task.assigned_to)}</span>` : '';
+            const description = task.description ? sanitizeText(task.description.length > 80 ? `${task.description.slice(0, 80)}...` : task.description) : '';
+            const updatedLabel = task.updated_at ? `Updated ${formatDateOnly(task.updated_at)}` : '';
+
+            return `
+                <div class="border border-gray-200 rounded-xl p-4 bg-white shadow-sm">
+                    <div class="flex items-start justify-between gap-4">
+                        <div>
+                            <p class="text-base font-semibold text-gray-800">${sanitizeText(task.title || 'Task')}</p>
+                            <div class="mt-2 flex flex-wrap gap-2 text-xs text-gray-600">
+                                ${statusBadge}
+                                ${priorityBadge}
+                                ${dueBadge}
+                            </div>
+                            ${description ? `<p class="mt-3 text-sm text-gray-600">${description}</p>` : ''}
+                            <div class="mt-3 flex flex-wrap gap-2 text-xs text-gray-500">
+                                ${assignedBadge}
+                                ${relationBadge}
+                            </div>
+                        </div>
+                        <div class="text-right text-xs text-gray-400">
+                            ${updatedLabel}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        const tasksSectionHtml = `
+            <div class="space-y-4">
+                <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                    <div>
+                        <h4 class="text-lg font-semibold text-gray-800">Tasks</h4>
+                        <p class="text-sm text-gray-500">Follow-up work connected to ${safeCompanyName}</p>
+                    </div>
+                    <button type="button" class="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700" data-company-action="add-task" data-related-type="company" data-related-id="${company.id}">
+                        <i class="fas fa-list-check mr-2"></i>New Task
+                    </button>
+                </div>
+                ${relevantTasks.length ? `<div class="space-y-3">${taskCards}</div>` : `<div class="border border-dashed border-gray-300 rounded-xl p-6 text-center text-gray-500"><p>No tasks linked to this company.</p><button type="button" class="mt-4 inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700" data-company-action="add-task" data-related-type="company" data-related-id="${company.id}"><i class="fas fa-plus mr-2"></i>Create task</button></div>`}
+            </div>
+        `;
+
+        const activityCards = relevantActivities.map(activity => {
+            const relationInfo = resolveRelatedRecordDisplay(activity.related_to, relatedDatasetForCompany);
+            const relationBadge = relationInfo ? `<span class="inline-flex items-center px-2 py-1 rounded-full bg-blue-50 text-blue-600 text-xs"><i class="fas fa-link mr-1"></i>${sanitizeText(relationInfo.typeLabel)}: ${sanitizeText(relationInfo.label)}</span>` : '';
+            const outcomeBadge = activity.outcome ? `<span class="px-2 py-1 rounded-full bg-gray-100 text-gray-600 text-xs">${sanitizeText(activity.outcome)}</span>` : '';
+            const durationBadge = activity.duration ? `<span class="flex items-center gap-1 text-xs text-gray-500"><i class="fas fa-clock"></i>${activity.duration} min</span>` : '';
+            const assignedBadge = activity.assigned_to ? `<span class="flex items-center gap-1 text-xs text-gray-500"><i class="fas fa-user"></i>${sanitizeText(activity.assigned_to)}</span>` : '';
+            const eventDate = activity.date ? new Date(activity.date) : null;
+            const dateLabel = eventDate ? `${eventDate.toLocaleDateString()} ${eventDate.toLocaleTimeString()}` : '';
+            return `
+                <div class="flex items-start space-x-4 p-4 border border-gray-200 rounded-xl bg-white shadow-sm">
+                    <div class="w-10 h-10 rounded-full flex items-center justify-center ${getActivityTypeColor(activity.type)}">
+                        <i class="fas fa-${getActivityIcon(activity.type)} text-white"></i>
+                    </div>
+                    <div class="flex-1 space-y-2">
+                        <div class="flex items-center justify-between">
+                            <p class="font-medium text-gray-800">${sanitizeText(activity.subject || 'Activity')}</p>
+                            <span class="text-xs text-gray-500">${dateLabel}</span>
+                        </div>
+                        <p class="text-sm text-gray-600">${sanitizeText(activity.description || 'No description')}</p>
+                        <div class="flex flex-wrap gap-2 text-xs text-gray-500">
+                            ${assignedBadge}
+                            ${durationBadge}
+                            ${outcomeBadge}
+                        </div>
+                        ${relationBadge}
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        const activitiesSectionHtml = `
+            <div class="space-y-4">
+                <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                    <div>
+                        <h4 class="text-lg font-semibold text-gray-800">Activities</h4>
+                        <p class="text-sm text-gray-500">Latest interactions logged for ${safeCompanyName}</p>
+                    </div>
+                    <button type="button" class="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700" data-company-action="add-activity" data-related-type="company" data-related-id="${company.id}">
+                        <i class="fas fa-plus mr-2"></i>Log Activity
+                    </button>
+                </div>
+                ${relevantActivities.length ? `<div class="space-y-3">${activityCards}</div>` : `<div class="border border-dashed border-gray-300 rounded-xl p-6 text-center text-gray-500"><p>No activities recorded for this company.</p><button type="button" class="mt-4 inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700" data-company-action="add-activity" data-related-type="company" data-related-id="${company.id}"><i class="fas fa-plus mr-2"></i>Log activity</button></div>`}
+            </div>
+        `;
+
         const overviewNotes = company.notes
             ? `<div class="p-4 bg-gray-50 border border-gray-200 rounded-xl"><p class="text-sm text-gray-700 whitespace-pre-line">${sanitizeText(company.notes).replace(/\n/g, '<br>')}</p></div>`
             : '';
@@ -7087,6 +7406,8 @@ async function viewCompany(id) {
             <div class="space-y-6">
                 ${metricsHtml}
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">${detailCards}</div>
+                ${tasksSectionHtml}
+                ${activitiesSectionHtml}
                 ${overviewNotes}
             </div>
         `;
@@ -7478,6 +7799,30 @@ function initializeCompanyModal(company, context = {}) {
         showLeadForm(null, {
             defaultCompanyId: companyId,
             defaultCompanyName: companyName
+        });
+    });
+
+    register('[data-company-action="add-task"]', element => {
+        if (typeof showTaskForm !== 'function') {
+            return;
+        }
+        const relatedType = element.getAttribute('data-related-type') || '';
+        const relatedId = element.getAttribute('data-related-id') || '';
+        showTaskForm(null, {
+            defaultRelatedType: relatedType,
+            defaultRelatedId: relatedId
+        });
+    });
+
+    register('[data-company-action="add-activity"]', element => {
+        if (typeof showActivityForm !== 'function') {
+            return;
+        }
+        const relatedType = element.getAttribute('data-related-type') || '';
+        const relatedId = element.getAttribute('data-related-id') || '';
+        showActivityForm(null, {
+            defaultRelatedType: relatedType,
+            defaultRelatedId: relatedId
         });
     });
 
@@ -10207,7 +10552,320 @@ function normalizeRelatedFieldValue(value) {
     return String(value);
 }
 
-async function fetchRelatedRecordsForLinking() {
+function safeText(value) {
+    if (typeof sanitizeText === 'function') {
+        return sanitizeText(value);
+    }
+    if (value === undefined || value === null) {
+        return '';
+    }
+    return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+const RELATED_LINK_TYPES = [
+    {
+        type: 'deal',
+        datasetKey: 'opportunities',
+        prefix: 'opp',
+        label: 'Deal',
+        pluralLabel: 'Deals',
+        getDisplayName(record = {}) {
+            const name = record?.name || 'Untitled Deal';
+            const companySuffix = record?.company_name ? ` – ${record.company_name}` : '';
+            return `${name}${companySuffix}`;
+        }
+    },
+    {
+        type: 'lead',
+        datasetKey: 'leads',
+        prefix: 'lead',
+        label: 'Lead',
+        pluralLabel: 'Leads',
+        getDisplayName(record = {}) {
+            const title = record?.title || 'Untitled Lead';
+            const companySuffix = record?.company_name ? ` – ${record.company_name}` : '';
+            return `${title}${companySuffix}`;
+        }
+    },
+    {
+        type: 'company',
+        datasetKey: 'companies',
+        prefix: 'company',
+        label: 'Company',
+        pluralLabel: 'Companies',
+        getDisplayName(record = {}) {
+            return record?.name || 'Company';
+        }
+    },
+    {
+        type: 'contact',
+        datasetKey: 'contacts',
+        prefix: 'contact',
+        label: 'Contact',
+        pluralLabel: 'Contacts',
+        getDisplayName(record = {}) {
+            const fullName = [record?.first_name, record?.last_name]
+                .filter(Boolean)
+                .join(' ')
+                .trim();
+            const fallback = record?.email || record?.phone || 'Contact';
+            const companySuffix = record?.company_name ? ` – ${record.company_name}` : '';
+            return `${fullName || fallback}${companySuffix}`;
+        }
+    },
+    {
+        type: 'competitor',
+        datasetKey: 'competitors',
+        prefix: 'competitor',
+        label: 'Competitor',
+        pluralLabel: 'Competitors',
+        getDisplayName(record = {}) {
+            return record?.name || 'Competitor';
+        }
+    }
+];
+
+const RELATED_LINK_TYPE_BY_TYPE = new Map(RELATED_LINK_TYPES.map(config => [config.type, config]));
+const RELATED_LINK_TYPE_BY_PREFIX = new Map(RELATED_LINK_TYPES.map(config => [config.prefix, config]));
+const RELATED_LINK_TYPE_BY_DATASET = new Map(RELATED_LINK_TYPES.map(config => [config.datasetKey, config]));
+
+const relatedRecordsCache = {
+    data: null,
+    promise: null
+};
+
+function getRelatedLinkConfigByType(type) {
+    if (!type) {
+        return null;
+    }
+    return RELATED_LINK_TYPE_BY_TYPE.get(type) || null;
+}
+
+function getRelatedLinkConfigByPrefix(prefix) {
+    if (!prefix) {
+        return null;
+    }
+    return RELATED_LINK_TYPE_BY_PREFIX.get(prefix) || null;
+}
+
+function detectRelatedTypeFromValue(value) {
+    const normalized = normalizeRelatedFieldValue(value);
+    if (!normalized) {
+        return '';
+    }
+    const [prefix] = normalized.split('-');
+    const config = getRelatedLinkConfigByPrefix(prefix);
+    return config ? config.type : '';
+}
+
+function buildRelatedTypeSelectOptions(selectedType = '', options = {}) {
+    const {
+        includeNoneOption = true,
+        noneLabel = 'Not linked'
+    } = options || {};
+
+    const normalizedSelected = selectedType || '';
+    const parts = [];
+    if (includeNoneOption) {
+        parts.push(`<option value="">${safeText(noneLabel)}</option>`);
+    }
+    RELATED_LINK_TYPES.forEach(config => {
+        const isSelected = normalizedSelected === config.type;
+        parts.push(`<option value="${config.type}" ${isSelected ? 'selected' : ''}>${safeText(config.label)}</option>`);
+    });
+    return parts.join('');
+}
+
+function buildRelatedRecordOptionsForType(dataset, type, selectedValue, options = {}) {
+    const config = getRelatedLinkConfigByType(type);
+    if (!config) {
+        const fallbackLabel = options.placeholderLabel || 'Select related record';
+        return {
+            html: `<option value="">${safeText(fallbackLabel)}</option>`,
+            disabled: true
+        };
+    }
+
+    const records = Array.isArray(dataset?.[config.datasetKey]) ? dataset[config.datasetKey] : [];
+    const normalizedSelected = normalizeRelatedFieldValue(selectedValue);
+    const includeAllOption = Boolean(options.includeAllOption);
+    const placeholderLabel = includeAllOption
+        ? options.allLabel || `All ${config.pluralLabel || `${config.label}s`}`
+        : options.placeholderLabel || `Select ${config.label.toLowerCase()}`;
+
+    const optionParts = [`<option value="">${safeText(placeholderLabel)}</option>`];
+    let hasSelected = false;
+
+    records.forEach(record => {
+        const value = normalizeRelatedFieldValue(record?.id);
+        if (!value) {
+            return;
+        }
+        const isSelected = normalizedSelected && value === normalizedSelected;
+        if (isSelected) {
+            hasSelected = true;
+        }
+        optionParts.push(`<option value="${value}" ${isSelected ? 'selected' : ''}>${safeText(config.getDisplayName(record))}</option>`);
+    });
+
+    if (normalizedSelected && !hasSelected) {
+        optionParts.splice(1, 0, `<option value="${normalizedSelected}" selected>Current link (${safeText(normalizedSelected)})</option>`);
+    }
+
+    const disabled = records.length === 0 && !hasSelected;
+    return {
+        html: optionParts.join(''),
+        disabled
+    };
+}
+
+function updateRelatedRecordSelect(selectElement, dataset, typeValue, selectedValue, options = {}) {
+    if (!selectElement) {
+        return;
+    }
+
+    const normalizedType = typeValue || '';
+    if (!normalizedType) {
+        const label = options.noTypeLabel || 'Select related type first';
+        selectElement.innerHTML = `<option value="">${safeText(label)}</option>`;
+        selectElement.disabled = true;
+        selectElement.value = '';
+        return;
+    }
+
+    if (normalizedType === 'unlinked') {
+        const label = options.unlinkedLabel || 'Unlinked only';
+        selectElement.innerHTML = `<option value="">${safeText(label)}</option>`;
+        selectElement.disabled = true;
+        selectElement.value = '';
+        return;
+    }
+
+    const config = getRelatedLinkConfigByType(normalizedType);
+    if (!config) {
+        const label = options.placeholderLabel || 'Select related record';
+        selectElement.innerHTML = `<option value="">${safeText(label)}</option>`;
+        selectElement.disabled = true;
+        selectElement.value = '';
+        return;
+    }
+
+    const { html, disabled } = buildRelatedRecordOptionsForType(dataset, normalizedType, selectedValue, {
+        includeAllOption: options.includeAllOption,
+        allLabel: options.allLabel,
+        placeholderLabel: options.placeholderLabel
+    });
+
+    selectElement.innerHTML = html;
+    selectElement.disabled = disabled;
+
+    if (selectedValue) {
+        selectElement.value = selectedValue;
+        if (selectElement.value !== selectedValue) {
+            selectElement.value = '';
+        }
+    }
+}
+
+function resolveRelatedRecordDisplay(value, dataset) {
+    const normalized = normalizeRelatedFieldValue(value);
+    if (!normalized) {
+        return null;
+    }
+    const [prefix] = normalized.split('-');
+    const config = getRelatedLinkConfigByPrefix(prefix);
+    if (!config) {
+        return {
+            label: normalized,
+            typeLabel: 'Linked',
+            value: normalized
+        };
+    }
+
+    const records = Array.isArray(dataset?.[config.datasetKey]) ? dataset[config.datasetKey] : [];
+    const record = records.find(item => normalizeRelatedFieldValue(item?.id) === normalized);
+    const label = record ? config.getDisplayName(record) : normalized;
+
+    return {
+        label,
+        typeLabel: config.label,
+        value: normalized
+    };
+}
+
+function filterItemsByRelation(items, relationTypeValue, relationRecordValue) {
+    const normalizedRecord = normalizeRelatedFieldValue(relationRecordValue);
+    const normalizedType = relationTypeValue || '';
+
+    if (!Array.isArray(items)) {
+        return [];
+    }
+
+    if (!normalizedType && !normalizedRecord) {
+        return items.slice();
+    }
+
+    return items.filter(item => {
+        const relatedValue = normalizeRelatedFieldValue(item?.related_to);
+        if (normalizedRecord) {
+            return relatedValue && relatedValue.toLowerCase() === normalizedRecord.toLowerCase();
+        }
+        if (normalizedType === 'unlinked') {
+            return !relatedValue;
+        }
+        const config = getRelatedLinkConfigByType(normalizedType);
+        if (!config) {
+            return false;
+        }
+        return relatedValue && relatedValue.startsWith(`${config.prefix}-`);
+    });
+}
+
+function matchesCompanyByRelation(relatedValue, company, context = {}) {
+    const normalized = normalizeRelatedFieldValue(relatedValue);
+    if (!normalized || !company?.id) {
+        return false;
+    }
+    if (normalized === company.id) {
+        return true;
+    }
+
+    const [prefix] = normalized.split('-');
+    switch (prefix) {
+        case 'company':
+            return normalized === company.id;
+        case 'opp': {
+            const deal = context.dealsById?.get(normalized);
+            return Boolean(deal && (deal.company_id === company.id || deal.company?.id === company.id));
+        }
+        case 'lead': {
+            const lead = context.leadsById?.get(normalized);
+            return Boolean(lead && (lead.company_id === company.id || lead.company_name === company.name));
+        }
+        case 'contact': {
+            const contact = context.contactsById?.get(normalized);
+            return Boolean(contact && (contact.company_id === company.id || contact.company_name === company.name));
+        }
+        default:
+            return false;
+    }
+}
+
+async function fetchRelatedRecordsForLinking(options = {}) {
+    const forceRefresh = Boolean(options?.refresh);
+
+    if (!forceRefresh && relatedRecordsCache.data) {
+        return relatedRecordsCache.data;
+    }
+    if (!forceRefresh && relatedRecordsCache.promise) {
+        return relatedRecordsCache.promise;
+    }
+
     const parseListResponse = async response => {
         if (!response || !response.ok) {
             return [];
@@ -10227,95 +10885,39 @@ async function fetchRelatedRecordsForLinking() {
         }
     };
 
-    try {
-        const [leadsResponse, opportunitiesResponse, companiesResponse, contactsResponse, competitorsResponse] = await Promise.all([
-            fetch('tables/leads?limit=1000'),
-            fetch('tables/opportunities?limit=1000'),
-            fetch('tables/companies?limit=1000'),
-            fetch('tables/contacts?limit=1000'),
-            fetch('tables/competitors?limit=1000')
-        ]);
+    const fetchPromise = (async () => {
+        try {
+            const [leadsResponse, opportunitiesResponse, companiesResponse, contactsResponse, competitorsResponse] = await Promise.all([
+                fetch('tables/leads?limit=1000'),
+                fetch('tables/opportunities?limit=1000'),
+                fetch('tables/companies?limit=1000'),
+                fetch('tables/contacts?limit=1000'),
+                fetch('tables/competitors?limit=1000')
+            ]);
 
-        const [leads, opportunities, companies, contacts, competitors] = await Promise.all([
-            parseListResponse(leadsResponse),
-            parseListResponse(opportunitiesResponse),
-            parseListResponse(companiesResponse),
-            parseListResponse(contactsResponse),
-            parseListResponse(competitorsResponse)
-        ]);
+            const [leads, opportunities, companies, contacts, competitors] = await Promise.all([
+                parseListResponse(leadsResponse),
+                parseListResponse(opportunitiesResponse),
+                parseListResponse(companiesResponse),
+                parseListResponse(contactsResponse),
+                parseListResponse(competitorsResponse)
+            ]);
 
-        return { leads, opportunities, companies, contacts, competitors };
-    } catch (error) {
-        console.warn('Unable to fetch related records for linking:', error);
-        return { leads: [], opportunities: [], companies: [], contacts: [], competitors: [] };
-    }
-}
-
-async function buildRelatedRecordOptions(selectedValue) {
-    const normalizedSelected = normalizeRelatedFieldValue(selectedValue);
-    const { leads, opportunities, companies, contacts, competitors } = await fetchRelatedRecordsForLinking();
-    let hasSelectedOption = false;
-
-    const createOption = (value, label) => {
-        if (value === undefined || value === null || !label) {
-            return '';
+            const payload = { leads, opportunities, companies, contacts, competitors };
+            relatedRecordsCache.data = payload;
+            return payload;
+        } catch (error) {
+            console.warn('Unable to fetch related records for linking:', error);
+            const fallback = { leads: [], opportunities: [], companies: [], contacts: [], competitors: [] };
+            relatedRecordsCache.data = fallback;
+            return fallback;
+        } finally {
+            relatedRecordsCache.promise = null;
         }
-        const optionValue = String(value);
-        const isSelected = normalizedSelected && optionValue === normalizedSelected;
-        if (isSelected) {
-            hasSelectedOption = true;
-        }
-        return `<option value="${optionValue}" ${isSelected ? 'selected' : ''}>${label}</option>`;
-    };
+    })();
 
-    const buildGroupOptions = (label, items, labelBuilder) => {
-        if (!Array.isArray(items) || items.length === 0) {
-            return '';
-        }
-        const options = items
-            .map(item => createOption(item.id, labelBuilder(item)))
-            .filter(Boolean)
-            .join('');
-        return options ? `<optgroup label="${label}">${options}</optgroup>` : '';
-    };
-
-    const opportunityOptionsHtml = buildGroupOptions('Opportunities', opportunities, opportunity => {
-        const name = opportunity?.name || 'Untitled Opportunity';
-        const companySuffix = opportunity?.company_name ? ` – ${opportunity.company_name}` : '';
-        return `${name}${companySuffix}`;
-    });
-
-    const leadOptionsHtml = buildGroupOptions('Leads', leads, lead => {
-        const title = lead?.title || 'Untitled Lead';
-        const companySuffix = lead?.company_name ? ` – ${lead.company_name}` : '';
-        return `${title}${companySuffix}`;
-    });
-
-    const companyOptionsHtml = buildGroupOptions('Companies', companies, company => company?.name || 'Unnamed Company');
-
-    const contactOptionsHtml = buildGroupOptions('Contacts', contacts, contact => {
-        const fullName = [contact?.first_name, contact?.last_name].filter(Boolean).join(' ');
-        const fallback = contact?.email || contact?.phone || 'Contact';
-        const name = fullName || fallback;
-        const companySuffix = contact?.company_name ? ` – ${contact.company_name}` : '';
-        return `${name}${companySuffix}`;
-    });
-
-    const competitorOptionsHtml = buildGroupOptions('Competitors', competitors, competitor => competitor?.name || 'Competitor');
-
-    let relatedOptionsHtml = [
-        opportunityOptionsHtml,
-        leadOptionsHtml,
-        companyOptionsHtml,
-        contactOptionsHtml,
-        competitorOptionsHtml
-    ].filter(Boolean).join('');
-
-    if (normalizedSelected && !hasSelectedOption) {
-        relatedOptionsHtml = `<option value="${normalizedSelected}" selected>Current link (${normalizedSelected})</option>` + relatedOptionsHtml;
-    }
-
-    return relatedOptionsHtml;
+    relatedRecordsCache.promise = fetchPromise;
+    return fetchPromise;
 }
 
 function formatDateTimeLocal(dateValue) {
@@ -10335,8 +10937,12 @@ function formatDateTimeLocal(dateValue) {
     return `${year}-${month}-${day}T${hours}:${minutes}`;
 }
 
-async function showTaskForm(taskId = null) {
+async function showTaskForm(taskId = null, options = {}) {
     const isEdit = Boolean(taskId);
+    const {
+        defaultRelatedType = '',
+        defaultRelatedId = ''
+    } = options || {};
     let task = {};
 
     if (isEdit) {
@@ -10356,7 +10962,27 @@ async function showTaskForm(taskId = null) {
         hideLoading();
     }
 
-    const relatedOptionsHtml = await buildRelatedRecordOptions(task.related_to);
+    const relatedDataset = await fetchRelatedRecordsForLinking();
+    const existingRelatedValue = normalizeRelatedFieldValue(task.related_to);
+    let selectedRelatedType = detectRelatedTypeFromValue(existingRelatedValue);
+    let selectedRelatedRecord = existingRelatedValue;
+
+    if (!selectedRelatedType && defaultRelatedType) {
+        selectedRelatedType = defaultRelatedType;
+    }
+    if (!selectedRelatedRecord && defaultRelatedId) {
+        selectedRelatedRecord = defaultRelatedId;
+    }
+
+    const typeSelectOptions = buildRelatedTypeSelectOptions(selectedRelatedType);
+    const relatedConfig = getRelatedLinkConfigByType(selectedRelatedType);
+    const relatedPlaceholder = relatedConfig ? `Select ${relatedConfig.label.toLowerCase()}` : 'Select related record';
+    const { html: recordOptionsHtml, disabled: recordSelectDisabled } = buildRelatedRecordOptionsForType(
+        relatedDataset,
+        selectedRelatedType,
+        selectedRelatedRecord,
+        { placeholderLabel: relatedPlaceholder }
+    );
 
     const statusOptions = ['Not Started', 'In Progress', 'Completed', 'Cancelled'];
     if (task.status && !statusOptions.includes(task.status)) {
@@ -10424,13 +11050,20 @@ async function showTaskForm(taskId = null) {
                 </div>
             </div>
 
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">Related Record</label>
-                <select name="related_to" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                    <option value="">Not linked</option>
-                    ${relatedOptionsHtml}
-                </select>
-                <p class="mt-1 text-xs text-gray-500">Link the task to a lead, opportunity, company or contact to keep context together.</p>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Related Type</label>
+                    <select id="taskRelatedType" name="related_type" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        ${typeSelectOptions}
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Related Record</label>
+                    <select id="taskRelatedRecord" name="related_record" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" ${recordSelectDisabled ? 'disabled' : ''}>
+                        ${recordOptionsHtml}
+                    </select>
+                    <p class="mt-1 text-xs text-gray-500">Link the task to a lead, opportunity, company, contact or competitor to keep context together.</p>
+                </div>
             </div>
 
             <div>
@@ -10450,6 +11083,25 @@ async function showTaskForm(taskId = null) {
             </div>
         </form>
     `);
+
+    const relatedTypeSelect = document.getElementById('taskRelatedType');
+    const relatedRecordSelect = document.getElementById('taskRelatedRecord');
+
+    if (relatedTypeSelect && relatedRecordSelect) {
+        const refreshRecordOptions = async (valueToSelect = '') => {
+            const dataset = await fetchRelatedRecordsForLinking();
+            const currentType = relatedTypeSelect.value;
+            const config = getRelatedLinkConfigByType(currentType);
+            const placeholder = config ? `Select ${config.label.toLowerCase()}` : 'Select related record';
+            updateRelatedRecordSelect(relatedRecordSelect, dataset, currentType, valueToSelect, {
+                placeholderLabel: placeholder
+            });
+        };
+
+        relatedTypeSelect.addEventListener('change', () => {
+            refreshRecordOptions('');
+        });
+    }
 
     const form = document.getElementById('taskForm');
     form.addEventListener('submit', async event => {
@@ -10499,9 +11151,13 @@ async function saveTask(taskId, formData) {
         }
     }
 
-    if (data.related_to === '') {
+    if (data.related_record) {
+        data.related_to = data.related_record;
+    } else {
         delete data.related_to;
     }
+    delete data.related_record;
+    delete data.related_type;
 
     const nowIso = new Date().toISOString();
     data.updated_at = nowIso;
@@ -10535,8 +11191,12 @@ async function saveTask(taskId, formData) {
     }
 }
 
-async function showActivityForm(activityId = null) {
+async function showActivityForm(activityId = null, options = {}) {
     const isEdit = Boolean(activityId);
+    const {
+        defaultRelatedType = '',
+        defaultRelatedId = ''
+    } = options || {};
     let activity = {};
 
     if (isEdit) {
@@ -10570,7 +11230,27 @@ async function showActivityForm(activityId = null) {
 
     const datetimeValue = formatDateTimeLocal(activity.date || new Date());
     const durationValue = activity.duration !== undefined && activity.duration !== null ? activity.duration : '';
-    const relatedOptionsHtml = await buildRelatedRecordOptions(activity.related_to);
+    const relatedDataset = await fetchRelatedRecordsForLinking();
+    const existingRelatedValue = normalizeRelatedFieldValue(activity.related_to);
+    let selectedRelatedType = detectRelatedTypeFromValue(existingRelatedValue);
+    let selectedRelatedRecord = existingRelatedValue;
+
+    if (!selectedRelatedType && defaultRelatedType) {
+        selectedRelatedType = defaultRelatedType;
+    }
+    if (!selectedRelatedRecord && defaultRelatedId) {
+        selectedRelatedRecord = defaultRelatedId;
+    }
+
+    const typeSelectOptions = buildRelatedTypeSelectOptions(selectedRelatedType);
+    const relatedConfig = getRelatedLinkConfigByType(selectedRelatedType);
+    const relatedPlaceholder = relatedConfig ? `Select ${relatedConfig.label.toLowerCase()}` : 'Select related record';
+    const { html: recordOptionsHtml, disabled: recordSelectDisabled } = buildRelatedRecordOptionsForType(
+        relatedDataset,
+        selectedRelatedType,
+        selectedRelatedRecord,
+        { placeholderLabel: relatedPlaceholder }
+    );
 
     showModal(isEdit ? 'Edit Activity' : 'Log Activity', `
         <form id="activityForm" class="space-y-6">
@@ -10619,13 +11299,20 @@ async function showActivityForm(activityId = null) {
                 </div>
             </div>
 
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">Related Record</label>
-                <select name="related_to" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                    <option value="">Not linked</option>
-                    ${relatedOptionsHtml}
-                </select>
-                <p class="mt-1 text-xs text-gray-500">Link the activity to a lead, opportunity, company or contact to keep context together.</p>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Related Type</label>
+                    <select id="activityRelatedType" name="related_type" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        ${typeSelectOptions}
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Related Record</label>
+                    <select id="activityRelatedRecord" name="related_record" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" ${recordSelectDisabled ? 'disabled' : ''}>
+                        ${recordOptionsHtml}
+                    </select>
+                    <p class="mt-1 text-xs text-gray-500">Link the activity to a lead, opportunity, company, contact or competitor to keep context together.</p>
+                </div>
             </div>
 
             <div>
@@ -10645,6 +11332,25 @@ async function showActivityForm(activityId = null) {
             </div>
         </form>
     `);
+
+    const activityRelatedTypeSelect = document.getElementById('activityRelatedType');
+    const activityRelatedRecordSelect = document.getElementById('activityRelatedRecord');
+
+    if (activityRelatedTypeSelect && activityRelatedRecordSelect) {
+        const refreshRecordOptions = async (valueToSelect = '') => {
+            const dataset = await fetchRelatedRecordsForLinking();
+            const currentType = activityRelatedTypeSelect.value;
+            const config = getRelatedLinkConfigByType(currentType);
+            const placeholder = config ? `Select ${config.label.toLowerCase()}` : 'Select related record';
+            updateRelatedRecordSelect(activityRelatedRecordSelect, dataset, currentType, valueToSelect, {
+                placeholderLabel: placeholder
+            });
+        };
+
+        activityRelatedTypeSelect.addEventListener('change', () => {
+            refreshRecordOptions('');
+        });
+    }
 
     const form = document.getElementById('activityForm');
     form.addEventListener('submit', async event => {
@@ -10707,9 +11413,13 @@ async function saveActivity(activityId, formData) {
         delete data.description;
     }
 
-    if (!data.related_to) {
+    if (data.related_record) {
+        data.related_to = data.related_record;
+    } else {
         delete data.related_to;
     }
+    delete data.related_record;
+    delete data.related_type;
 
     const nowIso = new Date().toISOString();
     data.updated_at = nowIso;
