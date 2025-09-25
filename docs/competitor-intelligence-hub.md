@@ -317,3 +317,34 @@ search_index (resource_type, resource_id, payload, embeddings)
 - **Search Speed** — <500 мс для пошуку.
 - **Bulk Operations** — <10 с для 100+ записів.
 - **Memory Usage** — <500 МБ для сесії з 20+ вкладками.
+
+## Контрольний чекліст усунення проблем UI/UX
+
+1. **Крос-вкладкові дії** — реалізовані drag-and-drop сценарії, універсальні кнопки додавання та можливість групових операцій.
+2. **Оптимізовані макети** — трьохколонна структура, уніфіковані панелі й збереження станів забезпечують логічне розміщення елементів.
+3. **Щільність інформації** — режими відображення, адаптивні картки та компактні таблиці знижують втрати простору.
+4. **Прозора логіка** — знайома термінологія, прогресивне розкриття та навчальні пусті стани усувають неоднозначність.
+5. **Файловий менеджер «як на десктопі»** — дерево папок, drag-and-drop, контекстні меню та гарячі клавіші роблять роботу з файлами передбачуваною.
+6. **Пошук і фільтри** — глобальний та локальні пошуки, а також збережені фільтри гарантують знаходження будь-якого артефакту за секунди.
+
+## Prompt для генерації ідей редизайну через LLM
+
+```
+Task: You are an expert UI/UX designer with experience in enterprise applications. Our company’s internal platform for competitive intelligence needs a UI redesign to improve usability. This is a desktop-only web application that handles a large volume of data about competitors (profiles, documents, analytics, etc.).
+
+We recently made some changes, but the current interface has several problems:
+- Poor layout and spacing: The arrangement of elements is inconvenient and wastes space (large empty frames and blocks). We need a more compact, efficient layout that can display lots of information without overwhelming the user.
+- Limited interaction: Users cannot easily drag or move information between sections/tabs, and adding new data in different tabs is not straightforward. We want to enable drag-and-drop and provide intuitive ways to add or transfer data across different tabs/modules.
+- Confusing workflow: The purpose of each section isn’t clear at first glance, and the overall logic of how to use the tool is not intuitive. We need to make the workflow self-explanatory, with clear labels, familiar icons, and maybe an on-boarding hint for each major feature so users immediately understand what each part of the interface is for.
+- Files section issues: There is a “Files” section for managing documents, but it’s not user-friendly. We want it to behave like a desktop file explorer – for example, showing a folder tree (with collapsible folders and subfolders up to 2 levels deep by default), and allowing users to drag and drop files into folders. Each file or folder should have an icon (folder icons, file icons) and an arrow to expand its contents.
+
+Your task: Propose a comprehensive UI/UX redesign for this platform. Focus on:
+1. Layout improvements – How to rearrange or resize components for better usage of space and clarity. (E.g. using side navigation, panels, grids, etc.)
+2. Interactive features – How to implement drag-and-drop, quick add actions, or other interactive elements to give users more control (while remaining intuitive).
+3. Improving intuitiveness – How to make the interface self-guiding. This includes using familiar design patterns, clear terminology (no confusing jargon), consistent icons, and maybe contextual help or tooltips.
+4. File management UI – A detailed suggestion for redesigning the Files section to mimic desktop-like file management (tree view with expandable folders, drag-drop, rename, etc.), ensuring users can easily organize files.
+
+Provide your answer as if you are delivering a design recommendation. You may describe layouts, recommend UI components or workflows, and explain why these changes will help. Be specific and consider that the users are analysts who will use this daily – they need efficiency and clarity.
+
+End of task.
+```
