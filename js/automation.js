@@ -1402,3 +1402,764 @@ function automationGetInputValue(input) {
     }
     return input.value;
 }
+
+const AUTOMATION_CONDITION_CHECKS = {
+    high_value_deal(context) {
+        const record = context.record || {};
+        const value = Number(record.value ?? record.amount ?? record.annual_value ?? 0);
+        return Number.isFinite(value) && value > 50000;
+    },
+    tier1_account(context) {
+        const tier = (context.record?.account_tier
+            || context.record?.tier
+            || context.relatedCompany?.account_tier
+            || context.relatedCompany?.tier
+            || '').toLowerCase();
+        return tier.includes('strategic') || tier.replace(/\s+/g, '').includes('tier1');
+    },
+    call_outcome_positive(context) {
+        const outcome = (context.record?.outcome || '').toLowerCase();
+        return outcome === 'positive' || outcome === 'success';
+    },
+    task_priority_high(context) {
+        const priority = (context.record?.priority || '').toLowerCase();
+        return priority === 'high' || priority === 'critical';
+    },
+    erp_sync_pending(context) {
+        const record = context.record || {};
+        if (record.erp_sync_pending === true) {
+            return true;
+        }
+        const status = (record.integration_status || record.erp_sync_status || '').toLowerCase();
+        return status.includes('pending');
+    },
+    no_open_tasks(context) {
+        const record = context.record || {};
+        const entity = context.entity;
+        const dataCore = context.engine?.dataCore;
+        if (!dataCore) {
+            return true;
+        }
+        const result = dataCore.list('tasks') || {};
+        const tasks = Array.isArray(result.data) ? result.data : [];
+        const openStatuses = new Set(['not started', 'in progress', 'open', 'awaiting input', 'backlog']);
+
+        return !tasks.some(task => {
+            const status = (task.status || '').toLowerCase();
+            const isOpen = !status || openStatuses.has(status);
+            if (!isOpen) {
+                return false;
+            }
+            if (task.related_to && (task.related_to === record.id || task.related_to === record.related_to)) {
+                return true;
+            }
+            if (entity === 'activities') {
+                if (record.company_id && task.company_id && record.company_id === task.company_id) {
+                    return true;
+                }
+                if (record.contact_id && task.contact_id && record.contact_id === task.contact_id) {
+                    return true;
+                }
+                if (record.opportunity_id && task.related_to === record.opportunity_id) {
+                    return true;
+                }
+            }
+            if (entity === 'opportunities' && task.related_to === record.id) {
+                return true;
+            }
+            if (entity === 'leads' && task.related_to === record.id) {
+                return true;
+            }
+            return false;
+        });
+    }
+};
+
+function createAutomationEngine() {
+    const engine = {
+        dataCore: null,
+        workflowCache: new Map(),
+        listeners: [],
+        initialized: false,
+
+        init(dataCore) {
+            if (this.initialized || !dataCore || typeof dataCore.on !== 'function') {
+                return;
+            }
+            this.dataCore = dataCore;
+            this.initialized = true;
+            this.refreshWorkflowCache();
+
+            this.listeners.push(dataCore.on('workflows.created', () => this.refreshWorkflowCache()));
+            this.listeners.push(dataCore.on('workflows.updated', () => this.refreshWorkflowCache()));
+            this.listeners.push(dataCore.on('workflows.deleted', () => this.refreshWorkflowCache()));
+            this.listeners.push(dataCore.on('record.created', payload => this.handleRecordEvent(payload)));
+            this.listeners.push(dataCore.on('record.updated', payload => this.handleRecordEvent(payload)));
+        },
+
+        refreshWorkflowCache() {
+            if (!this.dataCore) {
+                return;
+            }
+            const result = this.dataCore.list('workflows') || {};
+            const workflows = Array.isArray(result.data) ? result.data : [];
+            this.workflowCache = new Map(workflows.map(workflow => [workflow.id, workflow]));
+        },
+
+        handleRecordEvent(event) {
+            if (!event || !event.entity || event.entity === 'workflows') {
+                return;
+            }
+            if (!this.workflowCache.size) {
+                return;
+            }
+
+            const descriptors = this.resolveAutomationEvents(event);
+            descriptors.forEach(descriptor => {
+                this.executeWorkflows(descriptor, event);
+            });
+        },
+
+        resolveAutomationEvents(event) {
+            const descriptors = [];
+            const entity = event.entity;
+            const action = event.action;
+            const record = event.record || {};
+            const previous = event.previous || {};
+            const changes = event.changes || {};
+
+            if (entity === 'opportunities' && action === 'update' && changes.stage) {
+                descriptors.push({
+                    name: 'opportunity.stage.changed',
+                    context: {
+                        from_stage: previous.stage,
+                        to_stage: record.stage
+                    }
+                });
+            }
+
+            if (entity === 'activities' && action === 'update') {
+                const status = (record.status || '').toLowerCase();
+                const outcomeChanged = changes.outcome && record.type === 'Call';
+                const isCompleted = status === 'completed' || record.completed === true || outcomeChanged;
+                if (isCompleted) {
+                    descriptors.push({
+                        name: 'activity.completed',
+                        context: {
+                            outcome: record.outcome,
+                            activity_type: record.type
+                        }
+                    });
+                }
+            }
+
+            if (entity === 'tasks') {
+                const becameOverdue = this.detectTaskOverdue(record, previous, changes);
+                if (becameOverdue) {
+                    descriptors.push({
+                        name: 'task.overdue',
+                        context: {
+                            due_date: record.due_date || record.due_at,
+                            status: record.status
+                        }
+                    });
+                }
+            }
+
+            if (entity === 'leads' && action === 'update' && changes.status) {
+                descriptors.push({
+                    name: 'lead.status.changed',
+                    context: {
+                        status: record.status
+                    }
+                });
+            }
+
+            if ((entity === 'opportunities' || entity === 'companies') && this.detectErpSyncRequired(record, previous, changes)) {
+                descriptors.push({
+                    name: 'integration.erp.sync_required',
+                    context: {
+                        system: record.erp_system || record.integration_system,
+                        reason: record.erp_sync_reason || record.sync_reason
+                    }
+                });
+            }
+
+            return descriptors;
+        },
+
+        detectTaskOverdue(record, previous, changes) {
+            const status = (record.status || '').toLowerCase();
+            if (changes.status && (status === 'overdue' || status === 'past due')) {
+                return true;
+            }
+            const dueDate = record.due_date || record.due_at;
+            if (!dueDate) {
+                return false;
+            }
+            const due = new Date(dueDate);
+            if (Number.isNaN(due.getTime())) {
+                return false;
+            }
+            const previousDue = previous?.due_date || previous?.due_at;
+            const now = new Date();
+            const previouslyOverdue = previousDue ? new Date(previousDue) < now && !this.isTaskCompleted(previous) : false;
+            const nowOverdue = due < now && !this.isTaskCompleted(record);
+            return !previouslyOverdue && nowOverdue;
+        },
+
+        isTaskCompleted(task) {
+            const status = (task?.status || '').toLowerCase();
+            return status === 'completed' || status === 'done' || status === 'closed' || task?.completed === true;
+        },
+
+        detectErpSyncRequired(record, previous, changes) {
+            if (record.erp_sync_pending === true && previous?.erp_sync_pending !== true) {
+                return true;
+            }
+            const statusChanged = changes.integration_status || changes.erp_sync_status;
+            if (statusChanged) {
+                const status = (record.integration_status || record.erp_sync_status || '').toLowerCase();
+                return status.includes('pending');
+            }
+            return false;
+        },
+
+        executeWorkflows(descriptor, event) {
+            if (!descriptor || !descriptor.name) {
+                return;
+            }
+            const workflows = [];
+            this.workflowCache.forEach(workflow => {
+                if (!workflow || !this.isWorkflowActive(workflow)) {
+                    return;
+                }
+                const triggerEvent = workflow.trigger?.event || workflow.trigger?.id || workflow.trigger;
+                if (triggerEvent === descriptor.name) {
+                    if (!workflow.entity || workflow.entity === event.entity) {
+                        workflows.push(workflow);
+                    }
+                }
+            });
+
+            if (!workflows.length) {
+                return;
+            }
+
+            workflows.forEach(workflow => {
+                if (event.meta?.triggeredByWorkflow && event.meta.triggeredByWorkflow === workflow.id) {
+                    return;
+                }
+                const context = this.buildExecutionContext(workflow, event, descriptor);
+                if (!this.evaluateTrigger(workflow, descriptor, context)) {
+                    return;
+                }
+                if (!this.evaluateConditions(workflow, context)) {
+                    return;
+                }
+                const summary = this.executeActions(workflow, context);
+                if (summary.executed) {
+                    this.updateWorkflowMetrics(workflow, summary);
+                    this.logWorkflowRun(workflow, descriptor, summary, context);
+                }
+            });
+        },
+
+        isWorkflowActive(workflow) {
+            const status = (workflow.status || '').toLowerCase();
+            if (!status) {
+                return true;
+            }
+            return status.includes('active') || status.includes('enabled') || status.includes('running');
+        },
+
+        buildExecutionContext(workflow, event, descriptor) {
+            const record = event.record || {};
+            const previous = event.previous || {};
+            const relatedCompany = this.resolveCompany(record);
+            const relatedContact = this.resolveContact(record);
+            const relatedOpportunity = this.resolveOpportunity(record, event.entity);
+            const relatedLead = this.resolveLead(record, event.entity);
+
+            const mergeData = {
+                workflow,
+                entity: event.entity,
+                event: descriptor.name,
+                record,
+                previous,
+                company: relatedCompany,
+                contact: relatedContact,
+                opportunity: event.entity === 'opportunities' ? record : relatedOpportunity,
+                lead: event.entity === 'leads' ? record : relatedLead,
+                activity: event.entity === 'activities' ? record : null,
+                task: event.entity === 'tasks' ? record : null
+            };
+
+            return {
+                workflow,
+                record,
+                previous,
+                descriptor,
+                entity: event.entity,
+                changes: event.changes || {},
+                meta: event.meta || null,
+                relatedCompany,
+                relatedContact,
+                relatedOpportunity,
+                relatedLead,
+                mergeData,
+                engine: this
+            };
+        },
+
+        resolveCompany(record) {
+            if (!this.dataCore) {
+                return null;
+            }
+            const companyId = record.company_id || record.account_id;
+            if (companyId) {
+                return this.dataCore.get('companies', companyId);
+            }
+            if (record.relationships?.company?.id) {
+                return this.dataCore.get('companies', record.relationships.company.id);
+            }
+            return null;
+        },
+
+        resolveContact(record) {
+            if (!this.dataCore) {
+                return null;
+            }
+            const contactId = record.contact_id || record.primary_contact_id;
+            if (contactId) {
+                return this.dataCore.get('contacts', contactId);
+            }
+            if (record.relationships?.contact?.id) {
+                return this.dataCore.get('contacts', record.relationships.contact.id);
+            }
+            return null;
+        },
+
+        resolveOpportunity(record, entity) {
+            if (!this.dataCore) {
+                return null;
+            }
+            if (entity === 'opportunities') {
+                return record;
+            }
+            const opportunityId = record.opportunity_id || record.related_to;
+            if (opportunityId && String(opportunityId).startsWith('opp-')) {
+                return this.dataCore.get('opportunities', opportunityId);
+            }
+            return null;
+        },
+
+        resolveLead(record, entity) {
+            if (!this.dataCore) {
+                return null;
+            }
+            if (entity === 'leads') {
+                return record;
+            }
+            const leadId = record.lead_id;
+            if (leadId) {
+                return this.dataCore.get('leads', leadId);
+            }
+            return null;
+        },
+
+        evaluateTrigger(workflow, descriptor, context) {
+            const triggerConfig = workflow.trigger?.config || {};
+            switch (descriptor.name) {
+                case 'opportunity.stage.changed': {
+                    if (triggerConfig.from_stage && triggerConfig.from_stage !== context.descriptor.context.from_stage) {
+                        return false;
+                    }
+                    if (triggerConfig.to_stage && triggerConfig.to_stage !== context.descriptor.context.to_stage) {
+                        return false;
+                    }
+                    return true;
+                }
+                case 'activity.completed': {
+                    if (triggerConfig.outcome) {
+                        return (context.record?.outcome || '').toLowerCase() === triggerConfig.outcome.toLowerCase();
+                    }
+                    return true;
+                }
+                case 'task.overdue': {
+                    if (!context.record?.due_date && !context.record?.due_at) {
+                        return false;
+                    }
+                    const grace = Number(triggerConfig.grace_period);
+                    if (!Number.isFinite(grace) || grace <= 0) {
+                        return true;
+                    }
+                    const dueString = context.record.due_date || context.record.due_at;
+                    const due = new Date(dueString);
+                    if (Number.isNaN(due.getTime())) {
+                        return false;
+                    }
+                    const elapsed = Date.now() - due.getTime();
+                    return elapsed >= grace * 60 * 60 * 1000;
+                }
+                case 'lead.status.changed': {
+                    if (!triggerConfig.target_status) {
+                        return true;
+                    }
+                    return (context.record?.status || '').toLowerCase() === triggerConfig.target_status.toLowerCase();
+                }
+                case 'integration.erp.sync_required': {
+                    if (triggerConfig.system) {
+                        const system = (context.record?.erp_system || context.record?.integration_system || '').toLowerCase();
+                        if (system && system !== triggerConfig.system.toLowerCase()) {
+                            return false;
+                        }
+                    }
+                    return true;
+                }
+                default:
+                    return true;
+            }
+        },
+
+        evaluateConditions(workflow, context) {
+            const conditions = Array.isArray(workflow.conditions) ? workflow.conditions : [];
+            if (!conditions.length) {
+                return true;
+            }
+            return conditions.every(condition => {
+                const id = condition?.id || condition;
+                const evaluator = AUTOMATION_CONDITION_CHECKS[id];
+                if (typeof evaluator !== 'function') {
+                    return true;
+                }
+                try {
+                    return evaluator({ ...context, condition });
+                } catch (error) {
+                    console.error('Automation condition evaluation failed', id, error);
+                    return false;
+                }
+            });
+        },
+
+        executeActions(workflow, context) {
+            const summary = {
+                executed: false,
+                tasksCreated: 0,
+                remindersSent: 0,
+                erpSyncs: 0,
+                statusUpdates: 0,
+                actionDetails: [],
+                errors: [],
+                totalActions: Array.isArray(workflow.actions) ? workflow.actions.length : 0,
+                executedActions: 0
+            };
+
+            const actions = Array.isArray(workflow.actions) ? workflow.actions : [];
+            actions.forEach(action => {
+                try {
+                    const detail = this.runAction(action, workflow, context, summary);
+                    if (detail) {
+                        summary.actionDetails.push(detail);
+                        summary.executedActions += 1;
+                    }
+                } catch (error) {
+                    summary.errors.push(error);
+                    console.error('Automation action failed', action?.type, error);
+                }
+            });
+
+            summary.executed = summary.executedActions > 0
+                || summary.tasksCreated > 0
+                || summary.remindersSent > 0
+                || summary.erpSyncs > 0
+                || summary.statusUpdates > 0;
+            return summary;
+        },
+
+        runAction(action, workflow, context, summary) {
+            if (!action || !action.type) {
+                return null;
+            }
+            const settings = action.settings || {};
+            const meta = { triggeredByWorkflow: workflow.id };
+            switch (action.type) {
+                case 'create_task': {
+                    const dueDays = Number(settings.due_in_days ?? 0);
+                    const dueDate = this.computeDueDate(dueDays);
+                    const titleTemplate = settings.title || 'Follow-up task';
+                    const title = this.renderTemplate(titleTemplate, context.mergeData);
+                    const payload = this.cleanPayload({
+                        title,
+                        description: settings.description ? this.renderTemplate(settings.description, context.mergeData) : '',
+                        priority: settings.priority || 'Medium',
+                        status: 'Not Started',
+                        due_date: dueDate,
+                        assigned_to: settings.assignee || context.record?.assigned_to,
+                        related_to: context.record?.id,
+                        company_id: context.record?.company_id,
+                        opportunity_id: context.entity === 'opportunities' ? context.record?.id : context.record?.opportunity_id,
+                        lead_id: context.entity === 'leads' ? context.record?.id : context.record?.lead_id,
+                        source_workflow_id: workflow.id
+                    });
+                    const created = this.dataCore?.create('tasks', payload, { meta });
+                    summary.tasksCreated += created ? 1 : 0;
+                    return {
+                        label: action.label || 'Create task',
+                        detail: `${title}${dueDate ? ` · Due ${dueDate}` : ''}`
+                    };
+                }
+                case 'send_reminder': {
+                    const messageTemplate = settings.message || `Reminder for ${workflow.name}`;
+                    const message = this.renderTemplate(messageTemplate, context.mergeData);
+                    const offsetMinutes = Number(settings.offset ?? 0);
+                    const scheduledAt = this.computeReminderTime(offsetMinutes);
+                    const payload = this.cleanPayload({
+                        type: 'Reminder',
+                        subject: `${settings.channel || 'Notification'} reminder`,
+                        description: message,
+                        channel: settings.channel || 'Email',
+                        date: scheduledAt,
+                        related_to: context.record?.id,
+                        assigned_to: context.record?.assigned_to || workflow.owner,
+                        source_workflow_id: workflow.id
+                    });
+                    const created = this.dataCore?.create('activities', payload, { meta });
+                    summary.remindersSent += created ? 1 : 0;
+                    return {
+                        label: action.label || 'Send reminder',
+                        detail: `${settings.channel || 'Email'}${offsetMinutes ? ` · +${offsetMinutes} min` : ''}`
+                    };
+                }
+                case 'update_status': {
+                    const field = settings.field || '';
+                    const value = settings.value;
+                    if (!context.record?.id || value === undefined) {
+                        return null;
+                    }
+                    let performed = false;
+                    if (field.includes('Opportunity') && context.record.id) {
+                        this.dataCore?.update('opportunities', context.record.id, { stage: value }, { meta });
+                        performed = true;
+                    } else if (field.includes('Lead')) {
+                        this.dataCore?.update('leads', context.record.id, { status: value }, { meta });
+                        performed = true;
+                    } else if (field.includes('Task')) {
+                        this.dataCore?.update('tasks', context.record.id, { status: value }, { meta });
+                        performed = true;
+                    }
+                    if (!performed) {
+                        return null;
+                    }
+                    summary.statusUpdates += 1;
+                    return {
+                        label: action.label || 'Update status',
+                        detail: `${field} → ${value}`
+                    };
+                }
+                case 'sync_erp': {
+                    const system = settings.system || 'ERP';
+                    const mode = settings.mode || 'Immediate';
+                    const payload = this.cleanPayload({
+                        type: 'Integration',
+                        subject: `ERP sync scheduled (${system})`,
+                        description: settings.payload ? this.renderTemplate(settings.payload, context.mergeData) : '',
+                        date: new Date().toISOString(),
+                        related_to: context.record?.id,
+                        channel: system,
+                        source_workflow_id: workflow.id
+                    });
+                    const created = this.dataCore?.create('activities', payload, { meta });
+                    summary.erpSyncs += created ? 1 : 0;
+                    return {
+                        label: action.label || 'Sync ERP',
+                        detail: `${system}${mode ? ` · ${mode}` : ''}`
+                    };
+                }
+                default:
+                    return null;
+            }
+        },
+
+        computeDueDate(offsetDays) {
+            const now = new Date();
+            if (Number.isFinite(offsetDays) && offsetDays > 0) {
+                now.setDate(now.getDate() + offsetDays);
+            }
+            return now.toISOString().split('T')[0];
+        },
+
+        computeReminderTime(offsetMinutes) {
+            const date = new Date();
+            if (Number.isFinite(offsetMinutes) && offsetMinutes > 0) {
+                date.setMinutes(date.getMinutes() + offsetMinutes);
+            }
+            return date.toISOString();
+        },
+
+        renderTemplate(template, data) {
+            if (!template) {
+                return '';
+            }
+            if (!data || typeof template !== 'string') {
+                return template;
+            }
+            return template.replace(/\{\{\s*([a-zA-Z0-9_.]+)\s*\}\}/g, (match, token) => {
+                const value = token.split('.').reduce((acc, key) => {
+                    if (acc && Object.prototype.hasOwnProperty.call(acc, key)) {
+                        return acc[key];
+                    }
+                    return undefined;
+                }, data);
+                return value === undefined || value === null ? '' : String(value);
+            });
+        },
+
+        cleanPayload(payload) {
+            const result = {};
+            Object.entries(payload || {}).forEach(([key, value]) => {
+                if (value !== undefined && value !== null) {
+                    result[key] = value;
+                }
+            });
+            return result;
+        },
+
+        updateWorkflowMetrics(workflow, summary) {
+            if (!this.dataCore || !workflow?.id) {
+                return;
+            }
+            const metrics = workflow.metrics || {};
+            const previousRuns = Number(metrics.runs) || 0;
+            const successEstimate = Number(metrics.successful_runs || metrics.successes);
+            let previousSuccesses = Number.isFinite(successEstimate)
+                ? successEstimate
+                : Math.round((Number(metrics.success_rate) || 0) * previousRuns);
+            if (!Number.isFinite(previousSuccesses)) {
+                previousSuccesses = 0;
+            }
+            const isSuccess = summary.errors.length === 0;
+            const newRuns = previousRuns + 1;
+            const newSuccesses = previousSuccesses + (isSuccess ? 1 : 0);
+            const updatedMetrics = {
+                ...metrics,
+                runs: newRuns,
+                successful_runs: newSuccesses,
+                success_rate: newRuns ? newSuccesses / newRuns : 1,
+                tasks_created: (metrics.tasks_created || 0) + summary.tasksCreated,
+                reminders_sent: (metrics.reminders_sent || 0) + summary.remindersSent,
+                erp_syncs: (metrics.erp_syncs || 0) + summary.erpSyncs
+            };
+
+            const timestamp = new Date().toISOString();
+            this.dataCore.update('workflows', workflow.id, {
+                metrics: updatedMetrics,
+                last_run_at: timestamp
+            }, { meta: { triggeredByWorkflow: workflow.id } });
+
+            const cached = this.workflowCache.get(workflow.id);
+            if (cached) {
+                cached.metrics = updatedMetrics;
+                cached.last_run_at = timestamp;
+            }
+            this.updateAutomationState(workflow.id, {
+                metrics: updatedMetrics,
+                last_run_at: timestamp
+            });
+        },
+
+        logWorkflowRun(workflow, descriptor, summary, context) {
+            const status = summary.errors.length
+                ? (summary.executedActions && summary.executedActions !== summary.errors.length ? 'Warning' : 'Error')
+                : 'Success';
+            const runEntry = {
+                id: `run-${Date.now()}`,
+                workflowName: workflow.name || 'Workflow',
+                owner: workflow.owner || 'Automation Engine',
+                event: this.describeRunEvent(workflow, descriptor, context),
+                executedAt: new Date().toISOString(),
+                status,
+                actions: summary.actionDetails.map(item => ({
+                    label: item.label,
+                    detail: item.detail
+                }))
+            };
+
+            if (Array.isArray(automationState?.runLog)) {
+                automationState.runLog.unshift(runEntry);
+                if (automationState.runLog.length > 10) {
+                    automationState.runLog = automationState.runLog.slice(0, 10);
+                }
+            }
+
+            const view = document.getElementById('automationView');
+            if (view && !view.classList.contains('hidden')) {
+                renderAutomationView();
+            }
+        },
+
+        describeRunEvent(workflow, descriptor, context) {
+            const triggerLabel = workflow.trigger?.label || descriptor.name;
+            if (descriptor.name === 'opportunity.stage.changed') {
+                return `${triggerLabel} · ${context.record?.stage || descriptor.context.to_stage || ''}`.trim();
+            }
+            if (descriptor.name === 'activity.completed') {
+                return `${triggerLabel} · ${context.record?.outcome || 'Completed'}`;
+            }
+            if (descriptor.name === 'task.overdue') {
+                return `${triggerLabel} · ${context.record?.title || 'Task'}`;
+            }
+            if (descriptor.name === 'lead.status.changed') {
+                return `${triggerLabel} · ${context.record?.status || ''}`;
+            }
+            if (descriptor.name === 'integration.erp.sync_required') {
+                return `${triggerLabel} · ${context.record?.erp_system || context.record?.integration_system || 'ERP'}`;
+            }
+            return triggerLabel;
+        },
+
+        updateAutomationState(workflowId, updates) {
+            if (!Array.isArray(automationState?.workflows)) {
+                return;
+            }
+            const index = automationState.workflows.findIndex(item => item.id === workflowId);
+            if (index === -1) {
+                return;
+            }
+            automationState.workflows[index] = {
+                ...automationState.workflows[index],
+                ...updates,
+                metrics: {
+                    ...automationState.workflows[index].metrics,
+                    ...(updates.metrics || {})
+                }
+            };
+        }
+    };
+
+    return engine;
+}
+
+(function initializeAutomationEngine(global) {
+    if (!global) {
+        return;
+    }
+    const engine = global.crmAutomationEngine || createAutomationEngine();
+    global.crmAutomationEngine = engine;
+
+    function attemptInitialization(retries = 10) {
+        if (engine.initialized) {
+            return;
+        }
+        const dataCore = global.crmDataCore;
+        if (dataCore && typeof dataCore.on === 'function') {
+            engine.init(dataCore);
+        } else if (retries > 0) {
+            setTimeout(() => attemptInitialization(retries - 1), 50);
+        } else {
+            console.warn('Automation engine could not find DataCore instance.');
+        }
+    }
+
+    attemptInitialization(20);
+})(typeof window !== 'undefined' ? window : this);
