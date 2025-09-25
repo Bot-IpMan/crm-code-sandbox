@@ -86,7 +86,69 @@ const TRANSLATIONS = {
         'page.marketing.title': 'Marketing Automation',
         'page.marketing.subtitle': 'Segmentation, customer journeys and multichannel campaigns',
         'page.competitorIntel.title': 'Competitor Intelligence Hub',
-        'page.competitorIntel.subtitle': 'Monitor rivals, linked clients, and research tasks'
+        'page.competitorIntel.subtitle': 'Monitor rivals, linked clients, and research tasks',
+        'dashboard.totalContacts': 'Total Contacts',
+        'dashboard.activeLeads': 'Active Leads',
+        'dashboard.opportunities': 'Opportunities',
+        'dashboard.revenue': 'Revenue',
+        'dashboard.vsLastMonth': 'vs last month',
+        'dashboard.salesPipeline': 'Sales Pipeline',
+        'dashboard.leadSources': 'Lead Sources',
+        'dashboard.recentActivities': 'Recent Activities',
+        'common.viewAll': 'View all',
+        'contacts.heading': 'All Contacts',
+        'contacts.searchPlaceholder': 'Search contacts...',
+        'contacts.export': 'Export',
+        'contacts.addContact': 'Add Contact',
+        'contacts.filter.status.all': 'All Statuses',
+        'contacts.filter.status.active': 'Active',
+        'contacts.filter.status.inactive': 'Inactive',
+        'contacts.filter.status.qualified': 'Qualified',
+        'contacts.filter.status.customer': 'Customer',
+        'contacts.filter.source.all': 'All Sources',
+        'contacts.filter.source.website': 'Website',
+        'contacts.filter.source.coldCall': 'Cold Call',
+        'contacts.filter.source.referral': 'Referral',
+        'contacts.filter.source.social': 'Social Media',
+        'contacts.table.name': 'Name',
+        'contacts.table.company': 'Company',
+        'contacts.table.email': 'Email',
+        'contacts.table.phone': 'Phone',
+        'contacts.table.status': 'Status',
+        'contacts.table.actions': 'Actions',
+        'contacts.empty': 'No contacts found',
+        'contacts.emptyCta': 'Add your first contact',
+        'contacts.noTitle': 'No title',
+        'contacts.noCompany': 'No company',
+        'contacts.noEmail': 'No email',
+        'contacts.noPhone': 'No phone',
+        'contacts.loadError': 'Failed to load contacts',
+        'companies.heading': 'All Companies',
+        'companies.searchPlaceholder': 'Search companies...',
+        'companies.export': 'Export',
+        'companies.addCompany': 'Add Company',
+        'companies.filter.status.all': 'All Statuses',
+        'companies.filter.status.active': 'Active',
+        'companies.filter.status.customer': 'Customer',
+        'companies.filter.status.prospect': 'Prospect',
+        'companies.filter.status.partner': 'Partner',
+        'companies.filter.size.all': 'All Sizes',
+        'companies.filter.size.startup': 'Startup',
+        'companies.filter.size.small': 'Small (1-50)',
+        'companies.filter.size.medium': 'Medium (51-200)',
+        'companies.filter.size.large': 'Large (201-1000)',
+        'companies.filter.size.enterprise': 'Enterprise (1000+)',
+        'companies.table.company': 'Company',
+        'companies.table.industry': 'Industry',
+        'companies.table.size': 'Size',
+        'companies.table.revenue': 'Revenue',
+        'companies.table.status': 'Status',
+        'companies.table.actions': 'Actions',
+        'companies.empty': 'No companies found',
+        'companies.emptyCta': 'Add your first company',
+        'companies.noWebsite': 'No website',
+        'common.notAvailable': 'N/A',
+        'companies.loadError': 'Failed to load companies'
     },
     uk: {
         'common.loading': 'Завантаження...',
@@ -139,7 +201,69 @@ const TRANSLATIONS = {
         'page.marketing.title': 'Маркетинг',
         'page.marketing.subtitle': 'Сегментація, клієнтські сценарії та мультиканальні кампанії',
         'page.competitorIntel.title': 'Конкурентний хаб',
-        'page.competitorIntel.subtitle': 'Відстежуйте конкурентів, пов’язаних клієнтів і дослідження'
+        'page.competitorIntel.subtitle': 'Відстежуйте конкурентів, пов’язаних клієнтів і дослідження',
+        'dashboard.totalContacts': 'Усього контактів',
+        'dashboard.activeLeads': 'Активні ліди',
+        'dashboard.opportunities': 'Угоди',
+        'dashboard.revenue': 'Дохід',
+        'dashboard.vsLastMonth': 'порівняно з минулим місяцем',
+        'dashboard.salesPipeline': 'Воронка продажів',
+        'dashboard.leadSources': 'Джерела лідів',
+        'dashboard.recentActivities': 'Останні активності',
+        'common.viewAll': 'Переглянути всі',
+        'contacts.heading': 'Усі контакти',
+        'contacts.searchPlaceholder': 'Пошук контактів...',
+        'contacts.export': 'Експорт',
+        'contacts.addContact': 'Додати контакт',
+        'contacts.filter.status.all': 'Усі статуси',
+        'contacts.filter.status.active': 'Активний',
+        'contacts.filter.status.inactive': 'Неактивний',
+        'contacts.filter.status.qualified': 'Кваліфікований',
+        'contacts.filter.status.customer': 'Клієнт',
+        'contacts.filter.source.all': 'Усі джерела',
+        'contacts.filter.source.website': 'Сайт',
+        'contacts.filter.source.coldCall': 'Холодний дзвінок',
+        'contacts.filter.source.referral': 'Рекомендація',
+        'contacts.filter.source.social': 'Соціальні мережі',
+        'contacts.table.name': 'Ім’я',
+        'contacts.table.company': 'Компанія',
+        'contacts.table.email': 'Email',
+        'contacts.table.phone': 'Телефон',
+        'contacts.table.status': 'Статус',
+        'contacts.table.actions': 'Дії',
+        'contacts.empty': 'Контактів не знайдено',
+        'contacts.emptyCta': 'Додайте перший контакт',
+        'contacts.noTitle': 'Без посади',
+        'contacts.noCompany': 'Без компанії',
+        'contacts.noEmail': 'Без email',
+        'contacts.noPhone': 'Без телефону',
+        'contacts.loadError': 'Не вдалося завантажити контакти',
+        'companies.heading': 'Усі компанії',
+        'companies.searchPlaceholder': 'Пошук компаній...',
+        'companies.export': 'Експорт',
+        'companies.addCompany': 'Додати компанію',
+        'companies.filter.status.all': 'Усі статуси',
+        'companies.filter.status.active': 'Активна',
+        'companies.filter.status.customer': 'Клієнт',
+        'companies.filter.status.prospect': 'Потенційний клієнт',
+        'companies.filter.status.partner': 'Партнер',
+        'companies.filter.size.all': 'Усі розміри',
+        'companies.filter.size.startup': 'Стартап',
+        'companies.filter.size.small': 'Малий (1-50)',
+        'companies.filter.size.medium': 'Середній (51-200)',
+        'companies.filter.size.large': 'Великий (201-1000)',
+        'companies.filter.size.enterprise': 'Корпорація (1000+)',
+        'companies.table.company': 'Компанія',
+        'companies.table.industry': 'Індустрія',
+        'companies.table.size': 'Розмір',
+        'companies.table.revenue': 'Дохід',
+        'companies.table.status': 'Статус',
+        'companies.table.actions': 'Дії',
+        'companies.empty': 'Компанії не знайдені',
+        'companies.emptyCta': 'Додайте першу компанію',
+        'companies.noWebsite': 'Без сайту',
+        'common.notAvailable': 'Н/Д',
+        'companies.loadError': 'Не вдалося завантажити компанії'
     }
 };
 
@@ -244,6 +368,7 @@ function setLanguage(language) {
 
 function applyTheme(theme) {
     const normalizedTheme = SUPPORTED_THEMES[theme] ? theme : DEFAULT_THEME;
+    const previousTheme = currentTheme;
     currentTheme = normalizedTheme;
 
     if (document.body) {
@@ -256,7 +381,9 @@ function applyTheme(theme) {
         themeSelect.value = normalizedTheme;
     }
 
-    setStoredPreference(THEME_STORAGE_KEY, normalizedTheme);
+    if (previousTheme !== normalizedTheme) {
+        setStoredPreference(THEME_STORAGE_KEY, normalizedTheme);
+    }
 }
 
 function setPageHeader(viewKey) {
@@ -477,10 +604,13 @@ function showView(viewName) {
     if (targetView) {
         targetView.classList.remove('hidden');
     }
-    
+
     // Update navigation
     updateNavigation(viewName);
     currentView = viewName;
+
+    // Ensure the current theme is applied consistently across all views
+    applyTheme(currentTheme);
 }
 
 function updateNavigation(activeView) {
@@ -658,52 +788,52 @@ async function showContacts() {
         <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
             <div class="flex items-center justify-between mb-6">
                 <div class="flex items-center space-x-4">
-                    <h3 class="text-lg font-semibold text-gray-800">All Contacts</h3>
+                    <h3 class="text-lg font-semibold text-gray-800" data-i18n="contacts.heading">All Contacts</h3>
                     <div class="relative">
-                        <input type="text" id="contactSearch" placeholder="Search contacts..." 
+                        <input type="text" id="contactSearch" placeholder="Search contacts..." data-i18n="contacts.searchPlaceholder" data-i18n-attr="placeholder"
                                class="pl-10 pr-4 py-2 w-64 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                         <i class="fas fa-search absolute left-3 top-3 text-gray-400"></i>
                     </div>
                 </div>
                 <div class="flex items-center space-x-3">
                     <button onclick="exportContacts()" class="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50">
-                        <i class="fas fa-download mr-2"></i>Export
+                        <i class="fas fa-download mr-2"></i><span data-i18n="contacts.export">Export</span>
                     </button>
                     <button onclick="showContactForm()" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-                        <i class="fas fa-plus mr-2"></i>Add Contact
+                        <i class="fas fa-plus mr-2"></i><span data-i18n="contacts.addContact">Add Contact</span>
                     </button>
                 </div>
             </div>
-            
+
             <!-- Filters -->
             <div class="flex items-center space-x-4 mb-6">
                 <select id="statusFilter" class="border border-gray-300 rounded-lg px-3 py-2">
-                    <option value="">All Statuses</option>
-                    <option value="Active">Active</option>
-                    <option value="Inactive">Inactive</option>
-                    <option value="Qualified">Qualified</option>
-                    <option value="Customer">Customer</option>
+                    <option value="" data-i18n="contacts.filter.status.all">All Statuses</option>
+                    <option value="Active" data-i18n="contacts.filter.status.active">Active</option>
+                    <option value="Inactive" data-i18n="contacts.filter.status.inactive">Inactive</option>
+                    <option value="Qualified" data-i18n="contacts.filter.status.qualified">Qualified</option>
+                    <option value="Customer" data-i18n="contacts.filter.status.customer">Customer</option>
                 </select>
                 <select id="sourceFilter" class="border border-gray-300 rounded-lg px-3 py-2">
-                    <option value="">All Sources</option>
-                    <option value="Website">Website</option>
-                    <option value="Cold Call">Cold Call</option>
-                    <option value="Referral">Referral</option>
-                    <option value="Social Media">Social Media</option>
+                    <option value="" data-i18n="contacts.filter.source.all">All Sources</option>
+                    <option value="Website" data-i18n="contacts.filter.source.website">Website</option>
+                    <option value="Cold Call" data-i18n="contacts.filter.source.coldCall">Cold Call</option>
+                    <option value="Referral" data-i18n="contacts.filter.source.referral">Referral</option>
+                    <option value="Social Media" data-i18n="contacts.filter.source.social">Social Media</option>
                 </select>
             </div>
-            
+
             <!-- Contacts table -->
             <div class="overflow-x-auto">
                 <table class="w-full">
                     <thead class="bg-gray-50">
                         <tr>
-                            <th class="text-left p-3 font-medium text-gray-600">Name</th>
-                            <th class="text-left p-3 font-medium text-gray-600">Company</th>
-                            <th class="text-left p-3 font-medium text-gray-600">Email</th>
-                            <th class="text-left p-3 font-medium text-gray-600">Phone</th>
-                            <th class="text-left p-3 font-medium text-gray-600">Status</th>
-                            <th class="text-left p-3 font-medium text-gray-600">Actions</th>
+                            <th class="text-left p-3 font-medium text-gray-600" data-i18n="contacts.table.name">Name</th>
+                            <th class="text-left p-3 font-medium text-gray-600" data-i18n="contacts.table.company">Company</th>
+                            <th class="text-left p-3 font-medium text-gray-600" data-i18n="contacts.table.email">Email</th>
+                            <th class="text-left p-3 font-medium text-gray-600" data-i18n="contacts.table.phone">Phone</th>
+                            <th class="text-left p-3 font-medium text-gray-600" data-i18n="contacts.table.status">Status</th>
+                            <th class="text-left p-3 font-medium text-gray-600" data-i18n="contacts.table.actions">Actions</th>
                         </tr>
                     </thead>
                     <tbody id="contactsTableBody">
@@ -711,14 +841,16 @@ async function showContacts() {
                     </tbody>
                 </table>
             </div>
-            
+
             <!-- Pagination -->
             <div id="contactsPagination" class="mt-6 flex items-center justify-between">
                 <!-- Pagination will be added here -->
             </div>
         </div>
     `;
-    
+
+    applyTranslations();
+
     await loadContacts();
     setupContactFilters();
 }
@@ -748,10 +880,10 @@ async function loadContacts(page = 1, search, status, source) {
         
         displayContacts(data.data || []);
         displayPagination('contacts', data, page);
-        
+
     } catch (error) {
         console.error('Error loading contacts:', error);
-        showToast('Failed to load contacts', 'error');
+        showToast(translate('contacts.loadError'), 'error');
     } finally {
         hideLoading();
     }
@@ -765,14 +897,15 @@ function displayContacts(contacts) {
             <tr>
                 <td colspan="6" class="text-center py-8 text-gray-500">
                     <i class="fas fa-users text-4xl mb-4"></i>
-                    <p>No contacts found</p>
-                    <button onclick="showContactForm()" class="mt-2 text-blue-600 hover:text-blue-700">Add your first contact</button>
+                    <p data-i18n="contacts.empty">No contacts found</p>
+                    <button onclick="showContactForm()" class="mt-2 text-blue-600 hover:text-blue-700" data-i18n="contacts.emptyCta">Add your first contact</button>
                 </td>
             </tr>
         `;
+        applyTranslations();
         return;
     }
-    
+
     tbody.innerHTML = contacts.map(contact => `
         <tr class="border-b border-gray-100 hover:bg-gray-50">
             <td class="p-3">
@@ -782,15 +915,15 @@ function displayContacts(contacts) {
                     </div>
                     <div>
                         <p class="font-medium text-gray-800">${contact.first_name} ${contact.last_name}</p>
-                        <p class="text-sm text-gray-600">${contact.title || 'No title'}</p>
+                        <p class="text-sm text-gray-600">${contact.title || `<span data-i18n="contacts.noTitle">${translate('contacts.noTitle')}</span>`}</p>
                     </div>
                 </div>
             </td>
-            <td class="p-3 text-gray-600">${contact.company_name || 'No company'}</td>
-            <td class="p-3 text-gray-600">${contact.email || 'No email'}</td>
-            <td class="p-3 text-gray-600">${contact.phone || 'No phone'}</td>
+            <td class="p-3 text-gray-600">${contact.company_name || `<span data-i18n="contacts.noCompany">${translate('contacts.noCompany')}</span>`}</td>
+            <td class="p-3 text-gray-600">${contact.email || `<span data-i18n="contacts.noEmail">${translate('contacts.noEmail')}</span>`}</td>
+            <td class="p-3 text-gray-600">${contact.phone || `<span data-i18n="contacts.noPhone">${translate('contacts.noPhone')}</span>`}</td>
             <td class="p-3">
-                <span class="px-2 py-1 text-xs rounded-full ${getStatusClass(contact.status)}">${contact.status || 'Active'}</span>
+                <span class="px-2 py-1 text-xs rounded-full ${getStatusClass(contact.status)}" ${getStatusI18nAttribute(contact.status)}>${translate(getStatusTranslationKey(contact.status))}</span>
             </td>
             <td class="p-3">
                 <div class="flex items-center space-x-2">
@@ -807,6 +940,29 @@ function displayContacts(contacts) {
             </td>
         </tr>
     `).join('');
+
+    applyTranslations();
+}
+
+function getStatusTranslationKey(status) {
+    const normalized = (status || 'Active').toLowerCase();
+    switch (normalized) {
+        case 'active':
+            return 'contacts.filter.status.active';
+        case 'inactive':
+            return 'contacts.filter.status.inactive';
+        case 'qualified':
+            return 'contacts.filter.status.qualified';
+        case 'customer':
+            return 'contacts.filter.status.customer';
+        default:
+            return 'contacts.filter.status.active';
+    }
+}
+
+function getStatusI18nAttribute(status) {
+    const key = getStatusTranslationKey(status);
+    return `data-i18n="${key}"`;
 }
 
 function setupContactFilters() {
