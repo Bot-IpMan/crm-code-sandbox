@@ -67,6 +67,133 @@ function sanitizeText(value) {
         .replace(/'/g, '&#39;');
 }
 
+function normalizeDictionaryEntry(entry) {
+    if (!entry) {
+        return null;
+    }
+    if (typeof entry === 'string') {
+        const value = entry.trim();
+        if (!value) {
+            return null;
+        }
+        return { value, label: value, i18nKey: null };
+    }
+    if (typeof entry === 'object') {
+        const rawValue = entry.value ?? entry.id ?? entry.key;
+        if (!rawValue) {
+            return null;
+        }
+        const value = String(rawValue).trim();
+        if (!value) {
+            return null;
+        }
+        const labelSource = entry.label ?? entry.name ?? value;
+        const label = String(labelSource).trim() || value;
+        const i18nKey = entry.i18nKey || entry.i18n || null;
+        return { value, label, i18nKey };
+    }
+    return null;
+}
+
+function getDictionaryEntries(entity, key, fallback = []) {
+    const fallbackEntries = Array.isArray(fallback)
+        ? fallback.map(normalizeDictionaryEntry).filter(Boolean)
+        : [];
+
+    if (entity && key && window.crmConfig && typeof window.crmConfig.getDictionary === 'function') {
+        const resolved = window.crmConfig.getDictionary(entity, key);
+        if (Array.isArray(resolved) && resolved.length) {
+            return resolved.map(normalizeDictionaryEntry).filter(Boolean);
+        }
+    }
+
+    return fallbackEntries;
+}
+
+function getDictionaryValues(entity, key, fallback = []) {
+    const entries = getDictionaryEntries(entity, key, fallback);
+    return entries.map(entry => entry.value);
+}
+
+function renderSelectOptions(entries, selectedValue = '', options = {}) {
+    const {
+        includeBlank = false,
+        blankLabel = '',
+        blankValue = '',
+        blankI18nKey
+    } = options;
+
+    const normalizedSelected = selectedValue === undefined || selectedValue === null
+        ? ''
+        : String(selectedValue);
+
+    const html = [];
+    if (includeBlank) {
+        const blankText = blankI18nKey ? translate(blankI18nKey) : blankLabel;
+        const attributes = [
+            `value="${sanitizeText(blankValue)}"`
+        ];
+        if (blankI18nKey) {
+            attributes.push(`data-i18n="${blankI18nKey}"`);
+        }
+        if (!normalizedSelected) {
+            attributes.push('selected');
+        }
+        html.push(`<option ${attributes.join(' ')}>${sanitizeText(blankText)}</option>`);
+    }
+
+    const seen = new Set();
+    entries.forEach(entry => {
+        const normalized = normalizeDictionaryEntry(entry);
+        if (!normalized) {
+            return;
+        }
+        const value = normalized.value;
+        if (seen.has(value)) {
+            return;
+        }
+        seen.add(value);
+        const attributes = [`value="${sanitizeText(value)}"`];
+        if (normalized.i18nKey) {
+            attributes.push(`data-i18n="${normalized.i18nKey}"`);
+        }
+        if (normalizedSelected && value === normalizedSelected) {
+            attributes.push('selected');
+        }
+        const label = normalized.i18nKey
+            ? translate(normalized.i18nKey)
+            : normalized.label || value;
+        html.push(`<option ${attributes.join(' ')}>${sanitizeText(label)}</option>`);
+    });
+
+    if (normalizedSelected && !seen.has(normalizedSelected)) {
+        html.push(`<option value="${sanitizeText(normalizedSelected)}" selected>${sanitizeText(normalizedSelected)}</option>`);
+    }
+
+    return html.join('');
+}
+
+function applyDictionaryToSelect(selectElement, entity, dictionary, options = {}) {
+    if (!selectElement) {
+        return;
+    }
+    const {
+        includeBlank = false,
+        blankLabel = '',
+        blankValue = '',
+        blankI18nKey,
+        selectedValue
+    } = options || {};
+
+    const currentValue = selectedValue !== undefined ? selectedValue : selectElement.value;
+    const html = renderSelectOptions(
+        getDictionaryEntries(entity, dictionary),
+        currentValue,
+        { includeBlank, blankLabel, blankValue, blankI18nKey }
+    );
+    selectElement.innerHTML = html;
+}
+
 function updateCompanyDirectory(companies = [], options = {}) {
     const { merge = false } = options;
     const directory = entityDirectories.companies;
@@ -1167,7 +1294,27 @@ function initializeDashboardCharts() {
 async function showContacts() {
     showView('contacts');
     setPageHeader('contacts');
-    
+
+    const statusFilterOptions = renderSelectOptions(
+        getDictionaryEntries('contacts', 'statuses'),
+        '',
+        {
+            includeBlank: true,
+            blankLabel: translate('contacts.filter.status.all'),
+            blankI18nKey: 'contacts.filter.status.all'
+        }
+    );
+
+    const sourceFilterOptions = renderSelectOptions(
+        getDictionaryEntries('contacts', 'leadSources'),
+        '',
+        {
+            includeBlank: true,
+            blankLabel: translate('contacts.filter.source.all'),
+            blankI18nKey: 'contacts.filter.source.all'
+        }
+    );
+
     const contactsView = document.getElementById('contactsView');
     contactsView.innerHTML = `
         <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
@@ -1193,18 +1340,10 @@ async function showContacts() {
             <!-- Filters -->
             <div class="flex items-center space-x-4 mb-6">
                 <select id="statusFilter" class="border border-gray-300 rounded-lg px-3 py-2">
-                    <option value="" data-i18n="contacts.filter.status.all">All Statuses</option>
-                    <option value="Active" data-i18n="contacts.filter.status.active">Active</option>
-                    <option value="Inactive" data-i18n="contacts.filter.status.inactive">Inactive</option>
-                    <option value="Qualified" data-i18n="contacts.filter.status.qualified">Qualified</option>
-                    <option value="Customer" data-i18n="contacts.filter.status.customer">Customer</option>
+                    ${statusFilterOptions}
                 </select>
                 <select id="sourceFilter" class="border border-gray-300 rounded-lg px-3 py-2">
-                    <option value="" data-i18n="contacts.filter.source.all">All Sources</option>
-                    <option value="Website" data-i18n="contacts.filter.source.website">Website</option>
-                    <option value="Cold Call" data-i18n="contacts.filter.source.coldCall">Cold Call</option>
-                    <option value="Referral" data-i18n="contacts.filter.source.referral">Referral</option>
-                    <option value="Social Media" data-i18n="contacts.filter.source.social">Social Media</option>
+                    ${sourceFilterOptions}
                 </select>
             </div>
 
@@ -1442,6 +1581,25 @@ async function showContactForm(contactId = null, options = {}) {
     const contactNoteHref = normalizedContactNote ? `vault/${encodeURI(normalizedContactNote)}` : '';
     const contactNoteValue = sanitizeText(contact.obsidian_note || '');
 
+    const contactStatusOptions = renderSelectOptions(
+        getDictionaryEntries('contacts', 'statuses'),
+        contact.status || 'Active'
+    );
+
+    const contactLeadSourceOptions = renderSelectOptions(
+        getDictionaryEntries('contacts', 'leadSources'),
+        contact.lead_source || '',
+        {
+            includeBlank: true,
+            blankLabel: 'Select source...'
+        }
+    );
+
+    const newCompanyStatusOptions = renderSelectOptions(
+        getDictionaryEntries('companies', 'statuses'),
+        'Prospect'
+    );
+
     showModal(isEdit ? 'Edit Contact' : 'Add New Contact', `
         <form id="contactForm" class="space-y-6">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -1516,10 +1674,7 @@ async function showContactForm(contactId = null, options = {}) {
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-2">Status</label>
                             <select name="new_company_status" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                                <option value="Prospect">Prospect</option>
-                                <option value="Customer">Customer</option>
-                                <option value="Partner">Partner</option>
-                                <option value="Vendor">Vendor</option>
+                                ${newCompanyStatusOptions}
                             </select>
                         </div>
                         <div>
@@ -1535,23 +1690,13 @@ async function showContactForm(contactId = null, options = {}) {
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">Status</label>
                     <select name="status" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                        <option value="Active" ${contact.status === 'Active' ? 'selected' : ''}>Active</option>
-                        <option value="Inactive" ${contact.status === 'Inactive' ? 'selected' : ''}>Inactive</option>
-                        <option value="Qualified" ${contact.status === 'Qualified' ? 'selected' : ''}>Qualified</option>
-                        <option value="Customer" ${contact.status === 'Customer' ? 'selected' : ''}>Customer</option>
+                        ${contactStatusOptions}
                     </select>
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">Lead Source</label>
                     <select name="lead_source" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                        <option value="">Select source...</option>
-                        <option value="Website" ${contact.lead_source === 'Website' ? 'selected' : ''}>Website</option>
-                        <option value="Cold Call" ${contact.lead_source === 'Cold Call' ? 'selected' : ''}>Cold Call</option>
-                        <option value="Email Campaign" ${contact.lead_source === 'Email Campaign' ? 'selected' : ''}>Email Campaign</option>
-                        <option value="Social Media" ${contact.lead_source === 'Social Media' ? 'selected' : ''}>Social Media</option>
-                        <option value="Referral" ${contact.lead_source === 'Referral' ? 'selected' : ''}>Referral</option>
-                        <option value="Trade Show" ${contact.lead_source === 'Trade Show' ? 'selected' : ''}>Trade Show</option>
-                        <option value="Advertisement" ${contact.lead_source === 'Advertisement' ? 'selected' : ''}>Advertisement</option>
+                        ${contactLeadSourceOptions}
                     </select>
                 </div>
                 <div>
