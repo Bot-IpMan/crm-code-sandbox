@@ -48,6 +48,13 @@ const entityDirectories = {
     }
 };
 
+const opportunityModalState = {
+    currentId: null,
+    reopenAfterForm: false
+};
+
+window.opportunityModalState = opportunityModalState;
+
 function sanitizeText(value) {
     if (value === undefined || value === null) {
         return '';
@@ -1746,7 +1753,16 @@ async function saveContact(contactId, formData) {
         }
 
         showToast(contactId ? 'Contact updated successfully' : 'Contact created successfully', 'success');
+        const reopenOpportunityId = window.opportunityModalState && window.opportunityModalState.reopenAfterForm
+            ? window.opportunityModalState.currentId
+            : null;
+        if (window.opportunityModalState) {
+            window.opportunityModalState.reopenAfterForm = false;
+        }
         closeModal();
+        if (reopenOpportunityId) {
+            await viewOpportunity(reopenOpportunityId);
+        }
         await loadContacts();
     } catch (error) {
         console.error('Error saving contact:', error);
@@ -1822,6 +1838,10 @@ function showModal(title, content) {
 function closeModal() {
     document.getElementById('modalOverlay').classList.add('hidden');
     document.body.style.overflow = 'auto';
+    if (window.opportunityModalState) {
+        window.opportunityModalState.currentId = null;
+        window.opportunityModalState.reopenAfterForm = false;
+    }
 }
 
 function showLoading() {

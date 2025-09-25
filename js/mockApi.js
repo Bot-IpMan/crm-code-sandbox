@@ -103,6 +103,16 @@
                                 .join(' ')
                                 .trim()
                         }
+                    },
+                    {
+                        name: 'competitor',
+                        entity: 'competitors',
+                        localKey: 'competitor_id',
+                        fields: {
+                            competitor_name: 'name',
+                            competitor_status: 'status',
+                            competitor_tier: 'tier'
+                        }
                     }
                 ]
             }
@@ -395,7 +405,10 @@
                 primary_contact_id: 'contact-2',
                 assigned_to: 'Michael Chen',
                 next_step: 'Finalize security review with IT team',
-                description: 'Lift-and-shift of legacy workloads to hybrid cloud.'
+                description: 'Lift-and-shift of legacy workloads to hybrid cloud.',
+                priority: 'High',
+                competitor_id: 'competitor-marketpulse',
+                obsidian_note: 'Deals/Cloud Infrastructure Migration.md'
             },
             {
                 id: 'opp-2',
@@ -410,7 +423,10 @@
                 primary_contact_id: 'contact-1',
                 assigned_to: 'Emily Johnson',
                 next_step: 'Send revised pricing options',
-                description: 'Expansion of existing success platform to additional regions.'
+                description: 'Expansion of existing success platform to additional regions.',
+                priority: 'Medium',
+                competitor_id: 'competitor-insightsphere',
+                obsidian_note: 'Deals/Customer Success Platform Expansion.md'
             },
             {
                 id: 'opp-3',
@@ -425,7 +441,10 @@
                 primary_contact_id: 'contact-4',
                 assigned_to: 'Daniel Iverson',
                 next_step: 'Schedule discovery workshop',
-                description: 'Optimization algorithms for routing and fleet management.'
+                description: 'Optimization algorithms for routing and fleet management.',
+                priority: 'High',
+                competitor_id: 'competitor-atlaslogix',
+                obsidian_note: 'Deals/Logistics Optimization Suite.md'
             },
             {
                 id: 'opp-4',
@@ -440,7 +459,10 @@
                 primary_contact_id: 'contact-3',
                 assigned_to: 'Sofia Martinez',
                 next_step: 'Kickoff meeting scheduled',
-                description: 'Growth advisory retainer for 12 months.'
+                description: 'Growth advisory retainer for 12 months.',
+                priority: 'Medium',
+                competitor_id: 'competitor-insightsphere',
+                obsidian_note: 'Deals/Startup Growth Advisory.md'
             },
             {
                 id: 'opp-5',
@@ -454,7 +476,10 @@
                 primary_contact_id: 'contact-1',
                 assigned_to: 'Emily Johnson',
                 next_step: 'Document lessons learned',
-                description: 'Renewal opportunity lost due to budget constraints.'
+                description: 'Renewal opportunity lost due to budget constraints.',
+                priority: 'Medium',
+                competitor_id: 'competitor-insightsphere',
+                obsidian_note: 'Deals/Legacy System Support Renewal.md'
             }
         ],
         competitors: [
