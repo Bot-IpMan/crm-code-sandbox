@@ -327,6 +327,44 @@ async function ensureCompanyAssociation(options = {}) {
     return null;
 }
 
+async function ensureEntityDirectoryData(entity) {
+    const directory = entityDirectories[entity];
+    if (!directory || (Array.isArray(directory.list) && directory.list.length)) {
+        return directory ? directory.list : [];
+    }
+
+    let endpoint = '';
+    let updater = null;
+    switch (entity) {
+        case 'contacts':
+            endpoint = 'tables/contacts?limit=1000';
+            updater = updateContactDirectory;
+            break;
+        case 'companies':
+            endpoint = 'tables/companies?limit=1000';
+            updater = updateCompanyDirectory;
+            break;
+        default:
+            return directory?.list || [];
+    }
+
+    try {
+        const response = await fetch(endpoint);
+        if (response.ok) {
+            const payload = await response.json();
+            const records = Array.isArray(payload?.data) ? payload.data : Array.isArray(payload) ? payload : [];
+            if (typeof updater === 'function') {
+                updater(records, { merge: true });
+            }
+            return records;
+        }
+    } catch (error) {
+        console.warn('Unable to populate directory for', entity, error);
+    }
+
+    return directory?.list || [];
+}
+
 async function ensureContactAssociation(options = {}) {
     const {
         selectedId,
@@ -485,6 +523,21 @@ const TRANSLATIONS = {
         'settings.font': 'Font',
         'settings.fontSize': 'Font Size',
         'header.searchPlaceholder': 'Search anything...',
+        'header.quickActionsButton': 'Quick actions',
+        'header.quickCreateSection': 'Quick create',
+        'header.globalAddDescription': 'Create new records without leaving your current view.',
+        'header.globalLinkSection': 'Link records',
+        'header.globalLinkDescription': 'Connect contacts and companies across modules.',
+        'header.quickLinkContactCompany': 'Link contact to company',
+        'header.selectContactLabel': 'Choose contact',
+        'header.selectCompanyLabel': 'Choose company',
+        'header.selectContactPlaceholder': 'Select a contact',
+        'header.selectCompanyPlaceholder': 'Select a company',
+        'header.linkContactSubmit': 'Link contact',
+        'header.launchOpportunityFromContact': 'Create opportunity from contact',
+        'header.linkInstructions': 'We\'ll update the contact with the selected account immediately.',
+        'header.quickOpportunityHint': 'Use the selected contact and company to start a deal in Opportunities.',
+        'header.linkNoCompanyOption': 'Keep unlinked',
         'page.dashboard.title': 'Dashboard',
         'page.dashboard.subtitle': 'Welcome to your CRM dashboard',
         'page.contacts.title': 'Contacts',
@@ -518,6 +571,7 @@ const TRANSLATIONS = {
         'leads.table.actions': 'Actions',
         'leads.empty': 'No leads found',
         'leads.emptyCta': 'Add your first lead',
+        'opportunities.addOpportunity': 'Add Opportunity',
         'leads.noDescription': 'No description',
         'leads.notSet': 'Not set',
         'leads.unassigned': 'Unassigned',
@@ -644,6 +698,21 @@ const TRANSLATIONS = {
         'settings.font': 'Шрифт',
         'settings.fontSize': 'Розмір шрифту',
         'header.searchPlaceholder': 'Пошук...',
+        'header.quickActionsButton': 'Швидкі дії',
+        'header.quickCreateSection': 'Швидке створення',
+        'header.globalAddDescription': 'Створюйте записи, не залишаючи поточного розділу.',
+        'header.globalLinkSection': 'Пов’язати записи',
+        'header.globalLinkDescription': 'З’єднуйте контакти й компанії між модулями.',
+        'header.quickLinkContactCompany': 'Пов’язати контакт з компанією',
+        'header.selectContactLabel': 'Оберіть контакт',
+        'header.selectCompanyLabel': 'Оберіть компанію',
+        'header.selectContactPlaceholder': 'Виберіть контакт',
+        'header.selectCompanyPlaceholder': 'Виберіть компанію',
+        'header.linkContactSubmit': 'Пов’язати контакт',
+        'header.launchOpportunityFromContact': 'Створити угоду з контакту',
+        'header.linkInstructions': 'Ми миттєво оновимо контакт обраним акаунтом.',
+        'header.quickOpportunityHint': 'Скористайтеся вибраними контактами й компанією, щоб створити угоду.',
+        'header.linkNoCompanyOption': 'Залишити без прив’язки',
         'page.dashboard.title': 'Панель керування',
         'page.dashboard.subtitle': 'Ласкаво просимо до CRM-панелі',
         'page.contacts.title': 'Контакти',
@@ -727,6 +796,7 @@ const TRANSLATIONS = {
         'contacts.searchPlaceholder': 'Пошук контактів...',
         'contacts.export': 'Експорт',
         'contacts.addContact': 'Додати контакт',
+        'opportunities.addOpportunity': 'Додати угоду',
         'contacts.filter.status.all': 'Усі статуси',
         'contacts.filter.status.active': 'Активний',
         'contacts.filter.status.inactive': 'Неактивний',
@@ -919,13 +989,354 @@ function setupEventListeners() {
             closeModal();
         }
     });
-    
+
     // Keyboard shortcuts
     document.addEventListener('keydown', function(e) {
         if (e.key === 'Escape') {
+            closeGlobalActionsMenu();
             closeModal();
         }
     });
+
+    const globalActionsWrapper = document.getElementById('globalActionsWrapper');
+    const globalActionsButton = document.getElementById('globalActionsButton');
+    const globalActionsMenu = document.getElementById('globalActionsMenu');
+
+    if (globalActionsWrapper && globalActionsButton && globalActionsMenu) {
+        globalActionsButton.addEventListener('click', event => {
+            event.preventDefault();
+            event.stopPropagation();
+            toggleGlobalActionsMenu();
+        });
+
+        globalActionsMenu.addEventListener('click', event => {
+            const actionButton = event.target.closest('[data-global-action]');
+            if (!actionButton) {
+                return;
+            }
+            const action = actionButton.getAttribute('data-global-action');
+            if (action) {
+                handleGlobalAction(action);
+            }
+        });
+
+        document.addEventListener('click', event => {
+            if (!globalActionsWrapper.contains(event.target)) {
+                closeGlobalActionsMenu();
+            }
+        });
+    }
+}
+
+function toggleGlobalActionsMenu(forceState) {
+    const menu = document.getElementById('globalActionsMenu');
+    const button = document.getElementById('globalActionsButton');
+    if (!menu || !button) {
+        return;
+    }
+
+    let shouldOpen = forceState;
+    if (typeof shouldOpen !== 'boolean') {
+        shouldOpen = menu.classList.contains('hidden');
+    }
+
+    if (shouldOpen) {
+        menu.classList.remove('hidden');
+        button.setAttribute('aria-expanded', 'true');
+    } else {
+        menu.classList.add('hidden');
+        button.setAttribute('aria-expanded', 'false');
+    }
+}
+
+function closeGlobalActionsMenu() {
+    const menu = document.getElementById('globalActionsMenu');
+    const button = document.getElementById('globalActionsButton');
+    if (!menu) {
+        return false;
+    }
+    if (!menu.classList.contains('hidden')) {
+        menu.classList.add('hidden');
+        if (button) {
+            button.setAttribute('aria-expanded', 'false');
+        }
+        return true;
+    }
+    return false;
+}
+
+async function handleGlobalAction(action) {
+    closeGlobalActionsMenu();
+
+    switch (action) {
+        case 'add-contact':
+            showContactForm();
+            break;
+        case 'add-company':
+            if (typeof showCompanyForm === 'function') {
+                showCompanyForm();
+            } else {
+                showToast('Company form is not available right now.', 'warning');
+            }
+            break;
+        case 'add-lead':
+            if (typeof showLeadForm === 'function') {
+                showLeadForm();
+            } else {
+                showToast('Lead form is not available right now.', 'warning');
+            }
+            break;
+        case 'add-opportunity':
+            if (typeof showOpportunityForm === 'function') {
+                showOpportunityForm();
+            } else {
+                showToast('Opportunity form is not available right now.', 'warning');
+            }
+            break;
+        case 'link-records':
+            await showLinkRecordsModal();
+            break;
+        default:
+            console.warn('Unhandled global action:', action);
+            break;
+    }
+}
+
+async function showLinkRecordsModal(defaults = {}) {
+    await Promise.all([
+        ensureEntityDirectoryData('contacts'),
+        ensureEntityDirectoryData('companies')
+    ]);
+
+    const defaultContactId = defaults.contactId ? String(defaults.contactId).trim() : '';
+    const defaultCompanyId = defaults.companyId ? String(defaults.companyId).trim() : '';
+
+    if (defaultContactId && !entityDirectories.contacts.byId.has(defaultContactId)) {
+        await resolveContactRecord(defaultContactId);
+    }
+
+    if (defaultCompanyId && !entityDirectories.companies.byId.has(defaultCompanyId)) {
+        await resolveCompanyRecord(defaultCompanyId);
+    }
+
+    const contacts = [...(entityDirectories.contacts.list || [])]
+        .filter(contact => contact && contact.id)
+        .sort((a, b) => getContactDisplayName(a).localeCompare(getContactDisplayName(b), undefined, { sensitivity: 'base' }));
+
+    const companies = [...(entityDirectories.companies.list || [])]
+        .filter(company => company && company.id)
+        .sort((a, b) => getCompanyDisplayName(a).localeCompare(getCompanyDisplayName(b), undefined, { sensitivity: 'base' }));
+
+    const contactOptions = contacts.map(contact => `
+        <option value="${sanitizeText(contact.id)}" ${defaultContactId && contact.id === defaultContactId ? 'selected' : ''}>
+            ${sanitizeText(getContactDisplayName(contact))}
+        </option>
+    `).join('');
+
+    const companyOptions = companies.map(company => `
+        <option value="${sanitizeText(company.id)}" ${defaultCompanyId && company.id === defaultCompanyId ? 'selected' : ''}>
+            ${sanitizeText(getCompanyDisplayName(company))}
+        </option>
+    `).join('');
+
+    showModal(translate('header.globalLinkSection'), `
+        <div class="space-y-6">
+            <div>
+                <h4 class="text-sm font-semibold text-gray-700" data-i18n="header.quickLinkContactCompany">Link contact to company</h4>
+                <p class="text-xs text-gray-500 mt-1" data-i18n="header.linkInstructions">We'll update the contact with the selected account immediately.</p>
+                <form id="linkContactCompanyForm" class="mt-4 space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1" data-i18n="header.selectContactLabel">Choose contact</label>
+                        <select name="contact_id" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                            <option value="" data-i18n="header.selectContactPlaceholder">Select a contact</option>
+                            ${contactOptions}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1" data-i18n="header.selectCompanyLabel">Choose company</label>
+                        <select name="company_id" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                            <option value="" data-i18n="header.linkNoCompanyOption">Keep unlinked</option>
+                            ${companyOptions}
+                        </select>
+                    </div>
+                    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                        <p class="text-xs text-gray-500" data-i18n="header.quickOpportunityHint">Use the selected contact and company to start a deal in Opportunities.</p>
+                        <div class="flex flex-col sm:flex-row gap-2">
+                            <button type="button" data-link-action="launch-opportunity" class="inline-flex items-center justify-center px-4 py-2 border border-purple-200 text-purple-600 rounded-lg hover:bg-purple-50">
+                                <i class="fas fa-rocket mr-2"></i>
+                                <span data-i18n="header.launchOpportunityFromContact">Create opportunity from contact</span>
+                            </button>
+                            <button type="submit" class="inline-flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                                <i class="fas fa-link mr-2"></i>
+                                <span data-i18n="header.linkContactSubmit">Link contact</span>
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    `);
+
+    applyTranslations();
+
+    const form = document.getElementById('linkContactCompanyForm');
+    if (!form) {
+        return;
+    }
+
+    const contactSelect = form.querySelector('select[name="contact_id"]');
+    const companySelect = form.querySelector('select[name="company_id"]');
+    const opportunityButton = form.querySelector('[data-link-action="launch-opportunity"]');
+
+    const syncCompanySelection = () => {
+        if (!contactSelect || !companySelect) {
+            return;
+        }
+        const selectedContactId = contactSelect.value;
+        if (!selectedContactId) {
+            return;
+        }
+        const contact = entityDirectories.contacts.byId.get(selectedContactId);
+        if (contact?.company_id && entityDirectories.companies.byId.has(String(contact.company_id))) {
+            companySelect.value = String(contact.company_id);
+        } else if (contact?.company_id && !companySelect.value) {
+            companySelect.value = String(contact.company_id);
+        } else if (!contact?.company_id) {
+            companySelect.value = '';
+        }
+    };
+
+    contactSelect?.addEventListener('change', () => {
+        syncCompanySelection();
+    });
+
+    form.addEventListener('submit', async event => {
+        event.preventDefault();
+        const contactId = contactSelect?.value || '';
+        const companyId = companySelect?.value || '';
+        await linkContactToCompany(contactId, companyId);
+        syncCompanySelection();
+    });
+
+    opportunityButton?.addEventListener('click', async event => {
+        event.preventDefault();
+        const contactId = contactSelect?.value || '';
+        const companyId = companySelect?.value || '';
+        await launchOpportunityFromLink(contactId, companyId);
+    });
+
+    if (contactSelect && !contactSelect.value && defaultContactId) {
+        contactSelect.value = defaultContactId;
+        syncCompanySelection();
+    }
+
+    if (companySelect && !companySelect.value && defaultCompanyId) {
+        companySelect.value = defaultCompanyId;
+    }
+
+    contactSelect?.focus();
+}
+
+async function linkContactToCompany(contactId, companyId) {
+    const normalizedContactId = contactId ? String(contactId).trim() : '';
+    const normalizedCompanyId = companyId ? String(companyId).trim() : '';
+
+    if (!normalizedContactId) {
+        showToast(translate('header.selectContactPlaceholder'), 'warning');
+        return;
+    }
+
+    showLoading();
+    try {
+        const contact = await resolveContactRecord(normalizedContactId);
+        if (!contact) {
+            throw new Error('Contact not found');
+        }
+
+        let company = null;
+        if (normalizedCompanyId) {
+            company = await resolveCompanyRecord(normalizedCompanyId);
+            if (!company) {
+                throw new Error('Company not found');
+            }
+        }
+
+        const payload = {
+            company_id: normalizedCompanyId || null,
+            company_name: company ? getCompanyDisplayName(company) : (normalizedCompanyId ? contact.company_name || '' : null),
+            updated_at: new Date().toISOString()
+        };
+
+        if (!payload.company_name) {
+            delete payload.company_name;
+        }
+
+        const response = await fetch(`tables/contacts/${encodeURIComponent(normalizedContactId)}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to link contact');
+        }
+
+        const updated = await response.json();
+        updateContactDirectory([updated], { merge: true });
+
+        if (currentView === 'contacts') {
+            await loadContacts();
+        } else if (currentView === 'companies' && typeof loadCompanies === 'function') {
+            await loadCompanies();
+        }
+
+        showToast(normalizedCompanyId ? 'Contact linked to company' : 'Contact link removed', 'success');
+    } catch (error) {
+        console.error('Error linking contact and company:', error);
+        showToast('Unable to update contact link. Please try again.', 'error');
+    } finally {
+        hideLoading();
+    }
+}
+
+async function launchOpportunityFromLink(contactId, companyId) {
+    const normalizedContactId = contactId ? String(contactId).trim() : '';
+    if (!normalizedContactId) {
+        showToast(translate('header.selectContactPlaceholder'), 'warning');
+        return;
+    }
+
+    const contact = await resolveContactRecord(normalizedContactId);
+    if (!contact) {
+        showToast('Unable to locate contact details.', 'error');
+        return;
+    }
+
+    let normalizedCompanyId = companyId ? String(companyId).trim() : '';
+    if (!normalizedCompanyId && contact.company_id) {
+        normalizedCompanyId = String(contact.company_id);
+    }
+
+    let companyName = contact.company_name || '';
+    if (normalizedCompanyId) {
+        const company = await resolveCompanyRecord(normalizedCompanyId);
+        if (company) {
+            companyName = getCompanyDisplayName(company);
+        }
+    }
+
+    closeModal();
+
+    if (typeof showOpportunityForm === 'function') {
+        showOpportunityForm(null, {
+            defaultContactId: normalizedContactId,
+            defaultContactName: getContactDisplayName(contact),
+            defaultCompanyId: normalizedCompanyId || '',
+            defaultCompanyName: companyName
+        });
+    } else {
+        showToast('Opportunity form is not available right now.', 'warning');
+    }
 }
 
 function initializeMobileMenu() {
@@ -2147,6 +2558,76 @@ function getInitials(firstName, lastName) {
     const first = firstName ? firstName.charAt(0).toUpperCase() : '';
     const last = lastName ? lastName.charAt(0).toUpperCase() : '';
     return first + last;
+}
+
+function getContactDisplayName(contact) {
+    if (!contact) {
+        return '';
+    }
+    const name = [contact.first_name, contact.last_name]
+        .filter(Boolean)
+        .join(' ')
+        .trim();
+    if (name) {
+        return name;
+    }
+    if (contact.email) {
+        return contact.email;
+    }
+    return contact.title || contact.id || '';
+}
+
+function getCompanyDisplayName(company) {
+    if (!company) {
+        return '';
+    }
+    return company.name || company.website || company.id || '';
+}
+
+async function resolveContactRecord(contactId) {
+    const normalizedId = contactId ? String(contactId).trim() : '';
+    if (!normalizedId) {
+        return null;
+    }
+    await ensureEntityDirectoryData('contacts');
+    const cached = entityDirectories.contacts.byId.get(normalizedId);
+    if (cached) {
+        return cached;
+    }
+    try {
+        const response = await fetch(`tables/contacts/${encodeURIComponent(normalizedId)}`);
+        if (response.ok) {
+            const record = await response.json();
+            updateContactDirectory([record], { merge: true });
+            return record;
+        }
+    } catch (error) {
+        console.warn('Unable to resolve contact by id:', error);
+    }
+    return null;
+}
+
+async function resolveCompanyRecord(companyId) {
+    const normalizedId = companyId ? String(companyId).trim() : '';
+    if (!normalizedId) {
+        return null;
+    }
+    await ensureEntityDirectoryData('companies');
+    const cached = entityDirectories.companies.byId.get(normalizedId);
+    if (cached) {
+        return cached;
+    }
+    try {
+        const response = await fetch(`tables/companies/${encodeURIComponent(normalizedId)}`);
+        if (response.ok) {
+            const record = await response.json();
+            updateCompanyDirectory([record], { merge: true });
+            return record;
+        }
+    } catch (error) {
+        console.warn('Unable to resolve company by id:', error);
+    }
+    return null;
 }
 
 function getStatusClass(status) {
