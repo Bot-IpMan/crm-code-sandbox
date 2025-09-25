@@ -20,7 +20,7 @@ A comprehensive, fully-featured Customer Relationship Management (CRM) system de
 #### Technical Features
 - **Responsive Design**: Mobile-friendly interface using Tailwind CSS
 - **Real-time Search**: Global search across all entities with instant results
-- **Data Persistence**: RESTful API integration with local database storage
+- **Data Persistence**: In-memory DataCore engine with REST-style mock API (no external database required)
 - **Charts & Analytics**: Interactive charts using Chart.js for data visualization
 - **Export Functionality**: CSV export for contacts, companies, leads, and activities
 - **Toast Notifications**: User-friendly feedback system for all actions
@@ -144,13 +144,16 @@ ProCRM/
 4. Begin adding your own contacts, companies, and leads
 
 ### Sample Data Included
-The system comes pre-loaded with sample data to demonstrate functionality:
-- 3 Companies (TechCorp Solutions, Global Manufacturing Inc, StartupXYZ)
+The system comes pre-loaded with rich sample data to demonstrate functionality:
+- 4 Companies (TechCorp Solutions, Global Manufacturing Inc, StartupXYZ, Northwind Logistics)
 - 4 Contacts with complete profiles
 - 3 Active leads in various stages
-- 3 Opportunities in the sales pipeline
-- 3 Tasks with different priorities
-- 3 Activities showing interaction history
+- 5 Opportunities across the sales pipeline
+- 6 Tasks with different priorities and relationships
+- 8 Activities covering calls, updates, alerts, and notes
+- 3 Competitors linked to client accounts with Obsidian note references
+- 3 Automation workflows illustrating triggers, conditions, and actions
+- Linked files and notes for Obsidian vault interoperability
 
 ## 📚 Additional Guides
 
