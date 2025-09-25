@@ -98,8 +98,12 @@ async function loadCompanies(page = 1, search, status, size) {
 
         const response = await fetch(`tables/companies?${params.toString()}`);
         const data = await response.json();
-        
-        displayCompanies(data.data || []);
+        const records = Array.isArray(data?.data) ? data.data : [];
+
+        displayCompanies(records);
+        if (typeof updateCompanyDirectory === 'function') {
+            updateCompanyDirectory(records, { merge: true });
+        }
         displayPagination('companies', data, page);
         
     } catch (error) {
@@ -6658,6 +6662,7 @@ async function exportCompanies() {
     }
 }
 
+
 async function showLeadForm(leadId = null) {
     const isEdit = Boolean(leadId);
     let lead = {};
@@ -6680,6 +6685,7 @@ async function showLeadForm(leadId = null) {
     }
 
     let companies = [];
+    let contacts = [];
     try {
         const response = await fetch('tables/companies?limit=1000');
         if (response.ok) {
@@ -6688,6 +6694,23 @@ async function showLeadForm(leadId = null) {
         }
     } catch (error) {
         console.warn('Unable to fetch companies for lead form:', error);
+    }
+
+    try {
+        const response = await fetch('tables/contacts?limit=1000');
+        if (response.ok) {
+            const data = await response.json();
+            contacts = Array.isArray(data.data) ? data.data : [];
+        }
+    } catch (error) {
+        console.warn('Unable to fetch contacts for lead form:', error);
+    }
+
+    if (typeof updateCompanyDirectory === 'function') {
+        updateCompanyDirectory(companies, { merge: true });
+    }
+    if (typeof updateContactDirectory === 'function') {
+        updateContactDirectory(contacts, { merge: true });
     }
 
     const statusOptions = ['New', 'Contacted', 'Qualified', 'Proposal', 'Negotiation', 'Won', 'Lost'];
@@ -6712,9 +6735,45 @@ async function showLeadForm(leadId = null) {
         ? new Date(lead.expected_close_date).toISOString().split('T')[0]
         : '';
 
-    const companyOptionsHtml = companies
-        .map(company => `<option value="${company.name || ''}"></option>`)
-        .join('');
+    const selectedCompanyId = lead.company_id || '';
+    let hasCurrentCompany = false;
+    const companyOptionsHtml = companies.map(company => {
+        if (!company?.id) {
+            return '';
+        }
+        const isSelected = selectedCompanyId && company.id === selectedCompanyId;
+        if (isSelected) {
+            hasCurrentCompany = true;
+        }
+        const label = sanitizeText(company.name || company.website || company.id);
+        return `<option value="${sanitizeText(company.id)}" ${isSelected ? 'selected' : ''}>${label}</option>`;
+    }).join('');
+
+    const fallbackCompanyOption = !hasCurrentCompany && selectedCompanyId && lead.company_name
+        ? `<option value="${sanitizeText(selectedCompanyId)}" selected>${sanitizeText(lead.company_name)}</option>`
+        : '';
+
+    const selectedContactId = lead.contact_id || '';
+    let hasCurrentContact = false;
+    const contactOptionsHtml = contacts.map(contact => {
+        if (!contact?.id) {
+            return '';
+        }
+        const fullName = [contact.first_name, contact.last_name].filter(Boolean).join(' ');
+        const fallback = contact.email || contact.phone || contact.id;
+        const label = sanitizeText(fullName || fallback);
+        const isSelected = selectedContactId && contact.id === selectedContactId;
+        if (isSelected) {
+            hasCurrentContact = true;
+        }
+        return `<option value="${sanitizeText(contact.id)}" ${isSelected ? 'selected' : ''}>${label}</option>`;
+    }).join('');
+
+    const fallbackContactOption = !hasCurrentContact && selectedContactId && lead.contact_name
+        ? `<option value="${sanitizeText(selectedContactId)}" selected>${sanitizeText(lead.contact_name)}</option>`
+        : '';
+
+    const hiddenCompanyName = sanitizeText(lead.company_name || '');
 
     showModal(isEdit ? 'Edit Lead' : 'Add New Lead', `
         <form id="leadForm" class="space-y-6">
@@ -6776,18 +6835,96 @@ async function showLeadForm(leadId = null) {
 
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-2">Company</label>
-                <input type="text" name="company_name" list="leadCompanyOptions" value="${lead.company_name || ''}"
-                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Linked company">
-                <datalist id="leadCompanyOptions">
+                <select id="leadCompanySelect" name="company_id"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    <option value="">Not linked</option>
+                    ${fallbackCompanyOption}
                     ${companyOptionsHtml}
-                </datalist>
+                </select>
+                <input type="hidden" name="company_name" id="leadCompanyName" value="${hiddenCompanyName}">
+                <p class="mt-1 text-xs text-gray-500">Link this lead to an account. You can create a lightweight company record on the fly.</p>
+                <button type="button" id="leadNewCompanyToggle" data-label-create="Create new company" data-label-cancel="Use existing company"
+                        class="mt-2 text-sm text-blue-600 hover:text-blue-700">Create new company</button>
+                <div id="leadNewCompanySection" class="hidden mt-4 space-y-4 border border-blue-100 rounded-lg p-4 bg-blue-50/50">
+                    <p class="text-xs text-blue-700">Fill these fields to create a new company when saving the lead.</p>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Company Name</label>
+                            <input type="text" name="new_company_name" placeholder="Acme Corporation"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Website</label>
+                            <input type="url" name="new_company_website" placeholder="https://example.com"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Industry</label>
+                            <input type="text" name="new_company_industry" placeholder="Consulting"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Status</label>
+                            <select name="new_company_status" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                <option value="Prospect">Prospect</option>
+                                <option value="Customer">Customer</option>
+                                <option value="Partner">Partner</option>
+                                <option value="Vendor">Vendor</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Primary Contact</label>
+                <select id="leadContactSelect" name="contact_id"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    <option value="">Not linked</option>
+                    ${fallbackContactOption}
+                    ${contactOptionsHtml}
+                </select>
+                <p class="mt-1 text-xs text-gray-500">Associate a contact person or create one directly from this form.</p>
+                <button type="button" id="leadNewContactToggle" data-label-create="Create new contact" data-label-cancel="Use existing contact"
+                        class="mt-2 text-sm text-blue-600 hover:text-blue-700">Create new contact</button>
+                <div id="leadNewContactSection" class="hidden mt-4 border border-blue-100 rounded-lg p-4 bg-blue-50/50">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">First Name</label>
+                            <input type="text" name="new_contact_first_name" placeholder="First name"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Last Name</label>
+                            <input type="text" name="new_contact_last_name" placeholder="Last name"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                            <input type="email" name="new_contact_email" placeholder="name@example.com"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Phone</label>
+                            <input type="tel" name="new_contact_phone" placeholder="+1 (555) 123-4567"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Next Step</label>
+                <textarea name="next_step" rows="3"
+                          class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          placeholder="What needs to happen next?">${lead.next_step || ''}</textarea>
             </div>
 
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-2">Description</label>
                 <textarea name="description" rows="4"
                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                          placeholder="Summary of the opportunity">${lead.description || ''}</textarea>
+                          placeholder="Additional context for this lead">${lead.description || ''}</textarea>
             </div>
 
             <div class="flex justify-end space-x-3 pt-6 border-t border-gray-200">
@@ -6802,68 +6939,234 @@ async function showLeadForm(leadId = null) {
     `);
 
     const form = document.getElementById('leadForm');
-    form.addEventListener('submit', async function(event) {
+    const companySelect = form.querySelector('#leadCompanySelect');
+    const companyNameInput = form.querySelector('#leadCompanyName');
+    const newCompanyToggle = form.querySelector('#leadNewCompanyToggle');
+    const newCompanySection = form.querySelector('#leadNewCompanySection');
+    const newCompanyNameInput = form.querySelector('input[name="new_company_name"]');
+    const companyToggleCreate = newCompanyToggle?.dataset?.labelCreate || 'Create new company';
+    const companyToggleCancel = newCompanyToggle?.dataset?.labelCancel || 'Use existing company';
+
+    const contactSelect = form.querySelector('#leadContactSelect');
+    const newContactToggle = form.querySelector('#leadNewContactToggle');
+    const newContactSection = form.querySelector('#leadNewContactSection');
+    const newContactFirstNameInput = form.querySelector('input[name="new_contact_first_name"]');
+    const newContactLastNameInput = form.querySelector('input[name="new_contact_last_name"]');
+    const newContactEmailInput = form.querySelector('input[name="new_contact_email"]');
+    const newContactPhoneInput = form.querySelector('input[name="new_contact_phone"]');
+    const contactToggleCreate = newContactToggle?.dataset?.labelCreate || 'Create new contact';
+    const contactToggleCancel = newContactToggle?.dataset?.labelCancel || 'Use existing contact';
+
+    const syncLeadCompanyName = () => {
+        if (!companySelect || !companyNameInput) {
+            return;
+        }
+        const option = companySelect.selectedOptions?.[0];
+        companyNameInput.value = option ? option.textContent.trim() : '';
+    };
+
+    syncLeadCompanyName();
+
+    companySelect?.addEventListener('change', () => {
+        if (newCompanySection) {
+            newCompanySection.classList.add('hidden');
+        }
+        if (newCompanyToggle) {
+            newCompanyToggle.setAttribute('data-expanded', 'false');
+            newCompanyToggle.textContent = companyToggleCreate;
+        }
+        if (newCompanyNameInput) {
+            newCompanyNameInput.value = '';
+        }
+        syncLeadCompanyName();
+    });
+
+    newCompanyToggle?.addEventListener('click', event => {
+        event.preventDefault();
+        if (!newCompanySection) {
+            return;
+        }
+        const expanded = newCompanyToggle.getAttribute('data-expanded') === 'true';
+        if (expanded) {
+            newCompanySection.classList.add('hidden');
+            newCompanyToggle.setAttribute('data-expanded', 'false');
+            newCompanyToggle.textContent = companyToggleCreate;
+            syncLeadCompanyName();
+        } else {
+            newCompanySection.classList.remove('hidden');
+            newCompanyToggle.setAttribute('data-expanded', 'true');
+            newCompanyToggle.textContent = companyToggleCancel;
+            if (companySelect) {
+                companySelect.value = '';
+            }
+            if (companyNameInput) {
+                companyNameInput.value = '';
+            }
+            newCompanyNameInput?.focus();
+        }
+    });
+
+    const closeNewContactSection = () => {
+        if (newContactSection) {
+            newContactSection.classList.add('hidden');
+        }
+        if (newContactToggle) {
+            newContactToggle.setAttribute('data-expanded', 'false');
+            newContactToggle.textContent = contactToggleCreate;
+        }
+        if (newContactFirstNameInput) newContactFirstNameInput.value = '';
+        if (newContactLastNameInput) newContactLastNameInput.value = '';
+        if (newContactEmailInput) newContactEmailInput.value = '';
+        if (newContactPhoneInput) newContactPhoneInput.value = '';
+    };
+
+    contactSelect?.addEventListener('change', () => {
+        closeNewContactSection();
+    });
+
+    newContactToggle?.addEventListener('click', event => {
+        event.preventDefault();
+        if (!newContactSection) {
+            return;
+        }
+        const expanded = newContactToggle.getAttribute('data-expanded') === 'true';
+        if (expanded) {
+            closeNewContactSection();
+        } else {
+            newContactSection.classList.remove('hidden');
+            newContactToggle.setAttribute('data-expanded', 'true');
+            newContactToggle.textContent = contactToggleCancel;
+            if (contactSelect) {
+                contactSelect.value = '';
+            }
+            newContactFirstNameInput?.focus();
+        }
+    });
+
+    form.addEventListener('submit', async event => {
         event.preventDefault();
         await saveLead(leadId, new FormData(form));
     });
 }
 
 async function saveLead(leadId, formData) {
-    const data = {};
+    const formValues = {};
     for (const [key, value] of formData.entries()) {
         if (typeof value === 'string') {
             const trimmed = value.trim();
             if (trimmed) {
-                data[key] = trimmed;
+                formValues[key] = trimmed;
             }
         } else if (value !== undefined && value !== null) {
-            data[key] = value;
+            formValues[key] = value;
         }
     }
 
-    if (!data.title) {
+    if (!formValues.title) {
         showToast('Lead title is required', 'error');
         return;
     }
 
-    if (!data.status) {
-        data.status = 'New';
+    if (!formValues.status) {
+        formValues.status = 'New';
     }
 
-    if (!data.priority) {
-        data.priority = 'Medium';
+    if (!formValues.priority) {
+        formValues.priority = 'Medium';
     }
 
-    if (typeof data.value === 'string') {
-        const numericValue = Number(data.value.replace(/[^0-9.\-]/g, ''));
+    let companyLink = null;
+    if (typeof ensureCompanyAssociation === 'function') {
+        companyLink = await ensureCompanyAssociation({
+            selectedId: formValues.company_id,
+            companyName: formValues.company_name,
+            newCompany: {
+                name: formValues.new_company_name,
+                website: formValues.new_company_website,
+                industry: formValues.new_company_industry,
+                status: formValues.new_company_status
+            }
+        });
+    }
+
+    if (companyLink) {
+        if (companyLink.company_id) {
+            formValues.company_id = companyLink.company_id;
+        } else {
+            delete formValues.company_id;
+        }
+        if (companyLink.company_name) {
+            formValues.company_name = companyLink.company_name;
+        }
+    } else {
+        if (!formValues.company_id) {
+            delete formValues.company_id;
+        }
+        if (!formValues.company_name) {
+            delete formValues.company_name;
+        }
+    }
+
+    let contactLink = null;
+    if (typeof ensureContactAssociation === 'function') {
+        contactLink = await ensureContactAssociation({
+            selectedId: formValues.contact_id,
+            newContact: {
+                firstName: formValues.new_contact_first_name,
+                lastName: formValues.new_contact_last_name,
+                email: formValues.new_contact_email,
+                phone: formValues.new_contact_phone,
+                status: 'Qualified'
+            },
+            companyLink
+        });
+    }
+
+    if (contactLink?.contact_id) {
+        formValues.contact_id = contactLink.contact_id;
+    } else if (!formValues.contact_id) {
+        delete formValues.contact_id;
+    }
+
+    delete formValues.new_company_name;
+    delete formValues.new_company_website;
+    delete formValues.new_company_industry;
+    delete formValues.new_company_status;
+    delete formValues.new_contact_first_name;
+    delete formValues.new_contact_last_name;
+    delete formValues.new_contact_email;
+    delete formValues.new_contact_phone;
+
+    if (typeof formValues.value === 'string') {
+        const numericValue = Number(formValues.value.replace(/[^0-9.\-]/g, ''));
         if (Number.isFinite(numericValue)) {
-            data.value = numericValue;
+            formValues.value = numericValue;
         } else {
-            delete data.value;
+            delete formValues.value;
         }
     }
 
-    if (typeof data.probability === 'string') {
-        const numericProbability = Number(data.probability);
+    if (typeof formValues.probability === 'string') {
+        const numericProbability = Number(formValues.probability);
         if (Number.isFinite(numericProbability)) {
-            data.probability = Math.min(100, Math.max(0, Math.round(numericProbability)));
+            formValues.probability = Math.min(100, Math.max(0, Math.round(numericProbability)));
         } else {
-            delete data.probability;
+            delete formValues.probability;
         }
     }
 
-    if (data.expected_close_date) {
-        const parsedDate = new Date(data.expected_close_date);
+    if (formValues.expected_close_date) {
+        const parsedDate = new Date(formValues.expected_close_date);
         if (Number.isNaN(parsedDate.getTime())) {
-            delete data.expected_close_date;
+            delete formValues.expected_close_date;
         }
     }
 
     const nowIso = new Date().toISOString();
-    data.updated_at = nowIso;
+    formValues.updated_at = nowIso;
     if (!leadId) {
-        data.created_at = nowIso;
-        data.created_by = currentUser;
+        formValues.created_at = nowIso;
+        formValues.created_by = currentUser;
     }
 
     showLoading();
@@ -6874,7 +7177,7 @@ async function saveLead(leadId, formData) {
         const response = await fetch(url, {
             method,
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data)
+            body: JSON.stringify(formValues)
         });
 
         if (!response.ok) {
@@ -6891,6 +7194,7 @@ async function saveLead(leadId, formData) {
         hideLoading();
     }
 }
+
 
 async function viewLead(id) {
     showLoading();
@@ -6989,6 +7293,7 @@ async function deleteLead(id) {
 }
 
 // Additional module forms
+
 async function showOpportunityForm(oppId = null) {
     const isEdit = Boolean(oppId);
     let opportunity = {};
@@ -7011,6 +7316,8 @@ async function showOpportunityForm(oppId = null) {
     }
 
     let companies = [];
+    let leads = [];
+    let contacts = [];
     try {
         const response = await fetch('tables/companies?limit=1000');
         if (response.ok) {
@@ -7019,6 +7326,33 @@ async function showOpportunityForm(oppId = null) {
         }
     } catch (error) {
         console.warn('Unable to fetch companies for opportunity form:', error);
+    }
+
+    try {
+        const response = await fetch('tables/leads?limit=1000');
+        if (response.ok) {
+            const data = await response.json();
+            leads = Array.isArray(data.data) ? data.data : [];
+        }
+    } catch (error) {
+        console.warn('Unable to fetch leads for opportunity form:', error);
+    }
+
+    try {
+        const response = await fetch('tables/contacts?limit=1000');
+        if (response.ok) {
+            const data = await response.json();
+            contacts = Array.isArray(data.data) ? data.data : [];
+        }
+    } catch (error) {
+        console.warn('Unable to fetch contacts for opportunity form:', error);
+    }
+
+    if (typeof updateCompanyDirectory === 'function') {
+        updateCompanyDirectory(companies, { merge: true });
+    }
+    if (typeof updateContactDirectory === 'function') {
+        updateContactDirectory(contacts, { merge: true });
     }
 
     const stageOptions = ['Qualification', 'Needs Analysis', 'Proposal', 'Negotiation', 'Closed Won', 'Closed Lost'];
@@ -7039,11 +7373,67 @@ async function showOpportunityForm(oppId = null) {
     const expectedCloseDate = opportunity.expected_close_date
         ? new Date(opportunity.expected_close_date).toISOString().split('T')[0]
         : '';
-
     const probabilityValue = opportunity.probability ?? (stageProbabilityDefaults[selectedStage] ?? '');
-    const companyOptionsHtml = companies
-        .map(company => `<option value="${company.name || ''}"></option>`)
-        .join('');
+
+    const selectedCompanyId = opportunity.company_id || '';
+    let hasCurrentCompany = false;
+    const companyOptionsHtml = companies.map(company => {
+        if (!company?.id) {
+            return '';
+        }
+        const isSelected = selectedCompanyId && company.id === selectedCompanyId;
+        if (isSelected) {
+            hasCurrentCompany = true;
+        }
+        const label = sanitizeText(company.name || company.website || company.id);
+        return `<option value="${sanitizeText(company.id)}" ${isSelected ? 'selected' : ''}>${label}</option>`;
+    }).join('');
+
+    const fallbackCompanyOption = !hasCurrentCompany && selectedCompanyId && opportunity.company_name
+        ? `<option value="${sanitizeText(selectedCompanyId)}" selected>${sanitizeText(opportunity.company_name)}</option>`
+        : '';
+
+    const selectedLeadId = opportunity.lead_id || '';
+    let hasCurrentLead = false;
+    const leadOptionsHtml = leads.map(lead => {
+        if (!lead?.id) {
+            return '';
+        }
+        const title = lead.title || 'Untitled Lead';
+        const companySuffix = lead.company_name ? ` – ${lead.company_name}` : '';
+        const label = sanitizeText(`${title}${companySuffix}`);
+        const isSelected = selectedLeadId && lead.id === selectedLeadId;
+        if (isSelected) {
+            hasCurrentLead = true;
+        }
+        return `<option value="${sanitizeText(lead.id)}" ${isSelected ? 'selected' : ''}>${label}</option>`;
+    }).join('');
+
+    const fallbackLeadOption = !hasCurrentLead && selectedLeadId && opportunity.lead?.title
+        ? `<option value="${sanitizeText(selectedLeadId)}" selected>${sanitizeText(opportunity.lead.title)}</option>`
+        : '';
+
+    const selectedContactId = opportunity.primary_contact_id || '';
+    let hasCurrentContact = false;
+    const contactOptionsHtml = contacts.map(contact => {
+        if (!contact?.id) {
+            return '';
+        }
+        const fullName = [contact.first_name, contact.last_name].filter(Boolean).join(' ');
+        const fallback = contact.email || contact.phone || contact.id;
+        const label = sanitizeText(fullName || fallback);
+        const isSelected = selectedContactId && contact.id === selectedContactId;
+        if (isSelected) {
+            hasCurrentContact = true;
+        }
+        return `<option value="${sanitizeText(contact.id)}" ${isSelected ? 'selected' : ''}>${label}</option>`;
+    }).join('');
+
+    const fallbackContactOption = !hasCurrentContact && selectedContactId && opportunity.primary_contact_name
+        ? `<option value="${sanitizeText(selectedContactId)}" selected>${sanitizeText(opportunity.primary_contact_name)}</option>`
+        : '';
+
+    const hiddenCompanyName = sanitizeText(opportunity.company_name || '');
 
     showModal(isEdit ? 'Edit Opportunity' : 'Add New Opportunity', `
         <form id="opportunityForm" class="space-y-6">
@@ -7088,12 +7478,64 @@ async function showOpportunityForm(oppId = null) {
             </div>
 
             <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Linked Lead</label>
+                <select name="lead_id" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    <option value="">Not linked</option>
+                    ${fallbackLeadOption}
+                    ${leadOptionsHtml}
+                </select>
+            </div>
+
+            <div>
                 <label class="block text-sm font-medium text-gray-700 mb-2">Company</label>
-                <input type="text" name="company_name" list="opportunityCompanyOptions" value="${opportunity.company_name || ''}"
-                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Linked company">
-                <datalist id="opportunityCompanyOptions">
+                <select id="opportunityCompanySelect" name="company_id"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    <option value="">Not linked</option>
+                    ${fallbackCompanyOption}
                     ${companyOptionsHtml}
-                </datalist>
+                </select>
+                <input type="hidden" name="company_name" id="opportunityCompanyName" value="${hiddenCompanyName}">
+                <p class="mt-1 text-xs text-gray-500">Attach this opportunity to an account or create a new one.</p>
+                <button type="button" id="opportunityNewCompanyToggle" data-label-create="Create new company" data-label-cancel="Use existing company"
+                        class="mt-2 text-sm text-blue-600 hover:text-blue-700">Create new company</button>
+                <div id="opportunityNewCompanySection" class="hidden mt-4 space-y-4 border border-blue-100 rounded-lg p-4 bg-blue-50/50">
+                    <p class="text-xs text-blue-700">A new company record will be created when you save the opportunity.</p>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Company Name</label>
+                            <input type="text" name="new_company_name" placeholder="Acme Corporation"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Website</label>
+                            <input type="url" name="new_company_website" placeholder="https://example.com"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Industry</label>
+                            <input type="text" name="new_company_industry" placeholder="Software"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Status</label>
+                            <select name="new_company_status" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                <option value="Prospect">Prospect</option>
+                                <option value="Customer">Customer</option>
+                                <option value="Partner">Partner</option>
+                                <option value="Vendor">Vendor</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Primary Contact</label>
+                <select name="primary_contact_id" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    <option value="">Not linked</option>
+                    ${fallbackContactOption}
+                    ${contactOptionsHtml}
+                </select>
             </div>
 
             <div>
@@ -7122,13 +7564,64 @@ async function showOpportunityForm(oppId = null) {
     `);
 
     const form = document.getElementById('opportunityForm');
-    form.addEventListener('submit', async function(event) {
-        event.preventDefault();
-        await saveOpportunity(oppId, new FormData(form));
-    });
-
     const stageSelect = form.querySelector('select[name="stage"]');
     const probabilityInput = form.querySelector('input[name="probability"]');
+    const companySelect = form.querySelector('#opportunityCompanySelect');
+    const companyNameInput = form.querySelector('#opportunityCompanyName');
+    const newCompanyToggle = form.querySelector('#opportunityNewCompanyToggle');
+    const newCompanySection = form.querySelector('#opportunityNewCompanySection');
+    const newCompanyNameInput = form.querySelector('input[name="new_company_name"]');
+    const companyToggleCreate = newCompanyToggle?.dataset?.labelCreate || 'Create new company';
+    const companyToggleCancel = newCompanyToggle?.dataset?.labelCancel || 'Use existing company';
+
+    const syncOpportunityCompanyName = () => {
+        if (!companySelect || !companyNameInput) {
+            return;
+        }
+        const option = companySelect.selectedOptions?.[0];
+        companyNameInput.value = option ? option.textContent.trim() : '';
+    };
+
+    syncOpportunityCompanyName();
+
+    companySelect?.addEventListener('change', () => {
+        if (newCompanySection) {
+            newCompanySection.classList.add('hidden');
+        }
+        if (newCompanyToggle) {
+            newCompanyToggle.setAttribute('data-expanded', 'false');
+            newCompanyToggle.textContent = companyToggleCreate;
+        }
+        if (newCompanyNameInput) {
+            newCompanyNameInput.value = '';
+        }
+        syncOpportunityCompanyName();
+    });
+
+    newCompanyToggle?.addEventListener('click', event => {
+        event.preventDefault();
+        if (!newCompanySection) {
+            return;
+        }
+        const expanded = newCompanyToggle.getAttribute('data-expanded') === 'true';
+        if (expanded) {
+            newCompanySection.classList.add('hidden');
+            newCompanyToggle.setAttribute('data-expanded', 'false');
+            newCompanyToggle.textContent = companyToggleCreate;
+            syncOpportunityCompanyName();
+        } else {
+            newCompanySection.classList.remove('hidden');
+            newCompanyToggle.setAttribute('data-expanded', 'true');
+            newCompanyToggle.textContent = companyToggleCancel;
+            if (companySelect) {
+                companySelect.value = '';
+            }
+            if (companyNameInput) {
+                companyNameInput.value = '';
+            }
+            newCompanyNameInput?.focus();
+        }
+    });
 
     const updateProbabilityForStage = () => {
         if (!stageSelect || !probabilityInput) {
@@ -7155,66 +7648,115 @@ async function showOpportunityForm(oppId = null) {
 
     stageSelect?.addEventListener('change', updateProbabilityForStage);
     updateProbabilityForStage();
+
+    form.addEventListener('submit', async event => {
+        event.preventDefault();
+        await saveOpportunity(oppId, new FormData(form));
+    });
 }
 
 async function saveOpportunity(oppId, formData) {
-    const data = {};
+    const formValues = {};
     for (const [key, value] of formData.entries()) {
         if (typeof value === 'string') {
             const trimmed = value.trim();
             if (trimmed) {
-                data[key] = trimmed;
+                formValues[key] = trimmed;
             }
         } else if (value !== undefined && value !== null) {
-            data[key] = value;
+            formValues[key] = value;
         }
     }
 
-    if (!data.name) {
+    if (!formValues.name) {
         showToast('Opportunity name is required', 'error');
         return;
     }
 
-    if (!data.stage) {
-        data.stage = 'Qualification';
+    if (!formValues.stage) {
+        formValues.stage = 'Qualification';
     }
 
-    if (typeof data.value === 'string') {
-        const numericValue = Number(data.value.replace(/[^0-9.\-]/g, ''));
+    let companyLink = null;
+    if (typeof ensureCompanyAssociation === 'function') {
+        companyLink = await ensureCompanyAssociation({
+            selectedId: formValues.company_id,
+            companyName: formValues.company_name,
+            newCompany: {
+                name: formValues.new_company_name,
+                website: formValues.new_company_website,
+                industry: formValues.new_company_industry,
+                status: formValues.new_company_status
+            }
+        });
+    }
+
+    if (companyLink) {
+        if (companyLink.company_id) {
+            formValues.company_id = companyLink.company_id;
+        } else {
+            delete formValues.company_id;
+        }
+        if (companyLink.company_name) {
+            formValues.company_name = companyLink.company_name;
+        }
+    } else {
+        if (!formValues.company_id) {
+            delete formValues.company_id;
+        }
+        if (!formValues.company_name) {
+            delete formValues.company_name;
+        }
+    }
+
+    delete formValues.new_company_name;
+    delete formValues.new_company_website;
+    delete formValues.new_company_industry;
+    delete formValues.new_company_status;
+
+    if (!formValues.lead_id) {
+        delete formValues.lead_id;
+    }
+    if (!formValues.primary_contact_id) {
+        delete formValues.primary_contact_id;
+    }
+
+    if (typeof formValues.value === 'string') {
+        const numericValue = Number(formValues.value.replace(/[^0-9.\-]/g, ''));
         if (Number.isFinite(numericValue)) {
-            data.value = numericValue;
+            formValues.value = numericValue;
         } else {
-            delete data.value;
+            delete formValues.value;
         }
     }
 
-    if (typeof data.probability === 'string') {
-        const numericProbability = Number(data.probability);
+    if (typeof formValues.probability === 'string') {
+        const numericProbability = Number(formValues.probability);
         if (Number.isFinite(numericProbability)) {
-            data.probability = Math.min(100, Math.max(0, Math.round(numericProbability)));
+            formValues.probability = Math.min(100, Math.max(0, Math.round(numericProbability)));
         } else {
-            delete data.probability;
+            delete formValues.probability;
         }
     }
 
-    if (data.stage === 'Closed Won') {
-        data.probability = 100;
-    } else if (data.stage === 'Closed Lost') {
-        data.probability = 0;
+    if (formValues.stage === 'Closed Won') {
+        formValues.probability = 100;
+    } else if (formValues.stage === 'Closed Lost') {
+        formValues.probability = 0;
     }
 
-    if (data.expected_close_date) {
-        const parsedDate = new Date(data.expected_close_date);
+    if (formValues.expected_close_date) {
+        const parsedDate = new Date(formValues.expected_close_date);
         if (Number.isNaN(parsedDate.getTime())) {
-            delete data.expected_close_date;
+            delete formValues.expected_close_date;
         }
     }
 
     const nowIso = new Date().toISOString();
-    data.updated_at = nowIso;
+    formValues.updated_at = nowIso;
     if (!oppId) {
-        data.created_at = nowIso;
-        data.created_by = currentUser;
+        formValues.created_at = nowIso;
+        formValues.created_by = currentUser;
     }
 
     showLoading();
@@ -7225,7 +7767,7 @@ async function saveOpportunity(oppId, formData) {
         const response = await fetch(url, {
             method,
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data)
+            body: JSON.stringify(formValues)
         });
 
         if (!response.ok) {
@@ -7242,6 +7784,7 @@ async function saveOpportunity(oppId, formData) {
         hideLoading();
     }
 }
+
 
 function normalizeRelatedFieldValue(value) {
     if (value === undefined || value === null) {
@@ -7277,30 +7820,32 @@ async function fetchRelatedRecordsForLinking() {
     };
 
     try {
-        const [leadsResponse, opportunitiesResponse, companiesResponse, contactsResponse] = await Promise.all([
+        const [leadsResponse, opportunitiesResponse, companiesResponse, contactsResponse, competitorsResponse] = await Promise.all([
             fetch('tables/leads?limit=1000'),
             fetch('tables/opportunities?limit=1000'),
             fetch('tables/companies?limit=1000'),
-            fetch('tables/contacts?limit=1000')
+            fetch('tables/contacts?limit=1000'),
+            fetch('tables/competitors?limit=1000')
         ]);
 
-        const [leads, opportunities, companies, contacts] = await Promise.all([
+        const [leads, opportunities, companies, contacts, competitors] = await Promise.all([
             parseListResponse(leadsResponse),
             parseListResponse(opportunitiesResponse),
             parseListResponse(companiesResponse),
-            parseListResponse(contactsResponse)
+            parseListResponse(contactsResponse),
+            parseListResponse(competitorsResponse)
         ]);
 
-        return { leads, opportunities, companies, contacts };
+        return { leads, opportunities, companies, contacts, competitors };
     } catch (error) {
         console.warn('Unable to fetch related records for linking:', error);
-        return { leads: [], opportunities: [], companies: [], contacts: [] };
+        return { leads: [], opportunities: [], companies: [], contacts: [], competitors: [] };
     }
 }
 
 async function buildRelatedRecordOptions(selectedValue) {
     const normalizedSelected = normalizeRelatedFieldValue(selectedValue);
-    const { leads, opportunities, companies, contacts } = await fetchRelatedRecordsForLinking();
+    const { leads, opportunities, companies, contacts, competitors } = await fetchRelatedRecordsForLinking();
     let hasSelectedOption = false;
 
     const createOption = (value, label) => {
@@ -7348,11 +7893,14 @@ async function buildRelatedRecordOptions(selectedValue) {
         return `${name}${companySuffix}`;
     });
 
+    const competitorOptionsHtml = buildGroupOptions('Competitors', competitors, competitor => competitor?.name || 'Competitor');
+
     let relatedOptionsHtml = [
         opportunityOptionsHtml,
         leadOptionsHtml,
         companyOptionsHtml,
-        contactOptionsHtml
+        contactOptionsHtml,
+        competitorOptionsHtml
     ].filter(Boolean).join('');
 
     if (normalizedSelected && !hasSelectedOption) {

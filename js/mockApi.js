@@ -122,6 +122,43 @@
             filterFields: { tier: 'tier', status: 'status' },
             getLabel: record => record.name || record.id
         },
+        files: {
+            searchFields: ['name', 'description', 'type', 'vault_path', 'owner'],
+            filterFields: { type: 'type', owner: 'owner' },
+            getLabel: record => record.name || record.file_name || record.id,
+            relations: {
+                belongsTo: [
+                    {
+                        name: 'company',
+                        entity: 'companies',
+                        localKey: 'company_id',
+                        fields: { company_name: 'name' }
+                    },
+                    {
+                        name: 'contact',
+                        entity: 'contacts',
+                        localKey: 'contact_id',
+                        fields: {
+                            contact_name: contact => [contact.first_name, contact.last_name]
+                                .filter(Boolean)
+                                .join(' ')
+                                .trim()
+                        }
+                    },
+                    {
+                        name: 'opportunity',
+                        entity: 'opportunities',
+                        localKey: 'opportunity_id',
+                        fields: { opportunity_name: 'name' }
+                    }
+                ]
+            }
+        },
+        notes: {
+            searchFields: ['title', 'content', 'author', 'entity_type', 'entity_name'],
+            filterFields: { entity: 'entity_type', owner: 'author' },
+            getLabel: record => record.title || (record.content ? record.content.slice(0, 40) : record.id)
+        },
         workflows: {
             searchFields: ['name', 'description', 'owner', 'entity', 'status'],
             filterFields: { status: 'status', entity: 'entity' },
@@ -618,6 +655,86 @@
                 assigned_to: 'Regional Desk',
                 category: 'Competitive Intelligence',
                 related_competitors: ['competitor-marketpulse']
+            }
+        ],
+        files: [
+            {
+                id: 'file-1',
+                name: 'InsightEdge kickoff deck',
+                type: 'Document',
+                format: 'pptx',
+                vault_path: 'Projects/Deal – InsightEdge Retainer.md',
+                size_kb: 8420,
+                owner: 'Emily Johnson',
+                related_to: 'opp-1',
+                opportunity_id: 'opp-1',
+                company_id: 'company-1',
+                company_name: 'TechCorp Solutions',
+                updated_at: '2024-05-08T10:10:00Z'
+            },
+            {
+                id: 'file-2',
+                name: 'MarketPulse competitor brief',
+                type: 'Markdown',
+                format: 'md',
+                vault_path: 'Competitors/MarketPulse – SaaS.md',
+                size_kb: 28,
+                owner: 'Competitive Research Guild',
+                related_to: 'competitor-marketpulse',
+                updated_at: '2024-05-07T09:15:00Z'
+            },
+            {
+                id: 'file-3',
+                name: 'Emily Johnson profile',
+                type: 'Markdown',
+                format: 'md',
+                vault_path: 'Contacts/Emily Johnson – TechCorp.md',
+                size_kb: 12,
+                owner: 'Revenue Operations',
+                related_to: 'contact-1',
+                contact_id: 'contact-1',
+                updated_at: '2024-05-01T11:45:00Z'
+            }
+        ],
+        notes: [
+            {
+                id: 'note-1',
+                title: 'Discovery follow-up plan',
+                content: 'Summarize procurement requirements and send recap email with pricing matrix.',
+                author: 'Michael Chen',
+                entity_type: 'leads',
+                entity_id: 'lead-1',
+                entity_name: 'TechCorp analytics expansion',
+                vault_path: 'Leads/InsightEdge Consulting (lead).md',
+                tags: ['follow-up', 'discovery'],
+                created_at: '2024-05-06T15:30:00Z',
+                updated_at: '2024-05-06T15:30:00Z'
+            },
+            {
+                id: 'note-2',
+                title: 'Quarterly roadmap alignment',
+                content: 'Customer requested alignment workshop with marketing analytics squad to sync KPIs.',
+                author: 'Sofia Martinez',
+                entity_type: 'companies',
+                entity_id: 'company-3',
+                entity_name: 'StartupXYZ',
+                vault_path: 'Clients/StartupXYZ/README.md',
+                tags: ['qbr', 'roadmap'],
+                created_at: '2024-05-03T09:20:00Z',
+                updated_at: '2024-05-05T12:00:00Z'
+            },
+            {
+                id: 'note-3',
+                title: 'Competitor insight: InsightSphere pricing',
+                content: 'InsightSphere rolling out AI tiered pricing with auto-bundled support. Capture objections for enterprise accounts.',
+                author: 'Competitive Research Guild',
+                entity_type: 'competitors',
+                entity_id: 'competitor-insightsphere',
+                entity_name: 'InsightSphere',
+                vault_path: 'Competitors/InsightSphere – Analytics.md',
+                tags: ['pricing', 'competitive-intel'],
+                created_at: '2024-05-09T08:05:00Z',
+                updated_at: '2024-05-09T08:05:00Z'
             }
         ],
         workflows: [
