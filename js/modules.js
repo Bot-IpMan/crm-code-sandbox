@@ -2562,6 +2562,12 @@ function ensureCompetitorHubStyles() {
             display: flex;
             flex-direction: column;
             gap: 1rem;
+            transition: border-color 0.25s ease, box-shadow 0.25s ease;
+        }
+
+        .cih-competitor-card[data-selected="true"] {
+            border-color: rgba(56, 189, 248, 0.6);
+            box-shadow: 0 0 0 1px rgba(125, 211, 252, 0.45), 0 18px 40px -20px rgba(56, 189, 248, 0.5);
         }
 
         .cih-outline-button {
@@ -2579,6 +2585,14 @@ function ensureCompetitorHubStyles() {
             border-color: rgba(59, 130, 246, 0.65);
             color: #bfdbfe;
             background: rgba(59, 130, 246, 0.18);
+        }
+
+        .cih-outline-button[disabled],
+        .cih-primary-button[disabled] {
+            opacity: 0.55;
+            cursor: not-allowed;
+            pointer-events: none;
+            filter: grayscale(0.3);
         }
 
         .cih-primary-button {
@@ -2692,6 +2706,118 @@ function ensureCompetitorHubStyles() {
         .cih-mini-table th {
             font-weight: 600;
             color: #cbd5f5;
+        }
+
+        .cih-detail-container {
+            background: rgba(15, 23, 42, 0.55);
+            border-radius: 1rem;
+            border: 1px solid rgba(100, 116, 139, 0.2);
+            padding: 1.25rem;
+            color: #cbd5f5;
+        }
+
+        .cih-detail-shell {
+            display: grid;
+            gap: 1.25rem;
+        }
+
+        .cih-detail-grid {
+            display: grid;
+            gap: 1rem;
+        }
+
+        .cih-detail-grid-cols-2 {
+            grid-template-columns: repeat(1, minmax(0, 1fr));
+        }
+
+        @media (min-width: 1024px) {
+            .cih-detail-grid-cols-2 {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+        }
+
+        .cih-detail-panel {
+            background: rgba(15, 23, 42, 0.65);
+            border-radius: 1rem;
+            border: 1px solid rgba(100, 116, 139, 0.25);
+            padding: 1.2rem;
+            color: #e2e8f0;
+        }
+
+        .cih-detail-panel h4 {
+            font-size: 0.95rem;
+            font-weight: 600;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            color: #cbd5f5;
+        }
+
+        .cih-detail-list {
+            display: grid;
+            gap: 0.65rem;
+            margin-top: 0.85rem;
+        }
+
+        .cih-detail-list-item {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            font-size: 0.85rem;
+            color: #cbd5f5;
+        }
+
+        .cih-detail-list-item span {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+        }
+
+        .cih-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.35rem 0.65rem;
+            border-radius: 9999px;
+            background: rgba(56, 189, 248, 0.14);
+            border: 1px solid rgba(56, 189, 248, 0.35);
+            font-size: 0.75rem;
+            color: #bae6fd;
+        }
+
+        .cih-pill button {
+            font: inherit;
+            color: inherit;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+        }
+
+        .cih-empty-state {
+            padding: 1rem;
+            border-radius: 0.75rem;
+            border: 1px dashed rgba(148, 163, 184, 0.3);
+            background: rgba(15, 23, 42, 0.35);
+            color: #94a3b8;
+            font-size: 0.85rem;
+        }
+
+        .cih-detail-timeline {
+            display: grid;
+            gap: 0.75rem;
+            margin-top: 0.85rem;
+        }
+
+        .cih-detail-timeline-item {
+            padding: 0.85rem 1rem;
+            border-radius: 0.8rem;
+            background: rgba(12, 74, 110, 0.18);
+            border: 1px solid rgba(56, 189, 248, 0.25);
+        }
+
+        .cih-detail-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
         }
 
         .cih-sentiment-positive { color: #4ade80; }
@@ -2837,6 +2963,24 @@ function competitorHubResolveColumn(status) {
     if (normalized.includes('review') || normalized.includes('waiting')) return 'Review';
     if (normalized.includes('done') || normalized.includes('complete')) return 'Done';
     return 'Backlog';
+}
+
+function openObsidianNote(filePath) {
+    if (!filePath) {
+        showToast('Obsidian note path is not configured for this record.', 'warning');
+        return;
+    }
+    const normalized = String(filePath).trim().replace(/^\/+/, '');
+    const uri = `obsidian://open?path=${encodeURIComponent(normalized)}`;
+    try {
+        const opened = window.open(uri, '_blank');
+        if (!opened) {
+            showToast('We tried to open Obsidian but it may be blocked. Use the note link manually.', 'warning');
+        }
+    } catch (error) {
+        console.warn('Unable to open Obsidian URI', error);
+        showToast('Unable to open Obsidian automatically. Copy the path and open it manually.', 'warning');
+    }
 }
 
 const COMPETITOR_ENHANCEMENTS = {
@@ -4153,6 +4297,21 @@ async function showCompetitorIntel() {
                     </div>
                 </div>
 
+                <div class="cih-section mt-8" id="cihCompetitorDetailSection">
+                    <div class="cih-section-header">
+                        <h3 class="cih-section-title"><i class="fas fa-id-card"></i>Досьє конкурента</h3>
+                        <div class="cih-detail-actions">
+                            <button type="button" class="cih-outline-button" id="cihAddCompetitorButton"><i class="fas fa-plus"></i> Додати конкурента</button>
+                            <button type="button" class="cih-outline-button" id="cihEditCompetitorButton" disabled><i class="fas fa-pen"></i> Редагувати</button>
+                            <button type="button" class="cih-outline-button" id="cihCreateCompetitorTaskButton" disabled><i class="fas fa-list-check"></i> Додати задачу</button>
+                            <button type="button" class="cih-primary-button" id="cihLogCompetitorUpdateButton" disabled><i class="fas fa-bolt"></i> Залогувати оновлення</button>
+                        </div>
+                    </div>
+                    <div class="cih-detail-container" id="cihCompetitorDetailContent">
+                        <p class="text-sm text-slate-400">Оберіть конкурента, щоб побачити деталі, пов’язані клієнти, задачі дослідження та останні оновлення конкурентної розвідки.</p>
+                    </div>
+                </div>
+
                 <div class="cih-section mt-8" id="cihWorkspaceSection">
                     <div class="cih-section-header">
                         <h3 class="cih-section-title"><i class="fas fa-cubes"></i>Модульна робоча станція аналітики</h3>
@@ -4174,6 +4333,337 @@ async function showCompetitorIntel() {
                 </div>
             </div>
         `;
+
+        const competitorCardsContainer = document.getElementById('cihCompetitorCards');
+        const competitorDetailContent = document.getElementById('cihCompetitorDetailContent');
+        const addCompetitorButton = document.getElementById('cihAddCompetitorButton');
+        const editCompetitorButton = document.getElementById('cihEditCompetitorButton');
+        const createCompetitorTaskButton = document.getElementById('cihCreateCompetitorTaskButton');
+        const logCompetitorUpdateButton = document.getElementById('cihLogCompetitorUpdateButton');
+        let selectedCompetitorId = null;
+
+        const updateCardSelection = competitorId => {
+            if (!competitorCardsContainer) {
+                return;
+            }
+            const cards = competitorCardsContainer.querySelectorAll('.cih-competitor-card');
+            cards.forEach(card => {
+                const cardId = card.getAttribute('data-competitor-id');
+                card.dataset.selected = cardId && competitorId && cardId === competitorId ? 'true' : 'false';
+            });
+        };
+
+        const setDetailActionState = competitor => {
+            const hasSelection = Boolean(competitor);
+            if (editCompetitorButton) {
+                editCompetitorButton.disabled = !hasSelection;
+                if (hasSelection) {
+                    editCompetitorButton.dataset.competitorId = competitor.id;
+                } else {
+                    delete editCompetitorButton.dataset.competitorId;
+                }
+            }
+            if (createCompetitorTaskButton) {
+                createCompetitorTaskButton.disabled = !hasSelection;
+                if (hasSelection) {
+                    createCompetitorTaskButton.dataset.competitorId = competitor.id;
+                } else {
+                    delete createCompetitorTaskButton.dataset.competitorId;
+                }
+            }
+            if (logCompetitorUpdateButton) {
+                logCompetitorUpdateButton.disabled = !hasSelection;
+                if (hasSelection) {
+                    logCompetitorUpdateButton.dataset.competitorId = competitor.id;
+                } else {
+                    delete logCompetitorUpdateButton.dataset.competitorId;
+                }
+            }
+        };
+
+        const buildLinkedClientChips = (competitor, targets) => {
+            const records = [];
+            const seen = new Set();
+            targets.ids.forEach(id => {
+                const company = companyLookup.get(String(id));
+                if (!company) {
+                    return;
+                }
+                const key = String(company.id || company.name || id).toLowerCase();
+                if (seen.has(key)) {
+                    return;
+                }
+                seen.add(key);
+                if (company.name) {
+                    seen.add(company.name.trim().toLowerCase());
+                }
+                records.push({ id: company.id, name: company.name, type: 'company' });
+            });
+
+            targets.names.forEach(name => {
+                const trimmed = String(name || '').trim();
+                if (!trimmed) {
+                    return;
+                }
+                const key = trimmed.toLowerCase();
+                if (seen.has(key)) {
+                    return;
+                }
+                seen.add(key);
+                records.push({ id: '', name: trimmed, type: 'name' });
+            });
+            if (!records.length && Array.isArray(competitor.linked_clients)) {
+                competitor.linked_clients.forEach(name => {
+                    const trimmed = String(name || '').trim();
+                    if (!trimmed) {
+                        return;
+                    }
+                    const key = trimmed.toLowerCase();
+                    if (seen.has(key)) {
+                        return;
+                    }
+                    seen.add(key);
+                    records.push({ id: '', name: trimmed, type: 'name' });
+                });
+            }
+            return records;
+        };
+
+        const renderCompetitorDetail = competitorId => {
+            if (!competitorDetailContent) {
+                return;
+            }
+            const competitor = competitorProfiles.find(item => item.id === competitorId) || null;
+            selectedCompetitorId = competitor ? competitor.id : null;
+            updateCardSelection(selectedCompetitorId);
+            setDetailActionState(competitor);
+
+            if (!competitor) {
+                competitorDetailContent.innerHTML = '<p class="text-sm text-slate-400">Оберіть конкурента, щоб побачити деталі профілю.</p>';
+                return;
+            }
+
+            const targets = normalizeCompetitorTargets(competitor, companyLookup);
+            const linkedRecords = buildLinkedClientChips(competitor, targets);
+            const markets = Array.isArray(competitor.primary_markets) ? competitor.primary_markets : [];
+            const focusAreas = Array.isArray(competitor.focus_areas) ? competitor.focus_areas : [];
+            const tasks = (tasksByCompetitor.get(competitor.id) || []).slice().sort((a, b) => {
+                const dateA = competitorHubToDate(a.due_date)?.getTime() || Infinity;
+                const dateB = competitorHubToDate(b.due_date)?.getTime() || Infinity;
+                return dateA - dateB;
+            });
+            const updates = (competitor.signals || (activitiesByCompetitor.get(competitor.id) || [])).slice().sort((a, b) => {
+                const dateA = competitorHubToDate(a.date || a.updated_at)?.getTime() || 0;
+                const dateB = competitorHubToDate(b.date || b.updated_at)?.getTime() || 0;
+                return dateB - dateA;
+            });
+            const nextDue = tasks.reduce((acc, task) => {
+                const due = competitorHubToDate(task.due_date);
+                if (!due) {
+                    return acc;
+                }
+                if (!acc || due < acc) {
+                    return due;
+                }
+                return acc;
+            }, null);
+
+            const noteFile = competitor.note_file || '';
+            const noteButton = noteFile
+                ? `<div class="mt-4 flex flex-wrap gap-2 items-center"><button type="button" class="cih-outline-button" data-open-obsidian-note="${encodeURIComponent(noteFile)}"><i class="fas fa-link"></i> Відкрити в Obsidian</button><a class="cih-outline-button" href="vault/${encodeURI(noteFile)}" target="_blank" rel="noopener"><i class="fas fa-folder-open"></i> Переглянути у Vault</a><span class="text-xs text-slate-400">${sanitizeText(noteFile)}</span></div>`
+                : '<p class="text-xs text-slate-400 mt-3">Додайте шлях до нотатки Obsidian, щоб швидко відкривати батлкарди та дослідження.</p>';
+
+            const linkedHtml = linkedRecords.length
+                ? `<div class="mt-4 flex flex-wrap gap-2">${linkedRecords.map(record => record.id
+                    ? `<button type="button" class="cih-pill" data-linked-company="${sanitizeText(record.id)}"><i class="fas fa-building"></i>${sanitizeText(record.name)}</button>`
+                    : `<span class="cih-pill"><i class="fas fa-building"></i>${sanitizeText(record.name)}</span>`).join('')}</div>`
+                : '<div class="cih-empty-state mt-4">Поки що немає пов’язаних клієнтів. Додайте компанії до списку цього конкурента, щоб бачити контекст.</div>';
+
+            const tasksHtml = tasks.length
+                ? `<div class="cih-detail-timeline mt-3">${tasks.map(task => {
+                    const dueLabel = competitorHubFormatDateShort(task.due_date);
+                    const status = task.status ? sanitizeText(task.status) : 'Невідомий статус';
+                    const priority = task.priority ? sanitizeText(task.priority) : '—';
+                    const assignee = task.assigned_to ? sanitizeText(task.assigned_to) : '';
+                    return `
+                        <div class="cih-detail-timeline-item">
+                            <div class="flex items-center justify-between text-sm">
+                                <span class="font-semibold text-slate-100">${sanitizeText(task.title || 'Task')}</span>
+                                <span class="text-slate-300"><i class="far fa-calendar mr-1"></i>${dueLabel}</span>
+                            </div>
+                            <div class="text-xs text-slate-400 mt-2 flex flex-wrap gap-2 items-center">
+                                <span><i class="fas fa-circle-notch mr-1"></i>${status}</span>
+                                <span>•</span>
+                                <span><i class="fas fa-bolt mr-1"></i>${priority}</span>
+                                ${assignee ? `<span>•</span><span><i class="fas fa-user mr-1"></i>${assignee}</span>` : ''}
+                            </div>
+                        </div>
+                    `;
+                }).join('')}</div>`
+                : '<div class="cih-empty-state mt-3">Завдань дослідження поки немає.</div>';
+
+            const updatesHtml = updates.length
+                ? `<div class="cih-detail-timeline mt-3">${updates.map(update => {
+                    const subject = update.subject || update.title || 'Update';
+                    const description = update.description || update.summary || '';
+                    const dateLabel = competitorHubFormatRelative(update.date || update.updated_at);
+                    const typeLabel = update.type ? sanitizeText(update.type) : (update.category ? sanitizeText(update.category) : 'Update');
+                    const owner = update.assigned_to ? sanitizeText(update.assigned_to) : (update.owner ? sanitizeText(update.owner) : '—');
+                    return `
+                        <div class="cih-detail-timeline-item">
+                            <div class="flex items-center justify-between text-sm">
+                                <span class="font-semibold text-slate-100">${sanitizeText(subject)}</span>
+                                <span class="text-slate-300"><i class="far fa-clock mr-1"></i>${sanitizeText(dateLabel)}</span>
+                            </div>
+                            <div class="text-xs text-slate-400 mt-2 flex flex-wrap gap-2 items-center">
+                                <span><i class="fas fa-bullhorn mr-1"></i>${typeLabel}</span>
+                                ${owner && owner !== '—' ? `<span>•</span><span><i class="fas fa-user mr-1"></i>${owner}</span>` : ''}
+                            </div>
+                            ${description ? `<p class="text-sm text-slate-300 mt-2">${sanitizeText(description)}</p>` : ''}
+                        </div>
+                    `;
+                }).join('')}</div>`
+                : '<div class="cih-empty-state mt-3">Оновлення конкурентної розвідки відсутні.</div>';
+
+            competitorDetailContent.innerHTML = `
+                <div class="cih-detail-shell">
+                    <div class="cih-detail-panel">
+                        <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                            <div>
+                                <h4>${sanitizeText(competitor.name || 'Конкурент')}</h4>
+                                <p class="text-sm text-slate-300 mt-1">${sanitizeText(competitor.industry || 'Індустрію не вказано')} · ${sanitizeText(competitor.headquarters || 'Локацію не вказано')}</p>
+                                <p class="text-sm text-slate-300 mt-3">${competitor.latest_move ? sanitizeText(competitor.latest_move) : 'Останній крок не зафіксовано.'}</p>
+                            </div>
+                            <div class="flex flex-wrap gap-2 justify-start md:justify-end">
+                                <span class="cih-pill"><i class="fas fa-layer-group"></i>${sanitizeText(translateTierLabel(competitor.tier) || 'Рівень 3')}</span>
+                                <span class="cih-pill"><i class="fas fa-satellite-dish"></i>${sanitizeText(translateStatusLabel(competitor.status) || 'Моніторинг')}</span>
+                                <span class="cih-pill"><i class="far fa-clock"></i>${sanitizeText(competitorHubFormatRelative(competitor.last_update || competitor.updated_at))}</span>
+                            </div>
+                        </div>
+                        ${noteButton}
+                        ${linkedHtml}
+                    </div>
+                    <div class="cih-detail-grid cih-detail-grid-cols-2">
+                        <div class="cih-detail-panel">
+                            <h4>Огляд</h4>
+                            <div class="cih-detail-list">
+                                <div class="cih-detail-list-item"><span><i class="fas fa-user-shield"></i>Аналітик</span><span>${sanitizeText(competitor.intel_owner || 'Не призначено')}</span></div>
+                                <div class="cih-detail-list-item"><span><i class="fas fa-globe"></i>Основні ринки</span><span>${markets.length ? markets.map(market => sanitizeText(market)).join(', ') : '—'}</span></div>
+                                <div class="cih-detail-list-item"><span><i class="fas fa-bullseye"></i>Фокус</span><span>${focusAreas.length ? focusAreas.map(area => sanitizeText(area)).join(', ') : '—'}</span></div>
+                                <div class="cih-detail-list-item"><span><i class="fas fa-calendar-alt"></i>Наст. дедлайн</span><span>${nextDue ? competitorHubFormatDateShort(nextDue) : '—'}</span></div>
+                            </div>
+                        </div>
+                        <div class="cih-detail-panel">
+                            <h4>Показники</h4>
+                            <div class="cih-detail-list">
+                                <div class="cih-detail-list-item"><span><i class="fas fa-list-check"></i>Задач у роботі</span><span>${tasks.length}</span></div>
+                                <div class="cih-detail-list-item"><span><i class="fas fa-bolt"></i>Оновлення</span><span>${updates.length}</span></div>
+                                <div class="cih-detail-list-item"><span><i class="fas fa-briefcase"></i>Клієнтів під наглядом</span><span>${linkedRecords.length}</span></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="cih-detail-grid cih-detail-grid-cols-2">
+                        <div class="cih-detail-panel">
+                            <div class="flex items-center justify-between">
+                                <h4>Research Tasks</h4>
+                                <button type="button" class="cih-outline-button" data-create-task="${sanitizeText(competitor.id)}"><i class="fas fa-plus"></i> Нова задача</button>
+                            </div>
+                            ${tasksHtml}
+                        </div>
+                        <div class="cih-detail-panel">
+                            <div class="flex items-center justify-between">
+                                <h4>Updates</h4>
+                                <button type="button" class="cih-outline-button" data-log-update="${sanitizeText(competitor.id)}"><i class="fas fa-plus"></i> Нове оновлення</button>
+                            </div>
+                            ${updatesHtml}
+                        </div>
+                    </div>
+                </div>
+            `;
+        };
+
+        competitorCardsContainer?.addEventListener('click', event => {
+            const compareButton = event.target.closest('[data-compare-toggle]');
+            if (compareButton) {
+                return;
+            }
+            const workspaceButton = event.target.closest('[data-open-workspace]');
+            if (workspaceButton) {
+                return;
+            }
+            const card = event.target.closest('.cih-competitor-card');
+            if (!card) {
+                return;
+            }
+            const cardId = card.getAttribute('data-competitor-id');
+            if (cardId) {
+                renderCompetitorDetail(cardId);
+            }
+        });
+
+        competitorDetailContent?.addEventListener('click', event => {
+            const noteButtonEl = event.target.closest('[data-open-obsidian-note]');
+            if (noteButtonEl) {
+                const encoded = noteButtonEl.getAttribute('data-open-obsidian-note');
+                const decoded = encoded ? decodeURIComponent(encoded) : '';
+                openObsidianNote(decoded);
+                return;
+            }
+            const companyButton = event.target.closest('[data-linked-company]');
+            if (companyButton) {
+                const companyId = companyButton.getAttribute('data-linked-company');
+                if (companyId && typeof viewCompany === 'function') {
+                    viewCompany(companyId);
+                }
+                return;
+            }
+            const createTaskTrigger = event.target.closest('[data-create-task]');
+            if (createTaskTrigger) {
+                const competitorId = createTaskTrigger.getAttribute('data-create-task');
+                if (competitorId && typeof showTaskForm === 'function') {
+                    showTaskForm(null, { defaultRelatedType: 'competitor', defaultRelatedId: competitorId });
+                }
+                return;
+            }
+            const logUpdateTrigger = event.target.closest('[data-log-update]');
+            if (logUpdateTrigger) {
+                const competitorId = logUpdateTrigger.getAttribute('data-log-update');
+                if (competitorId && typeof showActivityForm === 'function') {
+                    showActivityForm(null, { defaultRelatedType: 'competitor', defaultRelatedId: competitorId });
+                }
+            }
+        });
+
+        addCompetitorButton?.addEventListener('click', () => {
+            if (typeof showCompetitorForm === 'function') {
+                showCompetitorForm();
+            }
+        });
+
+        editCompetitorButton?.addEventListener('click', () => {
+            const competitorId = editCompetitorButton.dataset.competitorId;
+            if (competitorId && typeof showCompetitorForm === 'function') {
+                showCompetitorForm(competitorId);
+            }
+        });
+
+        createCompetitorTaskButton?.addEventListener('click', () => {
+            const competitorId = createCompetitorTaskButton.dataset.competitorId;
+            if (competitorId && typeof showTaskForm === 'function') {
+                showTaskForm(null, { defaultRelatedType: 'competitor', defaultRelatedId: competitorId });
+            }
+        });
+
+        logCompetitorUpdateButton?.addEventListener('click', () => {
+            const competitorId = logCompetitorUpdateButton.dataset.competitorId;
+            if (competitorId && typeof showActivityForm === 'function') {
+                showActivityForm(null, { defaultRelatedType: 'competitor', defaultRelatedId: competitorId });
+            }
+        });
+
+        if (competitorProfiles.length) {
+            renderCompetitorDetail(competitorProfiles[0].id);
+        }
 
         const clientSearchInput = document.getElementById('cihClientSearch');
         const clientFilterSelect = document.getElementById('cihClientFilter');
@@ -7126,6 +7616,318 @@ async function saveCompany(companyId, formData) {
     } catch (error) {
         console.error('Error saving company:', error);
         showToast('Failed to save company', 'error');
+    } finally {
+        hideLoading();
+    }
+}
+
+async function showCompetitorForm(competitorId = null) {
+    const isEdit = Boolean(competitorId);
+    let competitor = {};
+
+    if (isEdit) {
+        showLoading();
+        try {
+            const response = await fetch(`tables/competitors/${competitorId}`);
+            if (!response.ok) {
+                throw new Error('Failed to fetch competitor');
+            }
+            competitor = await response.json();
+        } catch (error) {
+            console.error('Error loading competitor:', error);
+            showToast('Не вдалося завантажити конкурента', 'error');
+            hideLoading();
+            return;
+        }
+        hideLoading();
+    }
+
+    let companies = [];
+    try {
+        const response = await fetch('tables/companies?limit=1000');
+        if (response.ok) {
+            const payload = await response.json();
+            companies = Array.isArray(payload?.data) ? payload.data : Array.isArray(payload) ? payload : [];
+        }
+    } catch (error) {
+        console.warn('Unable to load companies for competitor form:', error);
+    }
+
+    const tierOptions = ['Tier 1', 'Tier 2', 'Tier 3', 'Tier 4'];
+    if (competitor.tier && !tierOptions.includes(competitor.tier)) {
+        tierOptions.unshift(competitor.tier);
+    }
+
+    const statusOptions = ['Active Watch', 'Monitoring', 'Watchlist', 'Dormant', 'Review'];
+    if (competitor.status && !statusOptions.includes(competitor.status)) {
+        statusOptions.unshift(competitor.status);
+    }
+
+    const selectedCompanyIds = new Set(
+        Array.isArray(competitor.linked_company_ids)
+            ? competitor.linked_company_ids.map(id => String(id))
+            : Array.isArray(competitor.related_company_ids)
+                ? competitor.related_company_ids.map(id => String(id))
+                : []
+    );
+
+    const manualLinkedClients = Array.isArray(competitor.linked_clients)
+        ? competitor.linked_clients.join(', ')
+        : (typeof competitor.linked_clients === 'string' ? competitor.linked_clients : '');
+
+    const companyOptionsHtml = companies.map(company => {
+        const id = sanitizeText(String(company.id || ''));
+        const label = sanitizeText(company.name || company.id || 'Компанія');
+        const selected = selectedCompanyIds.has(String(company.id)) ? 'selected' : '';
+        return `<option value="${id}" ${selected}>${label}</option>`;
+    }).join('');
+
+    const primaryMarketsValue = Array.isArray(competitor.primary_markets)
+        ? competitor.primary_markets.join(', ')
+        : (competitor.primary_markets || '');
+
+    const focusAreasValue = Array.isArray(competitor.focus_areas)
+        ? competitor.focus_areas.join(', ')
+        : (competitor.focus_areas || '');
+
+    const lastUpdateValue = competitor.last_update
+        ? new Date(competitor.last_update).toISOString().split('T')[0]
+        : '';
+
+    const noteButton = competitor.note_file
+        ? `<button type="button" data-open-obsidian-note="${encodeURIComponent(competitor.note_file)}"
+                class="inline-flex items-center px-3 py-2 text-sm bg-gray-100 border border-gray-300 rounded-lg hover:bg-gray-200">
+                <i class="fas fa-external-link-alt mr-2"></i>Відкрити нотатку
+            </button>`
+        : '';
+
+    showModal(isEdit ? 'Редагувати конкурента' : 'Додати конкурента', `
+        <form id="competitorForm" class="space-y-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Назва конкурента *</label>
+                    <input type="text" name="name" value="${competitor.name || ''}" required
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                           placeholder="InsightSphere">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Індустрія</label>
+                    <input type="text" name="industry" value="${competitor.industry || ''}"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                           placeholder="Analytics Platform">
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Штаб-квартира</label>
+                    <input type="text" name="headquarters" value="${competitor.headquarters || ''}"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                           placeholder="Berlin, Germany">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Відповідальний аналітик</label>
+                    <input type="text" name="intel_owner" value="${competitor.intel_owner || currentUser || ''}"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                           placeholder="Competitive Research Guild">
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Tier</label>
+                    <select name="tier" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        ${tierOptions.map(option => `<option value="${option}" ${competitor.tier === option ? 'selected' : ''}>${option}</option>`).join('')}
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Статус</label>
+                    <select name="status" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        ${statusOptions.map(option => `<option value="${option}" ${competitor.status === option ? 'selected' : ''}>${option}</option>`).join('')}
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Дата останнього оновлення</label>
+                    <input type="date" name="last_update" value="${lastUpdateValue}"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Останній зафіксований рух</label>
+                <textarea name="latest_move" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          placeholder="Короткий опис конкурентної дії">${competitor.latest_move || ''}</textarea>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Основні ринки</label>
+                    <textarea name="primary_markets" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                              placeholder="EU SaaS, Enterprise BI">${primaryMarketsValue}</textarea>
+                    <p class="mt-1 text-xs text-gray-500">Використовуйте кому або новий рядок для розділення значень.</p>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Фокусні напрями</label>
+                    <textarea name="focus_areas" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                              placeholder="Predictive benchmarking, Revenue intelligence">${focusAreasValue}</textarea>
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Клієнти під моніторингом</label>
+                <select id="competitorLinkedCompanies" name="linked_company_ids" multiple size="6"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    ${companyOptionsHtml}
+                </select>
+                <p class="mt-1 text-xs text-gray-500">Утримуйте Ctrl / Cmd, щоб обрати кілька компаній. Імена буде додано у батлкарту автоматично.</p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Додаткові клієнти (комою)</label>
+                    <input type="text" name="linked_clients_manual" value="${manualLinkedClients}"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                           placeholder="TechCorp Solutions, StartupXYZ">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Obsidian файл</label>
+                    <div class="flex flex-col sm:flex-row sm:items-center gap-3">
+                        <input type="text" name="note_file" value="${competitor.note_file || ''}"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                               placeholder="Competitors/InsightSphere.md">
+                        ${noteButton}
+                    </div>
+                    <p class="mt-1 text-xs text-gray-500">Збережіть шлях до файлу в Obsidian vault, щоб відкривати нотатку безпосередньо з CRM.</p>
+                </div>
+            </div>
+
+            <div class="flex justify-end space-x-3 pt-6 border-t border-gray-200">
+                <button type="button" onclick="closeModal()" class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100">Скасувати</button>
+                <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">${isEdit ? 'Оновити конкурента' : 'Створити конкурента'}</button>
+            </div>
+        </form>
+    `);
+
+    const formElement = document.getElementById('competitorForm');
+    if (!formElement) {
+        return;
+    }
+
+    const noteTrigger = formElement.querySelector('[data-open-obsidian-note]');
+    if (noteTrigger) {
+        noteTrigger.addEventListener('click', () => {
+            const encoded = noteTrigger.getAttribute('data-open-obsidian-note');
+            const decoded = encoded ? decodeURIComponent(encoded) : '';
+            openObsidianNote(decoded);
+        });
+    }
+
+    formElement.addEventListener('submit', async event => {
+        event.preventDefault();
+        await saveCompetitor(competitorId, new FormData(formElement), { formElement, companies });
+    });
+}
+
+async function saveCompetitor(competitorId, formData, options = {}) {
+    const { formElement = null, companies = [] } = options;
+    const parseListInput = value => {
+        if (!value) {
+            return [];
+        }
+        return String(value)
+            .split(/[\n;,]+/)
+            .map(item => item.trim())
+            .filter(Boolean);
+    };
+
+    const payload = {};
+    const textFields = ['name', 'industry', 'status', 'tier', 'intel_owner', 'headquarters', 'latest_move', 'note_file'];
+    textFields.forEach(field => {
+        const value = formData.get(field);
+        if (value && String(value).trim()) {
+            payload[field] = String(value).trim();
+        }
+    });
+
+    if (!payload.name) {
+        showToast('Назва конкурента є обов’язковою', 'error');
+        return;
+    }
+
+    const lastUpdate = formData.get('last_update');
+    if (lastUpdate) {
+        payload.last_update = String(lastUpdate);
+    }
+
+    const primaryMarkets = parseListInput(formData.get('primary_markets'));
+    if (primaryMarkets.length) {
+        payload.primary_markets = primaryMarkets;
+    }
+
+    const focusAreas = parseListInput(formData.get('focus_areas'));
+    if (focusAreas.length) {
+        payload.focus_areas = focusAreas;
+    }
+
+    const selectedCompanyIds = formData.getAll('linked_company_ids').map(id => String(id).trim()).filter(Boolean);
+    if (selectedCompanyIds.length) {
+        payload.linked_company_ids = Array.from(new Set(selectedCompanyIds));
+    }
+
+    const manualClients = parseListInput(formData.get('linked_clients_manual'));
+    const selectedCompanyNames = [];
+    if (formElement) {
+        const companySelect = formElement.querySelector('#competitorLinkedCompanies');
+        if (companySelect) {
+            Array.from(companySelect.selectedOptions || []).forEach(option => {
+                if (option && option.textContent) {
+                    selectedCompanyNames.push(option.textContent.trim());
+                }
+            });
+        }
+    } else if (selectedCompanyIds.length && companies.length) {
+        const lookup = new Map(companies.map(company => [String(company.id), company.name]));
+        selectedCompanyIds.forEach(id => {
+            const name = lookup.get(id);
+            if (name) {
+                selectedCompanyNames.push(name);
+            }
+        });
+    }
+
+    const linkedClients = Array.from(new Set([...selectedCompanyNames, ...manualClients].filter(Boolean)));
+    if (linkedClients.length) {
+        payload.linked_clients = linkedClients;
+    }
+
+    const nowIso = new Date().toISOString();
+    payload.updated_at = nowIso;
+    if (!competitorId) {
+        payload.created_at = nowIso;
+        payload.created_by = currentUser;
+    }
+
+    showLoading();
+    try {
+        const method = competitorId ? 'PUT' : 'POST';
+        const url = competitorId ? `tables/competitors/${competitorId}` : 'tables/competitors';
+        const response = await fetch(url, {
+            method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+            throw new Error('Save failed');
+        }
+
+        showToast(competitorId ? 'Конкурента оновлено' : 'Конкурента створено', 'success');
+        closeModal();
+        await fetchRelatedRecordsForLinking({ refresh: true });
+        await showCompetitorIntel();
+    } catch (error) {
+        console.error('Error saving competitor:', error);
+        showToast('Не вдалося зберегти конкурента', 'error');
     } finally {
         hideLoading();
     }
