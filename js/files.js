@@ -298,6 +298,8 @@ const DEFAULT_FILE_SYSTEM = {
 let fileSystemState = null;
 let fileManagerCurrentPath = [];
 let fileManagerInitialized = false;
+let fileManagerExpandedNodes = new Set();
+let fileManagerDragData = null;
 
 function showFiles() {
     showView('files');
@@ -312,6 +314,7 @@ function initializeFileManager() {
 
     if (!fileManagerInitialized) {
         buildFileManagerLayout();
+        initializeTreeExpansion();
         fileManagerInitialized = true;
     }
 
@@ -341,8 +344,18 @@ function buildFileManagerLayout() {
                     </button>
                 </div>
             </div>
-            <div id="filesBreadcrumbs" class="mt-4 flex items-center flex-wrap gap-2 text-sm text-gray-600"></div>
-            <div id="filesList" class="mt-4 border border-gray-100 rounded-lg divide-y divide-gray-100 overflow-hidden"></div>
+            <div class="mt-6 flex flex-col lg:flex-row lg:items-start lg:space-x-6 space-y-6 lg:space-y-0">
+                <div class="lg:w-72 w-full bg-gray-50 border border-gray-100 rounded-lg">
+                    <div class="px-4 py-3 border-b border-gray-100 text-xs font-semibold uppercase tracking-wide text-gray-500">
+                        Folder tree
+                    </div>
+                    <div id="filesTree" class="max-h-[420px] overflow-y-auto px-2 py-3 space-y-1 text-sm"></div>
+                </div>
+                <div class="flex-1 w-full">
+                    <div id="filesBreadcrumbs" class="flex items-center flex-wrap gap-2 text-sm text-gray-600"></div>
+                    <div id="filesList" class="mt-4 border border-gray-100 rounded-lg divide-y divide-gray-100 overflow-hidden"></div>
+                </div>
+            </div>
         </div>
     `;
 
@@ -350,6 +363,19 @@ function buildFileManagerLayout() {
     filesView.querySelector('#filesCreateFileBtn').addEventListener('click', () => openCreateItemModal('file'));
     filesView.querySelector('#filesList').addEventListener('click', handleFileListClick);
     filesView.querySelector('#filesBreadcrumbs').addEventListener('click', handleBreadcrumbClick);
+    filesView.querySelector('#filesList').addEventListener('dragstart', handleListDragStart);
+    filesView.querySelector('#filesList').addEventListener('dragend', handleListDragEnd);
+    filesView.querySelector('#filesList').addEventListener('dragenter', handleDropTargetDragEnter);
+    filesView.querySelector('#filesList').addEventListener('dragover', handleDropTargetDragOver);
+    filesView.querySelector('#filesList').addEventListener('dragleave', handleDropTargetDragLeave);
+    filesView.querySelector('#filesList').addEventListener('drop', handleDropOnTarget);
+
+    const treeContainer = filesView.querySelector('#filesTree');
+    treeContainer.addEventListener('click', handleTreeClick);
+    treeContainer.addEventListener('dragenter', handleDropTargetDragEnter);
+    treeContainer.addEventListener('dragover', handleDropTargetDragOver);
+    treeContainer.addEventListener('dragleave', handleDropTargetDragLeave);
+    treeContainer.addEventListener('drop', handleDropOnTarget);
 }
 
 function renderFileManager() {
@@ -371,8 +397,19 @@ function renderFileManager() {
         currentFolderLabel.textContent = pathLabel;
     }
 
+    renderFolderTree();
     renderBreadcrumbs(rootName);
     renderFileList(currentNode);
+}
+
+function renderFolderTree() {
+    const treeContainer = document.getElementById('filesTree');
+    if (!treeContainer) {
+        return;
+    }
+
+    const treeHtml = buildFolderTreeNode(fileSystemState, []);
+    treeContainer.innerHTML = treeHtml;
 }
 
 function renderBreadcrumbs(rootName) {
@@ -409,6 +446,8 @@ function renderFileList(folderNode) {
         summaryLabel.textContent = `${folderCount} folder${folderCount === 1 ? '' : 's'} • ${fileCount} file${fileCount === 1 ? '' : 's'}`;
     }
 
+    listContainer.setAttribute('data-drop-path', createPathKey(fileManagerCurrentPath));
+
     if (children.length === 0) {
         listContainer.innerHTML = `
             <div class="p-8 text-center text-gray-500 text-sm">
@@ -426,13 +465,17 @@ function renderFileList(folderNode) {
         const isFolder = child.type === 'folder';
         const icon = isFolder ? 'fa-folder' : 'fa-file-lines';
         const iconStyles = isFolder ? 'bg-yellow-100 text-yellow-600' : 'bg-blue-100 text-blue-600';
-        const description = isFolder ? `${child.children.length} item${child.children.length === 1 ? '' : 's'}` : 'Markdown file';
+        const itemCount = Array.isArray(child.children) ? child.children.length : 0;
+        const description = isFolder ? `${itemCount} item${itemCount === 1 ? '' : 's'}` : 'Markdown file';
         const actionLabel = isFolder ? 'Open' : 'Preview';
+        const itemPathSegments = [...fileManagerCurrentPath, child.name];
+        const itemPathKey = createPathKey(itemPathSegments);
+        const dropPathAttribute = isFolder ? `data-drop-path="${itemPathKey}"` : '';
 
         return `
             <button type="button" class="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-blue-50 focus:outline-none focus:bg-blue-100 transition"
-                    data-name="${encodedName}" data-type="${child.type}">
-                <div class="flex items-center space-x-3">
+                    data-name="${encodedName}" data-type="${child.type}" data-item-path="${itemPathKey}" data-item-type="${child.type}" ${dropPathAttribute} draggable="true">
+                <div class="flex items-center space-x-3 pointer-events-none">
                     <div class="w-10 h-10 rounded-lg flex items-center justify-center ${iconStyles}">
                         <i class="fas ${icon}"></i>
                     </div>
@@ -441,13 +484,357 @@ function renderFileList(folderNode) {
                         <p class="text-xs text-gray-500">${description}</p>
                     </div>
                 </div>
-                <div class="flex items-center space-x-2 text-gray-400">
+                <div class="flex items-center space-x-2 text-gray-400 pointer-events-none">
                     <span class="text-xs font-medium uppercase tracking-wide">${actionLabel}</span>
                     <i class="fas fa-chevron-right"></i>
                 </div>
             </button>
         `;
     }).join('');
+}
+
+function buildFolderTreeNode(node, pathSegments) {
+    if (!node || node.type !== 'folder') {
+        return '';
+    }
+
+    const isRoot = pathSegments.length === 0;
+    const currentPathKey = createPathKey(pathSegments);
+    const activePathKey = createPathKey(fileManagerCurrentPath);
+    const isActive = activePathKey === currentPathKey;
+
+    const folderChildren = Array.isArray(node.children)
+        ? node.children.filter(child => child.type === 'folder')
+        : [];
+    sortChildren(folderChildren);
+    const hasChildren = folderChildren.length > 0;
+    const isExpanded = fileManagerExpandedNodes.has(currentPathKey);
+
+    const safeName = escapeHtml(node.name);
+    const chevronIcon = hasChildren ? (isExpanded ? 'fa-chevron-down' : 'fa-chevron-right') : '';
+    const toggleButton = hasChildren
+        ? `<button type="button" class="w-6 h-6 flex items-center justify-center text-gray-400 hover:text-gray-600" data-tree-action="toggle" data-path="${currentPathKey}" aria-label="${isExpanded ? 'Collapse' : 'Expand'} ${safeName}"><i class="fas ${chevronIcon} text-xs"></i></button>`
+        : `<span class="w-6 h-6"></span>`;
+    const iconStyles = isRoot ? 'bg-blue-100 text-blue-600' : 'bg-yellow-100 text-yellow-600';
+    const childHtml = hasChildren && isExpanded
+        ? folderChildren.map(child => buildFolderTreeNode(child, [...pathSegments, child.name])).join('')
+        : '';
+
+    return `
+        <div class="tree-row" data-tree-path="${currentPathKey}">
+            <div class="flex items-center">
+                ${toggleButton}
+                <button type="button" class="flex-1 flex items-center space-x-2 px-2 py-1 rounded-md ${isActive ? 'bg-blue-50 text-blue-600 font-medium' : 'text-gray-700 hover:bg-blue-50'}" data-tree-action="select" data-path="${currentPathKey}" data-node-type="folder" data-drop-path="${currentPathKey}">
+                    <span class="w-6 h-6 rounded-md flex items-center justify-center ${iconStyles}">
+                        <i class="fas fa-folder text-xs"></i>
+                    </span>
+                    <span class="truncate">${safeName}</span>
+                </button>
+            </div>
+            ${hasChildren && isExpanded ? `<div class="ml-6 pl-3 border-l border-gray-200 space-y-1 mt-1">${childHtml}</div>` : ''}
+        </div>
+    `;
+}
+
+function initializeTreeExpansion() {
+    fileManagerExpandedNodes = new Set();
+    const rootKey = createPathKey([]);
+    fileManagerExpandedNodes.add(rootKey);
+
+    if (!fileSystemState || !Array.isArray(fileSystemState.children)) {
+        return;
+    }
+
+    const firstLevelFolders = fileSystemState.children.filter(child => child.type === 'folder');
+    firstLevelFolders.forEach(folder => {
+        const firstLevelKey = createPathKey([folder.name]);
+        fileManagerExpandedNodes.add(firstLevelKey);
+
+        if (Array.isArray(folder.children)) {
+            folder.children
+                .filter(child => child.type === 'folder')
+                .forEach(grandchild => {
+                    const grandchildKey = createPathKey([folder.name, grandchild.name]);
+                    fileManagerExpandedNodes.add(grandchildKey);
+                });
+        }
+    });
+}
+
+function handleTreeClick(event) {
+    const toggleButton = event.target.closest('[data-tree-action="toggle"]');
+    if (toggleButton) {
+        const pathKey = toggleButton.getAttribute('data-path') || '';
+        if (fileManagerExpandedNodes.has(pathKey)) {
+            fileManagerExpandedNodes.delete(pathKey);
+        } else {
+            fileManagerExpandedNodes.add(pathKey);
+        }
+        renderFileManager();
+        return;
+    }
+
+    const selectButton = event.target.closest('[data-tree-action="select"]');
+    if (!selectButton) {
+        return;
+    }
+
+    const pathKey = selectButton.getAttribute('data-path') || '';
+    const segments = parsePathKey(pathKey);
+    fileManagerCurrentPath = segments;
+    fileManagerExpandedNodes.add(pathKey);
+    renderFileManager();
+}
+
+function handleListDragStart(event) {
+    const dragSource = event.target.closest('[data-item-path]');
+    if (!dragSource) {
+        return;
+    }
+
+    const pathKey = dragSource.getAttribute('data-item-path');
+    const itemType = dragSource.getAttribute('data-item-type');
+    if (!pathKey || !itemType) {
+        return;
+    }
+
+    fileManagerDragData = { pathKey, type: itemType };
+    if (event.dataTransfer) {
+        event.dataTransfer.effectAllowed = 'move';
+        event.dataTransfer.setData('text/plain', pathKey);
+    }
+    dragSource.classList.add('opacity-60');
+}
+
+function handleListDragEnd(event) {
+    const dragSource = event.target.closest('[data-item-path]');
+    if (dragSource) {
+        dragSource.classList.remove('opacity-60');
+    }
+    fileManagerDragData = null;
+    clearDropIndicators();
+}
+
+function handleDropTargetDragEnter(event) {
+    const dropTarget = event.target.closest('[data-drop-path]');
+    if (!dropTarget || !fileManagerDragData) {
+        return;
+    }
+
+    const pathKey = dropTarget.getAttribute('data-drop-path');
+    if (!canDropOnTarget(fileManagerDragData, pathKey)) {
+        return;
+    }
+
+    setDropIndicator(dropTarget, true);
+}
+
+function handleDropTargetDragOver(event) {
+    const dropTarget = event.target.closest('[data-drop-path]');
+    if (!dropTarget || !fileManagerDragData) {
+        return;
+    }
+
+    const pathKey = dropTarget.getAttribute('data-drop-path');
+    if (!canDropOnTarget(fileManagerDragData, pathKey)) {
+        if (event.dataTransfer) {
+            event.dataTransfer.dropEffect = 'none';
+        }
+        return;
+    }
+
+    event.preventDefault();
+    if (event.dataTransfer) {
+        event.dataTransfer.dropEffect = 'move';
+    }
+    setDropIndicator(dropTarget, true);
+}
+
+function handleDropTargetDragLeave(event) {
+    const dropTarget = event.target.closest('[data-drop-path]');
+    if (!dropTarget || !fileManagerDragData) {
+        return;
+    }
+    if (event.relatedTarget && dropTarget.contains(event.relatedTarget)) {
+        return;
+    }
+    setDropIndicator(dropTarget, false);
+}
+
+function handleDropOnTarget(event) {
+    const dropTarget = event.target.closest('[data-drop-path]');
+    if (!dropTarget || !fileManagerDragData) {
+        return;
+    }
+
+    const pathKey = dropTarget.getAttribute('data-drop-path');
+    if (!canDropOnTarget(fileManagerDragData, pathKey)) {
+        clearDropIndicators();
+        return;
+    }
+
+    event.preventDefault();
+    const success = moveItem(fileManagerDragData.pathKey, pathKey);
+    if (success) {
+        fileManagerDragData = null;
+    }
+    clearDropIndicators();
+}
+
+function setDropIndicator(element, active) {
+    if (!element) {
+        return;
+    }
+
+    if (active) {
+        element.classList.add('ring-2', 'ring-blue-400', 'bg-blue-50');
+        element.dataset.dropActive = 'true';
+    } else {
+        element.classList.remove('ring-2', 'ring-blue-400', 'bg-blue-50');
+        delete element.dataset.dropActive;
+    }
+}
+
+function clearDropIndicators() {
+    const highlighted = document.querySelectorAll('[data-drop-active="true"]');
+    highlighted.forEach(element => setDropIndicator(element, false));
+}
+
+function canDropOnTarget(dragData, targetPathKey) {
+    if (!dragData || !targetPathKey && targetPathKey !== '') {
+        return false;
+    }
+
+    const targetSegments = parsePathKey(targetPathKey);
+    const targetFolder = getFolderNodeFromPath(targetSegments);
+    if (!targetFolder) {
+        return false;
+    }
+
+    const itemSegments = parsePathKey(dragData.pathKey);
+    if (itemSegments.length === 0) {
+        return false;
+    }
+
+    const parentSegments = itemSegments.slice(0, -1);
+    if (pathsEqual(parentSegments, targetSegments)) {
+        return false;
+    }
+
+    if (dragData.type === 'folder' && isDescendantPath(targetSegments, itemSegments)) {
+        return false;
+    }
+
+    return true;
+}
+
+function moveItem(itemPathKey, targetPathKey) {
+    const itemSegments = parsePathKey(itemPathKey);
+    const targetSegments = parsePathKey(targetPathKey);
+
+    const itemName = itemSegments[itemSegments.length - 1];
+    const sourceSegments = itemSegments.slice(0, -1);
+    const sourceFolder = getFolderNodeFromPath(sourceSegments);
+    const targetFolder = getFolderNodeFromPath(targetSegments);
+
+    if (!sourceFolder || !targetFolder || !itemName) {
+        showToast('Unable to move the selected item.', 'error');
+        return false;
+    }
+
+    const itemIndex = (sourceFolder.children || []).findIndex(child => child.name === itemName);
+    if (itemIndex === -1) {
+        showToast('Unable to move the selected item.', 'error');
+        return false;
+    }
+
+    const itemNode = sourceFolder.children[itemIndex];
+
+    if (itemNode.type === 'folder' && isDescendantPath(targetSegments, itemSegments)) {
+        showToast('You cannot move a folder into itself.', 'warning');
+        return false;
+    }
+
+    const duplicate = (targetFolder.children || []).some(child => child.name.toLowerCase() === itemName.toLowerCase());
+    if (duplicate) {
+        showToast('The destination already contains an item with this name.', 'warning');
+        return false;
+    }
+
+    sourceFolder.children.splice(itemIndex, 1);
+    if (!Array.isArray(targetFolder.children)) {
+        targetFolder.children = [];
+    }
+    targetFolder.children.push(itemNode);
+    sortChildren(targetFolder.children);
+    sortChildren(sourceFolder.children);
+
+    if (itemNode.type === 'folder') {
+        const previousKey = itemPathKey;
+        const newFolderKey = createPathKey([...targetSegments, itemName]);
+        if (fileManagerExpandedNodes.has(previousKey)) {
+            fileManagerExpandedNodes.delete(previousKey);
+            fileManagerExpandedNodes.add(newFolderKey);
+        }
+    }
+
+    fileManagerExpandedNodes.add(targetPathKey);
+    saveFileSystemState(fileSystemState);
+    renderFileManager();
+    showToast(`Moved "${itemName}" successfully.`, 'success');
+    return true;
+}
+
+function createPathKey(segments) {
+    if (!Array.isArray(segments) || segments.length === 0) {
+        return '';
+    }
+    return segments.map(segment => encodeURIComponent(segment)).join('/');
+}
+
+function parsePathKey(pathKey) {
+    if (!pathKey) {
+        return [];
+    }
+    return pathKey.split('/').map(part => decodeURIComponent(part));
+}
+
+function getFolderNodeFromPath(pathSegments) {
+    if (!fileSystemState || !Array.isArray(pathSegments)) {
+        return null;
+    }
+
+    let node = fileSystemState;
+    for (const segment of pathSegments) {
+        if (!Array.isArray(node.children)) {
+            return null;
+        }
+        const nextNode = node.children.find(child => child.type === 'folder' && child.name === segment);
+        if (!nextNode) {
+            return null;
+        }
+        node = nextNode;
+    }
+    return node;
+}
+
+function pathsEqual(a, b) {
+    if (a.length !== b.length) {
+        return false;
+    }
+    return a.every((segment, index) => segment === b[index]);
+}
+
+function isDescendantPath(targetSegments, itemSegments) {
+    if (targetSegments.length < itemSegments.length) {
+        return false;
+    }
+    for (let index = 0; index < itemSegments.length; index += 1) {
+        if (targetSegments[index] !== itemSegments[index]) {
+            return false;
+        }
+    }
+    return true;
 }
 
 function handleFileListClick(event) {
@@ -575,6 +962,10 @@ function openCreateItemModal(type) {
         currentFolder.children.push(newItem);
         sortChildren(currentFolder.children);
         saveFileSystemState(fileSystemState);
+        if (isFolder) {
+            const newFolderKey = createPathKey([...fileManagerCurrentPath, rawName]);
+            fileManagerExpandedNodes.add(newFolderKey);
+        }
         closeModal();
         renderFileManager();
         showToast(`${isFolder ? 'Folder' : 'File'} "${rawName}" created successfully`, 'success');
