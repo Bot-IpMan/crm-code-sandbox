@@ -198,21 +198,54 @@ async function ensureContactAssociation(options = {}) {
         selectedId,
         newContact = {},
         companyLink,
-        defaultStatus = 'Active'
+        defaultStatus = 'Active',
+        originLeadId
     } = options;
 
     const trimmedSelectedId = selectedId ? String(selectedId).trim() : '';
+    const normalizedOriginId = originLeadId ? String(originLeadId).trim() : '';
+
+    const attachLeadOrigin = async contact => {
+        if (!normalizedOriginId || !contact?.id) {
+            return contact;
+        }
+        const alreadyLinked = contact.lead_origin_id && String(contact.lead_origin_id).trim() === normalizedOriginId;
+        if (alreadyLinked) {
+            return contact;
+        }
+        try {
+            const response = await fetch(`tables/contacts/${encodeURIComponent(contact.id)}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    lead_origin_id: normalizedOriginId,
+                    updated_at: new Date().toISOString()
+                })
+            });
+            if (response.ok) {
+                const updated = await response.json();
+                updateContactDirectory([updated], { merge: true });
+                return updated;
+            }
+        } catch (error) {
+            console.warn('Unable to attach lead origin to contact:', error);
+        }
+        return contact;
+    };
+
     if (trimmedSelectedId) {
         const cached = entityDirectories.contacts.byId.get(trimmedSelectedId);
         if (cached) {
-            return { contact_id: cached.id, contact: cached };
+            const enriched = await attachLeadOrigin(cached);
+            return { contact_id: enriched.id, contact: enriched };
         }
         try {
             const response = await fetch(`tables/contacts/${encodeURIComponent(trimmedSelectedId)}`);
             if (response.ok) {
                 const record = await response.json();
                 updateContactDirectory([record], { merge: true });
-                return { contact_id: record.id, contact: record };
+                const enriched = await attachLeadOrigin(record);
+                return { contact_id: enriched.id, contact: enriched };
             }
         } catch (error) {
             console.warn('Unable to fetch contact by id:', error);
@@ -234,7 +267,8 @@ async function ensureContactAssociation(options = {}) {
     if (normalizedEmail) {
         const existing = entityDirectories.contacts.byEmail.get(normalizedEmail);
         if (existing) {
-            return { contact_id: existing.id, contact: existing };
+            const enriched = await attachLeadOrigin(existing);
+            return { contact_id: enriched.id, contact: enriched };
         }
     }
 
@@ -252,6 +286,13 @@ async function ensureContactAssociation(options = {}) {
     if (companyLink?.company_id) {
         payload.company_id = companyLink.company_id;
         payload.company_name = companyLink.company_name;
+    }
+
+    if (normalizedOriginId) {
+        payload.lead_origin_id = normalizedOriginId;
+        if (!payload.lead_source) {
+            payload.lead_source = 'Lead Conversion';
+        }
     }
 
     Object.keys(payload).forEach(key => {
@@ -346,6 +387,10 @@ const TRANSLATIONS = {
         'leads.noDescription': 'No description',
         'leads.notSet': 'Not set',
         'leads.unassigned': 'Unassigned',
+        'leads.board.title': 'Lead Pipeline',
+        'leads.board.subtitle': 'Drag and drop leads between stages or update them inline.',
+        'leads.board.emptyColumn': 'No leads in this stage yet',
+        'leads.board.convertPrompt': 'This lead is now qualified. Would you like to convert it?',
         'leads.loadError': 'Failed to load leads',
         'leads.status.new': 'New',
         'leads.status.contacted': 'Contacted',
@@ -501,6 +546,10 @@ const TRANSLATIONS = {
         'leads.noDescription': 'Без опису',
         'leads.notSet': 'Не вказано',
         'leads.unassigned': 'Не призначено',
+        'leads.board.title': 'Канбан лідів',
+        'leads.board.subtitle': 'Перетягайте ліди між етапами або змінюйте статус у списку.',
+        'leads.board.emptyColumn': 'У цьому етапі поки немає лідів',
+        'leads.board.convertPrompt': 'Лід став кваліфікованим. Конвертувати його зараз?',
         'leads.loadError': 'Не вдалося завантажити ліди',
         'leads.status.new': 'Новий',
         'leads.status.contacted': 'На зв’язку',

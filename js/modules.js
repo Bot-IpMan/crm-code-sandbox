@@ -323,6 +323,15 @@ async function showLeads() {
 
             <div id="leadsPagination" class="mt-6 flex items-center justify-between">
             </div>
+
+            <div class="mt-10 space-y-4">
+                <div>
+                    <h4 class="text-lg font-semibold text-gray-800" data-i18n="leads.board.title">Lead Pipeline</h4>
+                    <p class="text-sm text-gray-500" data-i18n="leads.board.subtitle">Drag and drop leads between stages or update them inline.</p>
+                </div>
+                <div id="leadKanbanBoard" class="overflow-x-auto pb-2">
+                </div>
+            </div>
         </div>
     `;
 
@@ -383,42 +392,72 @@ function displayLeads(leads) {
         return;
     }
 
-    tbody.innerHTML = leads.map(lead => `
-        <tr class="border-b border-gray-100 hover:bg-gray-50">
-            <td class="p-3">
-                <div>
-                    <p class="font-medium text-gray-800">${lead.title}</p>
-                    <p class="text-sm text-gray-600">${lead.description ? lead.description.substring(0, 50) + '...' : translate('leads.noDescription')}</p>
-                </div>
-            </td>
-            <td class="p-3 text-gray-600">${formatCurrency(lead.value)}</td>
-            <td class="p-3">
-                <span class="px-2 py-1 text-xs rounded-full ${getStatusClass(lead.status)}">${translateLeadStatus(lead.status)}</span>
-            </td>
-            <td class="p-3">
-                <span class="px-2 py-1 text-xs rounded-full ${getPriorityClass(lead.priority)}">${translateLeadPriority(lead.priority)}</span>
-            </td>
-            <td class="p-3 text-gray-600">${lead.expected_close_date ? new Date(lead.expected_close_date).toLocaleDateString(currentLanguage === 'uk' ? 'uk-UA' : undefined) : translate('leads.notSet')}</td>
-            <td class="p-3 text-gray-600">${lead.assigned_to || translate('leads.unassigned')}</td>
-            <td class="p-3">
-                <div class="flex items-center space-x-2">
-                    <button onclick="viewLead('${lead.id}')" class="p-2 text-blue-600 hover:bg-blue-50 rounded" title="View lead details">
-                        <i class="fas fa-eye"></i>
-                    </button>
-                    <button onclick="showLeadConversionWizard('${lead.id}')" class="p-2 text-purple-600 hover:bg-purple-50 rounded" title="Convert lead">
-                        <i class="fas fa-exchange-alt"></i>
-                    </button>
-                    <button onclick="editLead('${lead.id}')" class="p-2 text-green-600 hover:bg-green-50 rounded" title="Edit lead">
-                        <i class="fas fa-edit"></i>
-                    </button>
-                    <button onclick="deleteLead('${lead.id}')" class="p-2 text-red-600 hover:bg-red-50 rounded" title="Delete lead">
-                        <i class="fas fa-trash"></i>
-                    </button>
-                </div>
-            </td>
-        </tr>
-    `).join('');
+    tbody.innerHTML = leads.map(lead => {
+        const leadIdRaw = String(lead.id || '');
+        const safeLeadId = sanitizeText(leadIdRaw);
+        const leadIdForHandler = leadIdRaw
+            .replace(/\\/g, '\\\\')
+            .replace(/'/g, "\\'");
+        const safeTitle = sanitizeText(lead.title || 'Untitled Lead');
+        const hasDescription = Boolean(lead.description);
+        const descriptionPreview = hasDescription
+            ? sanitizeText(lead.description.length > 80 ? `${lead.description.slice(0, 77)}...` : lead.description)
+            : sanitizeText(translate('leads.noDescription'));
+        const currentStatus = lead.status || '';
+        const statusLabel = translateLeadStatus(currentStatus) || currentStatus || 'New';
+        const statusBadge = `<span class="px-2 py-1 text-xs rounded-full ${getStatusClass(currentStatus)}">${sanitizeText(statusLabel)}</span>`;
+        const statusOptions = buildLeadStatusOptions(currentStatus);
+        const statusControl = `
+            <div class="space-y-2">
+                ${statusBadge}
+                <select class="w-full px-2 py-1 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent" data-lead-status-select data-lead-id="${safeLeadId}" data-current-status="${sanitizeText(currentStatus)}">
+                    ${statusOptions}
+                </select>
+            </div>
+        `;
+        const priorityLabel = lead.priority ? (translateLeadPriority(lead.priority) || lead.priority) : translate('leads.notSet');
+        const priorityClass = lead.priority ? getPriorityClass(lead.priority) : 'bg-gray-100 text-gray-600';
+        const priorityBadge = `<span class="px-2 py-1 text-xs rounded-full ${priorityClass}">${sanitizeText(priorityLabel)}</span>`;
+        const expectedClose = lead.expected_close_date
+            ? sanitizeText(new Date(lead.expected_close_date).toLocaleDateString(currentLanguage === 'uk' ? 'uk-UA' : undefined))
+            : sanitizeText(translate('leads.notSet'));
+        const assignedTo = lead.assigned_to ? sanitizeText(lead.assigned_to) : sanitizeText(translate('leads.unassigned'));
 
+        return `
+            <tr class="border-b border-gray-100 hover:bg-gray-50">
+                <td class="p-3">
+                    <div>
+                        <p class="font-medium text-gray-800">${safeTitle}</p>
+                        <p class="text-sm text-gray-600">${descriptionPreview}</p>
+                    </div>
+                </td>
+                <td class="p-3 text-gray-600">${formatCurrency(lead.value)}</td>
+                <td class="p-3">${statusControl}</td>
+                <td class="p-3">${priorityBadge}</td>
+                <td class="p-3 text-gray-600">${expectedClose}</td>
+                <td class="p-3 text-gray-600">${assignedTo}</td>
+                <td class="p-3">
+                    <div class="flex items-center space-x-2">
+                        <button onclick="viewLead('${leadIdForHandler}')" class="p-2 text-blue-600 hover:bg-blue-50 rounded" title="View lead details">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                        <button onclick="showLeadConversionWizard('${leadIdForHandler}')" class="p-2 text-purple-600 hover:bg-purple-50 rounded" title="Convert lead">
+                            <i class="fas fa-exchange-alt"></i>
+                        </button>
+                        <button onclick="editLead('${leadIdForHandler}')" class="p-2 text-green-600 hover:bg-green-50 rounded" title="Edit lead">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button onclick="deleteLead('${leadIdForHandler}')" class="p-2 text-red-600 hover:bg-red-50 rounded" title="Delete lead">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    }).join('');
+
+    renderLeadKanban(leads);
+    initializeLeadStatusControls();
     applyTranslations();
 }
 
@@ -437,6 +476,13 @@ const LEAD_PRIORITY_TRANSLATION_KEYS = {
     'Medium': 'leads.priority.medium',
     'High': 'leads.priority.high',
     'Critical': 'leads.priority.critical'
+};
+
+const LEAD_PIPELINE_STATUSES = ['New', 'Contacted', 'Qualified', 'Proposal', 'Negotiation', 'Won', 'Lost'];
+
+const leadKanbanCache = {
+    dragContext: null,
+    leadsById: new Map()
 };
 
 function translateLeadStatus(status) {
@@ -465,6 +511,262 @@ function translateLeadPriority(priority) {
 
     const translated = translate(key);
     return translated === key ? priority : translated;
+}
+
+function buildLeadStatusOptions(selectedStatus = '') {
+    const normalized = selectedStatus || '';
+    return LEAD_PIPELINE_STATUSES.map(status => {
+        const label = translateLeadStatus(status) || status;
+        const isSelected = normalized === status;
+        return `<option value="${sanitizeText(status)}" ${isSelected ? 'selected' : ''}>${sanitizeText(label)}</option>`;
+    }).join('');
+}
+
+function initializeLeadStatusControls() {
+    const selects = document.querySelectorAll('[data-lead-status-select]');
+    selects.forEach(select => {
+        if (select.dataset.initialized === 'true') {
+            return;
+        }
+        select.dataset.initialized = 'true';
+        select.addEventListener('change', async event => {
+            const element = event.currentTarget;
+            if (!element) {
+                return;
+            }
+            const leadId = element.getAttribute('data-lead-id');
+            const previousStatus = element.getAttribute('data-current-status') || '';
+            const nextStatus = element.value;
+            element.setAttribute('data-current-status', nextStatus);
+            const success = await updateLeadStatus(leadId, nextStatus, { previousStatus, source: 'list' });
+            if (!success) {
+                element.value = previousStatus;
+                element.setAttribute('data-current-status', previousStatus);
+            }
+        });
+    });
+}
+
+function renderLeadKanban(leads = []) {
+    const board = document.getElementById('leadKanbanBoard');
+    if (!board) {
+        return;
+    }
+
+    leadKanbanCache.dragContext = null;
+    leadKanbanCache.leadsById.clear();
+
+    const grouped = new Map();
+    leads.forEach(lead => {
+        if (!lead || !lead.id) {
+            return;
+        }
+        const status = LEAD_PIPELINE_STATUSES.includes(lead.status) ? lead.status : 'New';
+        if (!grouped.has(status)) {
+            grouped.set(status, []);
+        }
+        grouped.get(status).push(lead);
+        leadKanbanCache.leadsById.set(String(lead.id), lead);
+    });
+
+    const getTranslatedFallback = (key, fallback) => {
+        const value = translate(key);
+        return value === key ? fallback : value;
+    };
+
+    const emptyColumnText = sanitizeText(getTranslatedFallback('leads.board.emptyColumn', 'No leads here yet'));
+    const columnsHtml = LEAD_PIPELINE_STATUSES.map(status => {
+        const items = grouped.get(status) || [];
+        const columnLabel = sanitizeText(translateLeadStatus(status) || status);
+        const cardsHtml = items.map(lead => {
+            const leadId = String(lead.id || '');
+            const safeLeadId = sanitizeText(leadId);
+            const safeStatus = sanitizeText(status);
+            const title = sanitizeText(lead.title || 'Untitled Lead');
+            const description = lead.description
+                ? sanitizeText(lead.description.length > 120 ? `${lead.description.slice(0, 117)}...` : lead.description)
+                : '';
+            const companyLine = lead.company_name
+                ? `<div class="flex items-center gap-1 text-xs text-gray-500"><i class="fas fa-building text-gray-400"></i><span>${sanitizeText(lead.company_name)}</span></div>`
+                : '';
+            const contactLine = lead.contact_name
+                ? `<div class="flex items-center gap-1 text-xs text-gray-500"><i class="fas fa-user text-gray-400"></i><span>${sanitizeText(lead.contact_name)}</span></div>`
+                : '';
+            const assignedLine = lead.assigned_to
+                ? `<div class="flex items-center gap-1 text-xs text-gray-500"><i class="fas fa-user-check text-gray-400"></i><span>${sanitizeText(lead.assigned_to)}</span></div>`
+                : '';
+            const probabilityBadge = Number.isFinite(Number(lead.probability))
+                ? `<span class="px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 text-xs">${Math.round(Number(lead.probability))}%</span>`
+                : '';
+            const priorityBadge = lead.priority
+                ? `<span class="px-2 py-0.5 rounded-full text-xs ${getPriorityClass(lead.priority)}">${sanitizeText(translateLeadPriority(lead.priority) || lead.priority)}</span>`
+                : '';
+            const valuePill = lead.value
+                ? `<span class="px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 text-xs"><i class="fas fa-dollar-sign mr-1"></i>${formatCurrency(lead.value)}</span>`
+                : '';
+            const expectedClose = lead.expected_close_date
+                ? `<span class="px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 text-xs"><i class="fas fa-calendar mr-1"></i>${sanitizeText(new Date(lead.expected_close_date).toLocaleDateString(currentLanguage === 'uk' ? 'uk-UA' : undefined))}</span>`
+                : '';
+            const footerBadges = [priorityBadge, probabilityBadge, valuePill, expectedClose]
+                .filter(Boolean)
+                .join(' ');
+
+            return `
+                <div class="bg-white border border-gray-200 rounded-lg p-3 shadow-sm cursor-move" draggable="true" data-lead-kanban-card data-lead-id="${safeLeadId}" data-lead-status="${safeStatus}">
+                    <div class="flex items-start justify-between gap-2">
+                        <p class="text-sm font-semibold text-gray-800">${title}</p>
+                        ${probabilityBadge}
+                    </div>
+                    ${description ? `<p class="mt-2 text-xs text-gray-500 leading-snug">${description}</p>` : ''}
+                    <div class="mt-3 space-y-1">
+                        ${companyLine}
+                        ${contactLine}
+                        ${assignedLine}
+                    </div>
+                    ${footerBadges ? `<div class="mt-3 flex flex-wrap gap-2">${footerBadges}</div>` : ''}
+                </div>
+            `;
+        }).join('');
+
+        const placeholder = cardsHtml
+            ? ''
+            : `<div class="text-xs text-gray-400" data-i18n="leads.board.emptyColumn">${emptyColumnText}</div>`;
+
+        return `
+            <div class="min-w-[260px] w-64 flex-shrink-0">
+                <div class="flex items-center justify-between mb-3">
+                    <h5 class="text-sm font-semibold text-gray-700">${columnLabel}</h5>
+                    <span class="px-2 py-0.5 text-xs bg-gray-100 text-gray-600 rounded-full">${items.length}</span>
+                </div>
+                <div class="space-y-3 bg-gray-50 border border-gray-200 rounded-xl p-3" data-lead-kanban-column="${sanitizeText(status)}" style="min-height: 160px;">
+                    ${cardsHtml || placeholder}
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    board.innerHTML = `
+        <div class="flex items-start gap-4 pb-4">
+            ${columnsHtml}
+        </div>
+    `;
+
+    setupLeadKanbanDragAndDrop(board);
+}
+
+function setupLeadKanbanDragAndDrop(boardElement) {
+    if (!boardElement) {
+        return;
+    }
+
+    const columns = boardElement.querySelectorAll('[data-lead-kanban-column]');
+    columns.forEach(column => {
+        column.addEventListener('dragover', event => {
+            if (!leadKanbanCache.dragContext) {
+                return;
+            }
+            event.preventDefault();
+            column.classList.add('ring-2', 'ring-blue-300');
+        });
+        column.addEventListener('dragleave', () => {
+            column.classList.remove('ring-2', 'ring-blue-300');
+        });
+        column.addEventListener('drop', event => {
+            if (!leadKanbanCache.dragContext) {
+                return;
+            }
+            event.preventDefault();
+            column.classList.remove('ring-2', 'ring-blue-300');
+
+            const targetStatus = column.getAttribute('data-lead-kanban-column') || '';
+            const context = leadKanbanCache.dragContext;
+            leadKanbanCache.dragContext = null;
+
+            if (!context?.leadId || !targetStatus) {
+                return;
+            }
+            if (targetStatus === context.previousStatus) {
+                return;
+            }
+            updateLeadStatus(context.leadId, targetStatus, { previousStatus: context.previousStatus, source: 'kanban' });
+        });
+    });
+
+    const cards = boardElement.querySelectorAll('[data-lead-kanban-card]');
+    cards.forEach(card => {
+        card.addEventListener('dragstart', event => {
+            const leadId = card.getAttribute('data-lead-id');
+            const previousStatus = card.getAttribute('data-lead-status') || '';
+            leadKanbanCache.dragContext = { leadId, previousStatus };
+            if (event.dataTransfer) {
+                event.dataTransfer.effectAllowed = 'move';
+                event.dataTransfer.setData('text/plain', leadId || '');
+            }
+            card.classList.add('opacity-60');
+        });
+        card.addEventListener('dragend', () => {
+            card.classList.remove('opacity-60');
+            leadKanbanCache.dragContext = null;
+        });
+    });
+}
+
+async function updateLeadStatus(leadId, newStatus, options = {}) {
+    const { previousStatus = '', source = 'list' } = options || {};
+    const normalizedId = leadId ? String(leadId).trim() : '';
+    const normalizedStatus = newStatus ? String(newStatus).trim() : '';
+
+    if (!normalizedId || !normalizedStatus) {
+        return false;
+    }
+    if (!LEAD_PIPELINE_STATUSES.includes(normalizedStatus)) {
+        return false;
+    }
+    if (previousStatus && normalizedStatus === previousStatus) {
+        return true;
+    }
+
+    const payload = {
+        status: normalizedStatus,
+        updated_at: new Date().toISOString()
+    };
+
+    if (normalizedStatus === 'Qualified') {
+        payload.qualified_at = payload.updated_at;
+    }
+
+    try {
+        const response = await fetch(`tables/leads/${encodeURIComponent(normalizedId)}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        if (!response.ok) {
+            throw new Error('Update failed');
+        }
+
+        const statusLabel = translateLeadStatus(normalizedStatus) || normalizedStatus;
+        showToast(`Lead moved to ${statusLabel}`, 'success');
+    } catch (error) {
+        console.error('Error updating lead status:', error);
+        showToast('Failed to update lead status', 'error');
+        return false;
+    }
+
+    await loadLeads();
+
+    if (normalizedStatus === 'Qualified' && previousStatus !== 'Qualified') {
+        const prompt = translate('leads.board.convertPrompt');
+        const promptMessage = prompt === 'leads.board.convertPrompt'
+            ? 'This lead is now qualified. Would you like to convert it?'
+            : prompt;
+        const shouldConvert = confirm(promptMessage);
+        if (shouldConvert) {
+            showLeadConversionWizard(normalizedId);
+        }
+    }
+
+    return true;
 }
 
 function setupLeadFilters() {
@@ -8488,7 +8790,8 @@ async function processLeadConversion(lead, form) {
                 selectedId: selectedContactId,
                 newContact: newContactPayload,
                 companyLink,
-                defaultStatus: 'Customer'
+                defaultStatus: 'Customer',
+                originLeadId: lead.id
             });
         } catch (error) {
             console.error('Error linking contact during lead conversion:', error);
