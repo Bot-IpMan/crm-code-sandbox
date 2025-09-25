@@ -10,6 +10,7 @@
             this.collections = new Map();
             this.history = new Map();
             this.aliases = new Map();
+            this.listeners = new Map();
 
             Object.entries(entities).forEach(([name, config]) => {
                 this.defineEntity(name, config);
@@ -66,7 +67,7 @@
             });
         }
 
-        create(entityName, payload = {}) {
+        create(entityName, payload = {}, options = {}) {
             const entity = this.requireEntity(entityName);
             const now = new Date().toISOString();
             const prepared = this.prepareRecord(entity, payload);
@@ -87,7 +88,13 @@
 
             collection.set(id, record);
             this.logHistory(entity, record, 'create', record.updated_at);
-            return this.decorateRecord(entity, record);
+
+            const decorated = this.decorateRecord(entity, record);
+            const meta = this.normalizeOperationMeta(options);
+            const changes = this.computeChanges(null, decorated);
+            this.emitEntityEvents(entity, 'create', decorated, { previous: null, changes, meta });
+
+            return decorated;
         }
 
         get(entityName, id, options = {}) {
@@ -127,7 +134,7 @@
             return this.decorateRecord(entity, latest.data);
         }
 
-        update(entityName, id, payload = {}) {
+        update(entityName, id, payload = {}, options = {}) {
             const entity = this.requireEntity(entityName);
             const collection = this.collections.get(entity);
             const existing = collection.get(id);
@@ -137,6 +144,8 @@
 
             const patch = this.clone(payload);
             patch.id = id;
+
+            const previousDecorated = this.decorateRecord(entity, existing);
 
             const updated = {
                 ...existing,
@@ -155,10 +164,16 @@
 
             collection.set(id, prepared);
             this.logHistory(entity, prepared, 'update', prepared.updated_at);
-            return this.decorateRecord(entity, prepared);
+
+            const decorated = this.decorateRecord(entity, prepared);
+            const meta = this.normalizeOperationMeta(options);
+            const changes = this.computeChanges(previousDecorated, decorated);
+            this.emitEntityEvents(entity, 'update', decorated, { previous: previousDecorated, changes, meta });
+
+            return decorated;
         }
 
-        delete(entityName, id) {
+        delete(entityName, id, options = {}) {
             const entity = this.requireEntity(entityName);
             const collection = this.collections.get(entity);
             const existing = collection.get(id);
@@ -175,6 +190,9 @@
 
             this.logHistory(entity, snapshot, 'delete', timestamp);
             collection.delete(id);
+            const meta = this.normalizeOperationMeta(options);
+            const previousDecorated = this.decorateRecord(entity, existing);
+            this.emitEntityEvents(entity, 'delete', null, { previous: previousDecorated, meta });
             return true;
         }
 
@@ -619,6 +637,134 @@
                 data: this.clone(record)
             };
             historyMap.get(record.id).push(entry);
+        }
+
+        normalizeOperationMeta(options) {
+            if (options && typeof options === 'object' && !Array.isArray(options)) {
+                if (options.meta && typeof options.meta === 'object') {
+                    return this.clone(options.meta);
+                }
+                if (options.metadata && typeof options.metadata === 'object') {
+                    return this.clone(options.metadata);
+                }
+            }
+            return null;
+        }
+
+        emitEntityEvents(entity, action, record, context = {}) {
+            const payload = {
+                entity,
+                action,
+                record: record ? this.clone(record) : null,
+                previous: context.previous ? this.clone(context.previous) : null,
+                changes: context.changes ? this.clone(context.changes) : {},
+                meta: context.meta ? this.clone(context.meta) : null,
+                timestamp: new Date().toISOString()
+            };
+
+            if (action === 'create') {
+                this.emit('record.created', payload);
+                this.emit(`${entity}.created`, payload);
+            } else if (action === 'update') {
+                this.emit('record.updated', payload);
+                this.emit(`${entity}.updated`, payload);
+            } else if (action === 'delete') {
+                this.emit('record.deleted', payload);
+                this.emit(`${entity}.deleted`, payload);
+            }
+
+            this.emit('record.changed', payload);
+            this.emit(`${entity}.changed`, payload);
+        }
+
+        computeChanges(previous, current) {
+            const before = previous ? this.clone(previous) : {};
+            const after = current ? this.clone(current) : {};
+            const keys = new Set([...Object.keys(before || {}), ...Object.keys(after || {})]);
+            const changes = {};
+
+            keys.forEach(key => {
+                if (key === 'relationships') {
+                    return;
+                }
+                const prevValue = before ? before[key] : undefined;
+                const nextValue = after ? after[key] : undefined;
+                if (!this.areValuesEqual(prevValue, nextValue)) {
+                    changes[key] = {
+                        previous: this.clone(prevValue),
+                        current: this.clone(nextValue)
+                    };
+                }
+            });
+
+            return changes;
+        }
+
+        areValuesEqual(a, b) {
+            if (a === b) {
+                return true;
+            }
+            if (typeof a === 'number' && typeof b === 'number' && Number.isNaN(a) && Number.isNaN(b)) {
+                return true;
+            }
+            if (typeof a === 'object' || typeof b === 'object') {
+                try {
+                    return JSON.stringify(a) === JSON.stringify(b);
+                } catch (error) {
+                    return false;
+                }
+            }
+            return false;
+        }
+
+        on(eventName, handler) {
+            if (!eventName || typeof handler !== 'function') {
+                return () => {};
+            }
+            const key = String(eventName);
+            if (!this.listeners.has(key)) {
+                this.listeners.set(key, new Set());
+            }
+            const handlers = this.listeners.get(key);
+            handlers.add(handler);
+            return () => this.off(key, handler);
+        }
+
+        off(eventName, handler) {
+            if (!eventName) {
+                return;
+            }
+            const key = String(eventName);
+            const handlers = this.listeners.get(key);
+            if (!handlers) {
+                return;
+            }
+            if (handler && typeof handler === 'function') {
+                handlers.delete(handler);
+            } else {
+                handlers.clear();
+            }
+            if (!handlers.size) {
+                this.listeners.delete(key);
+            }
+        }
+
+        emit(eventName, payload) {
+            if (!eventName) {
+                return;
+            }
+            const key = String(eventName);
+            const handlers = this.listeners.get(key);
+            if (!handlers || !handlers.size) {
+                return;
+            }
+            handlers.forEach(handler => {
+                try {
+                    handler(payload);
+                } catch (error) {
+                    console.error('DataCore listener error for event', key, error);
+                }
+            });
         }
 
         generateId(entity) {
