@@ -2395,18 +2395,32 @@ function competitorHubFormatRelative(value) {
     const date = competitorHubToDate(value);
     if (!date) return '—';
     const diff = Math.round((Date.now() - date.getTime()) / (1000 * 60 * 60 * 24));
-    if (diff < 1) return 'today';
-    if (diff === 1) return '1 day ago';
-    if (diff < 30) return `${diff} days ago`;
+    if (diff < 1) return 'сьогодні';
+    if (diff < 30) {
+        const mod10 = diff % 10;
+        const mod100 = diff % 100;
+        let word = 'днів';
+        if (mod100 < 11 || mod100 > 14) {
+            if (mod10 === 1) word = 'день';
+            else if (mod10 >= 2 && mod10 <= 4) word = 'дні';
+        }
+        return `${diff} ${word} тому`;
+    }
     const months = Math.round(diff / 30);
-    if (months === 1) return '1 month ago';
-    return `${months} months ago`;
+    const mod10 = months % 10;
+    const mod100 = months % 100;
+    let monthWord = 'місяців';
+    if (mod100 < 11 || mod100 > 14) {
+        if (mod10 === 1) monthWord = 'місяць';
+        else if (mod10 >= 2 && mod10 <= 4) monthWord = 'місяці';
+    }
+    return `${months} ${monthWord} тому`;
 }
 
 function competitorHubFormatDateShort(value) {
     const date = competitorHubToDate(value);
     if (!date) return '—';
-    return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    return date.toLocaleDateString('uk-UA', { month: 'short', day: 'numeric' });
 }
 
 function competitorHubTierRank(tier) {
@@ -2656,7 +2670,7 @@ async function showCompetitorIntel() {
     hubView.innerHTML = `
         <div class="cih-section text-sm text-slate-300 flex items-center gap-3">
             <i class="fas fa-circle-notch fa-spin text-sky-400"></i>
-            <span>Compiling competitive intelligence workspace...</span>
+            <span>Формуємо робочий простір конкурентної аналітики...</span>
         </div>
     `;
 
@@ -2676,6 +2690,42 @@ async function showCompetitorIntel() {
         const tasks = tasksResponse?.data || [];
         const activities = activitiesResponse?.data || [];
         const contacts = contactsResponse?.data || [];
+
+        const translateTierLabel = tier => {
+            if (!tier) return '';
+            const map = {
+                'Tier 1': 'Рівень 1',
+                'Tier 2': 'Рівень 2',
+                'Tier 3': 'Рівень 3',
+                'Tier 4': 'Рівень 4'
+            };
+            return map[tier] || tier;
+        };
+
+        const translateStatusLabel = status => {
+            if (!status) return '';
+            const map = {
+                'Active Watch': 'Активний моніторинг',
+                'Monitoring': 'Моніторинг',
+                'Watchlist': 'Список спостереження',
+                'Dormant': 'Призупинено',
+                'Active': 'Активний',
+                'Review': 'Перегляд'
+            };
+            return map[status] || status;
+        };
+
+        const translateRiskLabel = risk => {
+            if (!risk) return '';
+            const map = {
+                'Critical': 'Критичний',
+                'High': 'Високий',
+                'Medium': 'Середній',
+                'Low': 'Низький',
+                'Standard': 'Стандартний'
+            };
+            return map[risk] || risk;
+        };
 
         const tasksByCompetitor = new Map();
         const tasksByClient = new Map();
@@ -2761,7 +2811,7 @@ async function showCompetitorIntel() {
             const coverage = competitorProfiles.filter(comp => (comp.linked_clients || []).includes(company.name));
             const watchers = Array.from(new Set(coverage.flatMap(comp => (comp.enhancement?.contacts || []).slice(0, 2).map(c => c.name))));
             const tierValue = coverage.reduce((acc, comp) => Math.min(acc, competitorHubTierRank(comp.tier)), 3);
-            const tierLabel = tierValue === 0 ? 'Tier 1 focus' : tierValue === 1 ? 'Tier 2 coverage' : 'Monitoring';
+            const tierLabel = tierValue === 0 ? 'Фокус рівня 1' : tierValue === 1 ? 'Покриття рівня 2' : 'Моніторинг';
             const intelTasksForClient = tasksByClient.get(company.id) || [];
             const openTasks = intelTasksForClient.filter(task => !String(task.status || '').toLowerCase().includes('completed'));
             const earliestDue = openTasks.reduce((acc, task) => {
@@ -2816,36 +2866,38 @@ async function showCompetitorIntel() {
                 .filter(Boolean);
             if (!dates.length) return '—';
             const avg = dates.reduce((sum, date) => sum + (Date.now() - date.getTime()), 0) / dates.length;
-            return `${Math.round(avg / (1000 * 60 * 60 * 24))} days avg`;
+            const days = Math.round(avg / (1000 * 60 * 60 * 24));
+            const dayWord = days === 1 ? 'день' : (days >= 2 && days <= 4 ? 'дні' : 'днів');
+            return `${days} ${dayWord} у середньому`;
         })();
 
         const summaryMetrics = [
             {
-                title: 'Tracked Competitors',
+                title: 'Відстежувані конкуренти',
                 value: competitorProfiles.length,
-                badge: `${competitorProfiles.filter(comp => competitorHubTierRank(comp.tier) === 0).length} Tier 1`,
-                caption: recentIntelDate ? `Last update ${competitorHubFormatRelative(recentIntelDate)}` : 'No updates recorded',
+                badge: `${competitorProfiles.filter(comp => competitorHubTierRank(comp.tier) === 0).length} рівень 1`,
+                caption: recentIntelDate ? `Останнє оновлення ${competitorHubFormatRelative(recentIntelDate)}` : 'Оновлення відсутні',
                 icon: 'fa-chess-knight'
             },
             {
-                title: 'Clients Covered',
+                title: 'Клієнти з конкурентами',
                 value: trackedClients.length,
-                badge: `${trackedClients.reduce((sum, client) => sum + client.competitorCount, 0)} overlaps`,
-                caption: 'Linked via competitor field',
+                badge: `${trackedClients.reduce((sum, client) => sum + client.competitorCount, 0)} збігів`,
+                caption: 'Пов’язані через поле «Конкуренти»',
                 icon: 'fa-layer-group'
             },
             {
-                title: 'Intel Workstreams',
+                title: 'Процеси конкурентної розвідки',
                 value: tasks.filter(task => (task.category === 'Competitive Intelligence' || (task.tags || []).includes('competitor')) && !String(task.status || '').toLowerCase().includes('completed')).length,
-                badge: `${intelActivities.length} signals`,
+                badge: `${intelActivities.length} сигналів`,
                 caption: avgDaysSinceUpdate,
                 icon: 'fa-clipboard-list'
             },
             {
-                title: 'Media Mentions',
+                title: 'Згадки в медіа',
                 value: competitorProfiles.reduce((sum, comp) => sum + (comp.enhancement.media?.length || 0), 0),
-                badge: 'Alerts & sentiment',
-                caption: 'Across all tracked rivals',
+                badge: 'Сповіщення та сентимент',
+                caption: 'По всіх відстежуваних конкурентів',
                 icon: 'fa-bullhorn'
             }
         ];
@@ -2867,31 +2919,31 @@ async function showCompetitorIntel() {
                 <div class="flex items-start justify-between gap-4">
                     <div>
                         <h4>${client.name}</h4>
-                        <p class="text-xs uppercase tracking-wide text-slate-400 mt-1">${client.industry} · ${client.location || 'No location'}</p>
+                        <p class="text-xs uppercase tracking-wide text-slate-400 mt-1">${client.industry} · ${client.location || 'Локацію не вказано'}</p>
                     </div>
                     <span class="cih-tag"><i class="fas fa-shield-alt"></i>${client.tierLabel}</span>
                 </div>
                 <div class="mt-4 grid gap-3">
                     <div class="flex items-center justify-between text-sm">
-                        <span class="text-slate-400">Competitors linked</span>
+                        <span class="text-slate-400">Пов’язані конкуренти</span>
                         <span class="font-medium text-slate-100">${client.competitorCount}</span>
                     </div>
                     <div class="flex items-center justify-between text-sm">
-                        <span class="text-slate-400">Intel owners</span>
+                        <span class="text-slate-400">Відповідальні за аналітику</span>
                         <span class="text-slate-100">${client.watchers.slice(0, 3).join(', ') || '—'}</span>
                     </div>
                     <div class="flex items-center justify-between text-sm">
-                        <span class="text-slate-400">Last intel</span>
+                        <span class="text-slate-400">Остання аналітика</span>
                         <span class="text-slate-100">${client.lastIntel ? competitorHubFormatRelative(client.lastIntel) : '—'}</span>
                     </div>
                     <div class="flex items-center justify-between text-sm">
-                        <span class="text-slate-400">Next due</span>
+                        <span class="text-slate-400">Наступний дедлайн</span>
                         <span class="text-slate-100">${client.earliestDue ? competitorHubFormatDateShort(client.earliestDue) : '—'}</span>
                     </div>
                 </div>
                 <div class="mt-4">
                     <div class="flex items-center justify-between text-xs text-slate-300 mb-2">
-                        <span>Coverage intensity</span>
+                        <span>Інтенсивність покриття</span>
                         <span>${client.intelScore}</span>
                     </div>
                     <div class="w-full h-2 rounded-full bg-slate-800 overflow-hidden">
@@ -2902,7 +2954,7 @@ async function showCompetitorIntel() {
                     <div class="flex flex-wrap gap-2">
                         ${client.coverageNames.map(name => `<span class="cih-swatch"><span class="cih-dot" style="background: rgba(56,189,248,0.6);"></span>${name}</span>`).join('')}
                     </div>
-                    <span class="cih-swatch ${competitorHubRiskBadge(client.riskLevel)}"><span class="cih-dot" style="background: currentColor;"></span>${client.riskLevel} risk</span>
+                    <span class="cih-swatch ${competitorHubRiskBadge(client.riskLevel)}"><span class="cih-dot" style="background: currentColor;"></span>Ризик: ${translateRiskLabel(client.riskLevel)}</span>
                 </div>
             </div>
         `).join('');
@@ -2920,31 +2972,31 @@ async function showCompetitorIntel() {
                         <div>
                             <div class="flex items-center gap-2">
                                 <span class="cih-flag ${statusClass}"></span>
-                                <p class="uppercase tracking-wide text-xs text-slate-400">${comp.tier || 'Tier 3'}</p>
+                                <p class="uppercase tracking-wide text-xs text-slate-400">${translateTierLabel(comp.tier) || 'Рівень 3'}</p>
                             </div>
                             <h4 class="mt-2">${comp.name}</h4>
-                            <p class="text-sm text-slate-400 mt-1">${comp.industry || 'No industry set'} · ${comp.headquarters || '—'}</p>
+                            <p class="text-sm text-slate-400 mt-1">${comp.industry || 'Індустрію не вказано'} · ${comp.headquarters || '—'}</p>
                         </div>
                         <div class="flex flex-col gap-2 items-end">
-                            <button class="cih-outline-button" data-compare-toggle="${comp.id}"><i class="fas fa-balance-scale"></i> Compare</button>
-                            <button class="cih-primary-button" data-open-workspace="${comp.id}"><i class="fas fa-layer-group"></i> Workspace</button>
+                            <button class="cih-outline-button" data-compare-toggle="${comp.id}"><i class="fas fa-balance-scale"></i> Порівняти</button>
+                            <button class="cih-primary-button" data-open-workspace="${comp.id}"><i class="fas fa-layer-group"></i> Робоче місце</button>
                         </div>
                     </div>
                     <div class="grid gap-3 text-sm">
                         <div class="flex items-center justify-between text-slate-300">
-                            <span>Primary markets</span>
+                            <span>Основні ринки</span>
                             <span class="text-right text-slate-100">${(comp.primary_markets || []).slice(0, 2).join(', ') || '—'}</span>
                         </div>
                         <div class="flex items-center justify-between text-slate-300">
-                            <span>Focus areas</span>
+                            <span>Ключові напрями</span>
                             <span class="text-right text-slate-100">${(comp.focus_areas || []).slice(0, 3).join(', ') || '—'}</span>
                         </div>
                         <div class="flex items-center justify-between text-slate-300">
-                            <span>Intel owner</span>
-                            <span class="text-right text-slate-100">${comp.intel_owner || 'Unassigned'}</span>
+                            <span>Відповідальний аналітик</span>
+                            <span class="text-right text-slate-100">${comp.intel_owner || 'Не призначено'}</span>
                         </div>
                         <div class="flex items-center justify-between text-slate-300">
-                            <span>Last move</span>
+                            <span>Останній крок</span>
                             <span class="text-right text-slate-100">${competitorHubFormatRelative(comp.last_update || comp.updated_at)}</span>
                         </div>
                     </div>
@@ -2952,8 +3004,8 @@ async function showCompetitorIntel() {
                         ${(comp.linked_clients || []).map(client => `<span class="cih-chip"><i class="fas fa-building"></i>${client}</span>`).join('')}
                     </div>
                     <div class="flex items-center justify-between text-xs text-slate-400">
-                        <span>${comp.enhancement?.pricing?.summary || comp.latest_move || 'No latest move logged.'}</span>
-                        ${comp.note_file ? `<a class="text-sky-300 hover:text-sky-200" href="vault/Competitors/${encodeURIComponent(comp.note_file)}" target="_blank"><i class="fas fa-file-lines mr-2"></i>Battlecard</a>` : ''}
+                        <span>${comp.enhancement?.pricing?.summary || comp.latest_move || 'Останні кроки не зафіксовані.'}</span>
+                        ${comp.note_file ? `<a class="text-sky-300 hover:text-sky-200" href="vault/Competitors/${encodeURIComponent(comp.note_file)}" target="_blank"><i class="fas fa-file-lines mr-2"></i>Батлкард</a>` : ''}
                     </div>
                 </div>
             `;
@@ -2972,14 +3024,14 @@ async function showCompetitorIntel() {
             return `
                 <div class="grid gap-3 md:grid-cols-2">
                     <div class="cih-card">
-                        <p class="text-xs uppercase tracking-wide text-slate-400">Entities</p>
+                        <p class="text-xs uppercase tracking-wide text-slate-400">Сутності</p>
                         <p class="text-2xl font-semibold text-slate-100">${nodeCount}</p>
-                        <p class="text-sm text-slate-300 mt-2">Companies, partners, and products mapped.</p>
+                        <p class="text-sm text-slate-300 mt-2">Компанії, партнери та продукти на мапі.</p>
                     </div>
                     <div class="cih-card">
-                        <p class="text-xs uppercase tracking-wide text-slate-400">Connections</p>
+                        <p class="text-xs uppercase tracking-wide text-slate-400">Зв’язки</p>
                         <p class="text-2xl font-semibold text-slate-100">${linkCount}</p>
-                        <p class="text-sm text-slate-300 mt-2">Competitive, partnership, ownership ties.</p>
+                        <p class="text-sm text-slate-300 mt-2">Конкурентні, партнерські та власницькі зв’язки.</p>
                     </div>
                 </div>
             `;
@@ -2988,7 +3040,7 @@ async function showCompetitorIntel() {
         const renderRelationshipExpanded = relationships => `
             <div class="cih-rel-diagram">
                 <div>
-                    <h4 class="text-slate-200 font-semibold mb-3">Key nodes</h4>
+                    <h4 class="text-slate-200 font-semibold mb-3">Ключові вузли</h4>
                     <div class="cih-rel-nodes">
                         ${(relationships?.nodes || []).map(node => `
                             <div class="cih-rel-node">
@@ -2999,7 +3051,7 @@ async function showCompetitorIntel() {
                     </div>
                 </div>
                 <div>
-                    <h4 class="text-slate-200 font-semibold mb-3">Connections</h4>
+                    <h4 class="text-slate-200 font-semibold mb-3">Зв’язки</h4>
                     <div class="grid gap-2">
                         ${(relationships?.links || []).map(link => `
                             <div class="cih-rel-link">
@@ -3015,13 +3067,13 @@ async function showCompetitorIntel() {
         const renderContactsPreview = contactsList => `
             <div class="grid gap-2">
                 <div class="cih-card">
-                    <p class="text-xs uppercase tracking-wide text-slate-400">Total contacts</p>
+                    <p class="text-xs uppercase tracking-wide text-slate-400">Усього контактів</p>
                     <p class="text-2xl font-semibold text-slate-100">${contactsList?.length || 0}</p>
-                    <p class="text-xs text-slate-400 mt-2">Synced into intel workspace</p>
+                    <p class="text-xs text-slate-400 mt-2">Синхронізовано в робочу область аналітики</p>
                 </div>
                 <div class="cih-card">
-                    <p class="text-xs uppercase tracking-wide text-slate-400">Key relationships</p>
-                    <p class="text-sm text-slate-100 mt-2">${(contactsList || []).slice(0, 3).map(contact => contact.name).join(', ') || 'No named contacts'}</p>
+                    <p class="text-xs uppercase tracking-wide text-slate-400">Ключові зв’язки</p>
+                    <p class="text-sm text-slate-100 mt-2">${(contactsList || []).slice(0, 3).map(contact => contact.name).join(', ') || 'Іменовані контакти відсутні'}</p>
                 </div>
             </div>
         `;
@@ -3031,11 +3083,11 @@ async function showCompetitorIntel() {
                 <table class="cih-mini-table">
                     <thead>
                         <tr>
-                            <th>Name</th>
-                            <th>Title</th>
-                            <th>Segment</th>
-                            <th>Contact</th>
-                            <th>Notes</th>
+                            <th>Ім’я</th>
+                            <th>Посада</th>
+                            <th>Сегмент</th>
+                            <th>Контакти</th>
+                            <th>Нотатки</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -3062,11 +3114,11 @@ async function showCompetitorIntel() {
         const renderMediaPreview = mediaList => {
             const latest = (mediaList || [])[0];
             if (!latest) {
-                return '<div class="cih-card"><p class="text-sm text-slate-300">No recent media captured.</p></div>';
+                return '<div class="cih-card"><p class="text-sm text-slate-300">Немає нещодавніх згадок у медіа.</p></div>';
             }
             return `
                 <div class="cih-card">
-                    <p class="text-xs uppercase tracking-wide text-slate-400">Latest mention</p>
+                    <p class="text-xs uppercase tracking-wide text-slate-400">Остання згадка</p>
                     <p class="text-lg text-slate-100 mt-2">${latest.title}</p>
                     <p class="text-sm text-slate-400">${latest.source} · ${competitorHubFormatDateShort(latest.date)}</p>
                     <p class="text-sm ${sentimentClass(latest.sentiment)} mt-2">${latest.sentiment}</p>
@@ -3112,16 +3164,16 @@ async function showCompetitorIntel() {
                 <div class="cih-card" style="border-left: 3px solid ${accent};">
                     <h4 class="text-slate-200 font-semibold mb-3">${title}</h4>
                     <ul class="list-disc list-inside space-y-2 text-sm text-slate-300">
-                        ${(items || []).map(item => `<li>${item}</li>`).join('') || '<li>No entries logged</li>'}
+                        ${(items || []).map(item => `<li>${item}</li>`).join('') || '<li>Записів немає</li>'}
                     </ul>
                 </div>
             `;
             return `
                 <div class="cih-swot-grid md:grid-cols-2">
-                    ${renderList('Strengths', swot?.strengths, '#22c55e')}
-                    ${renderList('Weaknesses', swot?.weaknesses, '#ef4444')}
-                    ${renderList('Opportunities', swot?.opportunities, '#facc15')}
-                    ${renderList('Threats', swot?.threats, '#6366f1')}
+                    ${renderList('Сильні сторони', swot?.strengths, '#22c55e')}
+                    ${renderList('Слабкі сторони', swot?.weaknesses, '#ef4444')}
+                    ${renderList('Можливості', swot?.opportunities, '#facc15')}
+                    ${renderList('Загрози', swot?.threats, '#6366f1')}
                 </div>
             `;
         };
@@ -3194,10 +3246,10 @@ async function showCompetitorIntel() {
                         <table class="cih-mini-table">
                             <thead>
                                 <tr>
-                                    <th>Plan</th>
-                                    <th>Price</th>
-                                    <th>Positioning</th>
-                                    <th>Movement</th>
+                                    <th>Тариф</th>
+                                    <th>Ціна</th>
+                                    <th>Позиціонування</th>
+                                    <th>Динаміка</th>
                                 </tr>
                             </thead>
                             <tbody>${tableRows}</tbody>
@@ -3219,24 +3271,24 @@ async function showCompetitorIntel() {
 
         const moduleTemplateLibrary = [
             {
-                category: 'Quick Cards',
+                category: 'Швидкі картки',
                 emoji: '🎯',
                 templates: [
                     {
                         id: 'info-card',
                         type: 'custom',
-                        title: 'Info Card',
-                        description: 'Core identity, tier and latest move for the competitor.',
+                        title: 'Картка інформації',
+                        description: 'Основні дані, рівень і останній крок конкурента.',
                         defaultSize: 'small',
                         defaultStatus: 'expanded',
                         permissions: ['view', 'edit'],
                         build: competitor => ({
                             name: competitor.name,
-                            tier: competitor.tier || 'Tier 3',
-                            status: competitor.status || 'Monitoring',
+                            tier: translateTierLabel(competitor.tier) || 'Рівень 3',
+                            status: translateStatusLabel(competitor.status) || 'Моніторинг',
                             headquarters: competitor.headquarters || '—',
-                            owner: competitor.intel_owner || 'Unassigned',
-                            latestMove: competitor.latest_move || competitor.enhancement?.pricing?.summary || 'No latest move logged.',
+                            owner: competitor.intel_owner || 'Не призначено',
+                            latestMove: competitor.latest_move || competitor.enhancement?.pricing?.summary || 'Останні кроки не зафіксовані.',
                             markets: (competitor.primary_markets || []).slice(0, 3),
                             focus: (competitor.focus_areas || []).slice(0, 3)
                         }),
@@ -3254,11 +3306,11 @@ async function showCompetitorIntel() {
                                     </div>
                                     <p class="text-sm text-slate-300">${data.latestMove}</p>
                                     <div class="flex flex-wrap gap-2 text-xs text-slate-400">
-                                        ${data.markets.map(market => `<span class="cih-chip"><i class="fas fa-globe"></i>${market}</span>`).join('') || '<span>No markets tagged</span>'}
+                                        ${data.markets.map(market => `<span class="cih-chip"><i class="fas fa-globe"></i>${market}</span>`).join('') || '<span>Ринки не вказані</span>'}
                                     </div>
                                     <div class="flex items-center justify-between text-xs text-slate-400">
                                         <span><i class="fas fa-user-shield mr-1"></i>${data.owner}</span>
-                                        <span>${(data.focus || []).join(', ') || 'No focus areas'}</span>
+                                        <span>${(data.focus || []).join(', ') || 'Напрями не задані'}</span>
                                     </div>
                                 </div>
                             `;
@@ -3267,17 +3319,17 @@ async function showCompetitorIntel() {
                     {
                         id: 'kpi-card',
                         type: 'custom',
-                        title: 'KPI Card',
-                        description: 'Key activity metrics driven from tasks, signals and contacts.',
+                        title: 'Картка KPI',
+                        description: 'Ключові показники активності на основі задач, сигналів і контактів.',
                         defaultSize: 'small',
                         defaultStatus: 'expanded',
                         permissions: ['view'],
                         build: competitor => ({
                             metrics: [
-                                { label: 'Active tasks', value: computeActiveTasks(competitor) },
-                                { label: 'Signals (30d)', value: computeSignalsWithinDays(competitor, 30) },
-                                { label: 'Linked contacts', value: (competitor.linkedContacts || []).length || (competitor.enhancement?.contacts?.length || 0) },
-                                { label: 'Watchlisted clients', value: (competitor.linked_clients || []).length }
+                                { label: 'Активні задачі', value: computeActiveTasks(competitor) },
+                                { label: 'Сигнали (30 днів)', value: computeSignalsWithinDays(competitor, 30) },
+                                { label: 'Пов’язані контакти', value: (competitor.linkedContacts || []).length || (competitor.enhancement?.contacts?.length || 0) },
+                                { label: 'Клієнти зі списку спостереження', value: (competitor.linked_clients || []).length }
                             ]
                         }),
                         render: module => {
@@ -3297,8 +3349,8 @@ async function showCompetitorIntel() {
                     {
                         id: 'status-card',
                         type: 'custom',
-                        title: 'Status Card',
-                        description: 'Monitoring status, owner and cadence reminders.',
+                        title: 'Картка статусу',
+                        description: 'Статус моніторингу, відповідальний і нагадування про ритм.',
                         defaultSize: 'small',
                         permissions: ['view', 'edit'],
                         build: competitor => {
@@ -3306,13 +3358,13 @@ async function showCompetitorIntel() {
                             const nextDue = dueDates[0];
                             const lastSignal = (competitor.signals || [])[0];
                             return {
-                                status: competitor.status || 'Monitoring',
-                                owner: competitor.intel_owner || 'Unassigned',
+                                status: translateStatusLabel(competitor.status) || 'Моніторинг',
+                                owner: competitor.intel_owner || 'Не призначено',
                                 lastUpdate: competitor.last_update || competitor.updated_at,
                                 nextDue,
                                 risk: (competitor.enhancement?.pricing?.alerts || []).some(alert => (alert.status || '').toLowerCase() === 'active') ? 'High' : 'Standard',
                                 lastSignal: lastSignal ? {
-                                    subject: lastSignal.subject || lastSignal.title || 'Update logged',
+                                    subject: lastSignal.subject || lastSignal.title || 'Запис оновлено',
                                     date: lastSignal.date || lastSignal.updated_at
                                 } : null
                             };
@@ -3323,16 +3375,16 @@ async function showCompetitorIntel() {
                                 <div class="grid gap-2">
                                     <div class="flex items-center justify-between">
                                         <span class="cih-module-tag"><i class="fas fa-signal"></i>${data.status}</span>
-                                        <span class="cih-swatch ${competitorHubRiskBadge(data.risk)}"><span class="cih-dot" style="background: currentColor;"></span>${data.risk} risk</span>
+                                        <span class="cih-swatch ${competitorHubRiskBadge(data.risk)}"><span class="cih-dot" style="background: currentColor;"></span>Ризик: ${translateRiskLabel(data.risk)}</span>
                                     </div>
                                     <div class="flex items-center justify-between text-xs text-slate-400">
                                         <span><i class="fas fa-user-check mr-1"></i>${data.owner}</span>
-                                        <span>Last update: ${competitorHubFormatRelative(data.lastUpdate)}</span>
+                                        <span>Останнє оновлення: ${competitorHubFormatRelative(data.lastUpdate)}</span>
                                     </div>
                                     <div class="text-sm text-slate-300">
-                                        Next due: ${data.nextDue ? competitorHubFormatDateShort(data.nextDue) : '—'}
+                                        Наступний дедлайн: ${data.nextDue ? competitorHubFormatDateShort(data.nextDue) : '—'}
                                     </div>
-                                    ${data.lastSignal ? `<div class="text-xs text-slate-400">Latest signal: <span class="text-slate-200">${data.lastSignal.subject}</span> · ${competitorHubFormatRelative(data.lastSignal.date)}</div>` : ''}
+                                    ${data.lastSignal ? `<div class="text-xs text-slate-400">Останній сигнал: <span class="text-slate-200">${data.lastSignal.subject}</span> · ${competitorHubFormatRelative(data.lastSignal.date)}</div>` : ''}
                                 </div>
                             `;
                         }
@@ -3340,8 +3392,8 @@ async function showCompetitorIntel() {
                     {
                         id: 'contact-card',
                         type: 'contacts',
-                        title: 'Contact Card',
-                        description: 'Top three contacts associated with the competitor.',
+                        title: 'Картка контактів',
+                        description: 'Три ключові контакти, пов’язані з конкурентом.',
                         defaultSize: 'small',
                         permissions: ['view'],
                         build: competitor => ({
@@ -3350,7 +3402,7 @@ async function showCompetitorIntel() {
                         render: module => {
                             const contacts = module.data?.contacts || [];
                             if (!contacts.length) {
-                                return '<p class="text-sm text-slate-400">No contacts linked.</p>';
+                                return '<p class="text-sm text-slate-400">Пов’язаних контактів немає.</p>';
                             }
                             return `
                                 <div class="grid gap-2">
@@ -3368,14 +3420,14 @@ async function showCompetitorIntel() {
                 ]
             },
             {
-                category: 'Analytics Modules',
+                category: 'Аналітичні модулі',
                 emoji: '📊',
                 templates: [
                     {
                         id: 'price-timeline',
                         type: 'prices',
-                        title: 'Price Timeline',
-                        description: 'Historical pricing trend with plan-level benchmarks.',
+                        title: 'Динаміка цін',
+                        description: 'Історія цін із бенчмарками за тарифами.',
                         defaultSize: 'large',
                         permissions: ['view'],
                         build: competitor => ({ pricing: competitor.enhancement?.pricing }),
@@ -3384,8 +3436,8 @@ async function showCompetitorIntel() {
                     {
                         id: 'media-buzz',
                         type: 'media',
-                        title: 'Media Buzz',
-                        description: 'Latest media mentions and sentiment signals.',
+                        title: 'Медійний шум',
+                        description: 'Останні згадки в медіа та сигнали сентименту.',
                         defaultSize: 'medium',
                         permissions: ['view'],
                         build: competitor => ({ media: competitor.enhancement?.media || competitor.signals?.slice(0, 5) || [] }),
@@ -3394,8 +3446,8 @@ async function showCompetitorIntel() {
                     {
                         id: 'tech-stack',
                         type: 'custom',
-                        title: 'Tech Stack',
-                        description: 'Observed tooling and platform breakdown.',
+                        title: 'Технологічний стек',
+                        description: 'Виявлені інструменти й платформи.',
                         defaultSize: 'medium',
                         permissions: ['view', 'edit'],
                         build: competitor => ({ tech: competitor.enhancement?.tech }),
@@ -3414,21 +3466,21 @@ async function showCompetitorIntel() {
                 ]
             },
             {
-                category: 'Work Modules',
+                category: 'Робочі модулі',
                 emoji: '📋',
                 templates: [
                     {
                         id: 'task-kanban',
                         type: 'kanban',
-                        title: 'Task Kanban',
-                        description: 'Column view of enablement and research tasks.',
+                        title: 'Канбан задач',
+                        description: 'Колонки з задачами підтримки та досліджень.',
                         defaultSize: 'large',
                         permissions: ['view', 'edit', 'delete'],
                         build: competitor => ({ columns: competitor.kanbanColumns || [] }),
                         render: module => {
                             const columns = module.data?.columns || [];
                             if (!columns.length) {
-                                return '<p class="text-sm text-slate-400">No tasks captured yet.</p>';
+                                return '<p class="text-sm text-slate-400">Задач ще не зафіксовано.</p>';
                             }
                             return `
                                 <div class="grid gap-3 md:grid-cols-${Math.min(columns.length, 4)}">
@@ -3442,14 +3494,14 @@ async function showCompetitorIntel() {
                                                 <div class="cih-kanban-card">
                                                     <div class="flex items-start justify-between">
                                                         <p class="text-sm text-slate-100 font-medium">${task.title}</p>
-                                                        <span class="cih-chip">${task.priority || '—'}</span>
+                                                <span class="cih-chip">${task.priority || '—'}</span>
                                                     </div>
                                                     <div class="flex items-center justify-between text-xs text-slate-400">
                                                         <span><i class="far fa-calendar mr-1"></i>${competitorHubFormatDateShort(task.due_date)}</span>
                                                         <span><i class="far fa-user mr-1"></i>${task.assigned_to || 'Unassigned'}</span>
                                                     </div>
                                                 </div>
-                                            `).join('') || '<p class="text-xs text-slate-400">No tasks logged.</p>'}
+                                            `).join('') || '<p class="text-xs text-slate-400">Записаних задач немає.</p>'}
                                         </div>
                                     `).join('')}
                                 </div>
@@ -3459,8 +3511,8 @@ async function showCompetitorIntel() {
                     {
                         id: 'document-vault',
                         type: 'docs',
-                        title: 'Document Vault',
-                        description: 'Repository of battlecards, briefs and assets.',
+                        title: 'Сховище документів',
+                        description: 'Репозиторій батлкарт, брифів та матеріалів.',
                         defaultSize: 'medium',
                         permissions: ['view', 'edit', 'delete'],
                         build: competitor => ({ documents: competitor.enhancement?.documents || [] }),
@@ -3469,8 +3521,8 @@ async function showCompetitorIntel() {
                     {
                         id: 'contact-crm',
                         type: 'contacts',
-                        title: 'Contact CRM',
-                        description: 'Full relationship roster synced with CRM.',
+                        title: 'Контактна база',
+                        description: 'Повний перелік контактів, синхронізований із CRM.',
                         defaultSize: 'medium',
                         permissions: ['view', 'edit'],
                         build: competitor => ({ contacts: competitor.enhancement?.contacts || competitor.linkedContacts || [] }),
@@ -3479,13 +3531,13 @@ async function showCompetitorIntel() {
                     {
                         id: 'notes-module',
                         type: 'custom',
-                        title: 'Notes',
-                        description: 'Free-form notes and observations for the analyst team.',
+                        title: 'Нотатки',
+                        description: 'Вільні нотатки та спостереження для аналітиків.',
                         defaultSize: 'medium',
                         permissions: ['view', 'edit'],
                         build: competitor => ({
                             notes: (competitor.signals || []).slice(0, 5).map(signal => ({
-                                title: signal.subject || signal.title || 'Observation',
+                                title: signal.subject || signal.title || 'Спостереження',
                                 summary: signal.description || signal.summary || '—',
                                 date: signal.date || signal.updated_at
                             }))
@@ -3493,7 +3545,7 @@ async function showCompetitorIntel() {
                         render: module => {
                             const notes = module.data?.notes || [];
                             if (!notes.length) {
-                                return '<p class="text-sm text-slate-400">No analyst notes captured.</p>';
+                                return '<p class="text-sm text-slate-400">Аналітичні нотатки відсутні.</p>';
                             }
                             return `
                                 <div class="grid gap-2">
@@ -3511,14 +3563,14 @@ async function showCompetitorIntel() {
                 ]
             },
             {
-                category: 'Relationship Modules',
+                category: 'Модулі зв’язків',
                 emoji: '🔗',
                 templates: [
                     {
                         id: 'network-map',
                         type: 'network',
-                        title: 'Network Map',
-                        description: 'Competitive, partnership and product relationships.',
+                        title: 'Карта мережі',
+                        description: 'Конкурентні, партнерські та продуктові зв’язки.',
                         defaultSize: 'large',
                         permissions: ['view'],
                         build: competitor => ({ relationships: competitor.enhancement?.relationships }),
@@ -3527,8 +3579,8 @@ async function showCompetitorIntel() {
                     {
                         id: 'comparison-table',
                         type: 'custom',
-                        title: 'Comparison Table',
-                        description: 'Benchmark the competitor against the workspace average.',
+                        title: 'Таблиця порівняння',
+                        description: 'Порівняння конкурента із середніми показниками робочої області.',
                         defaultSize: 'medium',
                         permissions: ['view'],
                         build: (competitor, context) => {
@@ -3540,7 +3592,7 @@ async function showCompetitorIntel() {
                             return {
                                 competitor: {
                                     name: competitor.name,
-                                    tier: competitor.tier || 'Tier 3',
+                                    tier: translateTierLabel(competitor.tier) || 'Рівень 3',
                                     tasks: computeActiveTasks(competitor),
                                     signals: competitor.signals?.length || 0,
                                     clients: competitor.linked_clients?.length || 0
@@ -3561,16 +3613,16 @@ async function showCompetitorIntel() {
                                     <table class="cih-mini-table">
                                         <thead>
                                             <tr>
-                                                <th>Metric</th>
-                                                <th>${competitorRow.name || 'Competitor'}</th>
-                                                <th>Workspace Avg.</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            <tr><td>Tier</td><td>${competitorRow.tier}</td><td>—</td></tr>
-                                            <tr><td>Active tasks</td><td>${competitorRow.tasks}</td><td>${averages.tasks ?? '—'}</td></tr>
-                                            <tr><td>Signals logged</td><td>${competitorRow.signals}</td><td>${averages.signals ?? '—'}</td></tr>
-                                            <tr><td>Linked clients</td><td>${competitorRow.clients}</td><td>${averages.clients ?? '—'}</td></tr>
+                                                <th>Показник</th>
+                                                <th>${competitorRow.name || 'Конкурент'}</th>
+                                                <th>Середнє по workspace</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                            <tr><td>Рівень</td><td>${competitorRow.tier}</td><td>—</td></tr>
+                                            <tr><td>Активні задачі</td><td>${competitorRow.tasks}</td><td>${averages.tasks ?? '—'}</td></tr>
+                                            <tr><td>Зафіксовані сигнали</td><td>${competitorRow.signals}</td><td>${averages.signals ?? '—'}</td></tr>
+                                            <tr><td>Пов’язані клієнти</td><td>${competitorRow.clients}</td><td>${averages.clients ?? '—'}</td></tr>
                                         </tbody>
                                     </table>
                                 </div>
@@ -3580,13 +3632,13 @@ async function showCompetitorIntel() {
                     {
                         id: 'event-timeline',
                         type: 'custom',
-                        title: 'Timeline',
-                        description: 'Chronological timeline of intelligence events.',
+                        title: 'Хронологія',
+                        description: 'Послідовність подій конкурентної розвідки.',
                         defaultSize: 'medium',
                         permissions: ['view'],
                         build: competitor => ({
                             events: (competitor.signals || []).map(signal => ({
-                                title: signal.subject || signal.title || 'Signal logged',
+                                title: signal.subject || signal.title || 'Сигнал зафіксовано',
                                 date: signal.date || signal.updated_at,
                                 summary: signal.description || signal.summary || '—'
                             })).sort((a, b) => {
@@ -3598,7 +3650,7 @@ async function showCompetitorIntel() {
                         render: module => {
                             const events = module.data?.events || [];
                             if (!events.length) {
-                                return '<p class="text-sm text-slate-400">No timeline events recorded.</p>';
+                                return '<p class="text-sm text-slate-400">Подій у хронології немає.</p>';
                             }
                             return `
                                 <div class="grid gap-2">
@@ -3662,36 +3714,36 @@ async function showCompetitorIntel() {
                 </div>
                 <div class="cih-section mt-8">
                     <div class="cih-section-header">
-                        <h3 class="cih-section-title"><i class="fas fa-building"></i>Client Portfolio Overview</h3>
+                        <h3 class="cih-section-title"><i class="fas fa-building"></i>Огляд портфеля клієнтів</h3>
                         <div class="flex flex-wrap gap-3">
                             <div class="relative">
                                 <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-500"></i>
-                                <input id="cihClientSearch" type="search" placeholder="Search clients" class="bg-slate-900/70 border border-slate-700 rounded-lg pl-9 pr-4 py-2 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-500">
+                                <input id="cihClientSearch" type="search" placeholder="Пошук клієнтів" class="bg-slate-900/70 border border-slate-700 rounded-lg pl-9 pr-4 py-2 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-500">
                             </div>
                             <select id="cihClientFilter" class="bg-slate-900/70 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-sky-500">
-                                <option value="all">All coverage</option>
-                                <option value="high">High risk</option>
-                                <option value="medium">Medium risk</option>
-                                <option value="low">Low risk</option>
+                                <option value="all">Усе покриття</option>
+                                <option value="high">Високий ризик</option>
+                                <option value="medium">Середній ризик</option>
+                                <option value="low">Низький ризик</option>
                             </select>
                             <select id="cihClientSort" class="bg-slate-900/70 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-sky-500">
-                                <option value="recent">Sort: Latest intel</option>
-                                <option value="competitors">Sort: Competitor count</option>
-                                <option value="score">Sort: Coverage score</option>
+                                <option value="recent">Сортування: остання аналітика</option>
+                                <option value="competitors">Сортування: кількість конкурентів</option>
+                                <option value="score">Сортування: оцінка покриття</option>
                             </select>
                         </div>
                     </div>
                     <div id="cihClientCards" class="cih-grid md:cih-grid-cols-2 xl:cih-grid-cols-3">
-                        ${clientCardsHtml || '<p class="text-slate-400">Link competitors to clients to populate this section.</p>'}
+                        ${clientCardsHtml || '<p class="text-slate-400">Прив’яжіть конкурентів до клієнтів, щоб заповнити цей блок.</p>'}
                     </div>
                 </div>
 
                 <div class="cih-section mt-8">
                     <div class="cih-section-header">
-                        <h3 class="cih-section-title"><i class="fas fa-chess"></i>Competitor Portfolio</h3>
+                        <h3 class="cih-section-title"><i class="fas fa-chess"></i>Портфель конкурентів</h3>
                         <div class="cih-compare-panel" id="cihComparePanel">
-                            <h4 class="text-slate-200">Comparison Drawer</h4>
-                            <p class="text-sm text-slate-400">Select competitors to compare tier, status, pricing and watchlist focus.</p>
+                            <h4 class="text-slate-200">Панель порівняння</h4>
+                            <p class="text-sm text-slate-400">Оберіть конкурентів, щоб порівняти рівень, статус, ціни та фокус спостереження.</p>
                         </div>
                     </div>
                     <div class="cih-grid md:cih-grid-cols-2 xl:cih-grid-cols-3" id="cihCompetitorCards">
@@ -3701,10 +3753,10 @@ async function showCompetitorIntel() {
 
                 <div class="cih-section mt-8" id="cihWorkspaceSection">
                     <div class="cih-section-header">
-                        <h3 class="cih-section-title"><i class="fas fa-cubes"></i>Modular Intelligence Workbench</h3>
+                        <h3 class="cih-section-title"><i class="fas fa-cubes"></i>Модульна робоча станція аналітики</h3>
                         <div class="cih-workspace-toolbar">
-                            <button class="cih-outline-button" data-toggle-split-view="false"><i class="fas fa-columns"></i> Split view: Off</button>
-                            <span class="text-xs text-slate-400 flex items-center gap-2"><i class="fas fa-keyboard"></i>Quick switch: Ctrl+Tab</span>
+                            <button class="cih-outline-button" data-toggle-split-view="false"><i class="fas fa-columns"></i> Розділений режим: вимкнено</button>
+                            <span class="text-xs text-slate-400 flex items-center gap-2"><i class="fas fa-keyboard"></i>Швидке перемикання: Ctrl+Tab</span>
                         </div>
                     </div>
                     <div class="cih-workspace-shell">
@@ -3758,31 +3810,31 @@ async function showCompetitorIntel() {
                     <div class="flex items-start justify-between gap-4">
                         <div>
                             <h4>${client.name}</h4>
-                            <p class="text-xs uppercase tracking-wide text-slate-400 mt-1">${client.industry} · ${client.location || 'No location'}</p>
+                            <p class="text-xs uppercase tracking-wide text-slate-400 mt-1">${client.industry} · ${client.location || 'Локацію не вказано'}</p>
                         </div>
                         <span class="cih-tag"><i class="fas fa-shield-alt"></i>${client.tierLabel}</span>
                     </div>
                     <div class="mt-4 grid gap-3">
                         <div class="flex items-center justify-between text-sm">
-                            <span class="text-slate-400">Competitors linked</span>
+                            <span class="text-slate-400">Пов’язані конкуренти</span>
                             <span class="font-medium text-slate-100">${client.competitorCount}</span>
                         </div>
                         <div class="flex items-center justify-between text-sm">
-                            <span class="text-slate-400">Intel owners</span>
+                            <span class="text-slate-400">Відповідальні за аналітику</span>
                             <span class="text-slate-100">${client.watchers.slice(0, 3).join(', ') || '—'}</span>
                         </div>
                         <div class="flex items-center justify-between text-sm">
-                            <span class="text-slate-400">Last intel</span>
+                            <span class="text-slate-400">Остання аналітика</span>
                             <span class="text-slate-100">${client.lastIntel ? competitorHubFormatRelative(client.lastIntel) : '—'}</span>
                         </div>
                         <div class="flex items-center justify-between text-sm">
-                            <span class="text-slate-400">Next due</span>
+                            <span class="text-slate-400">Наступний дедлайн</span>
                             <span class="text-slate-100">${client.earliestDue ? competitorHubFormatDateShort(client.earliestDue) : '—'}</span>
                         </div>
                     </div>
                     <div class="mt-4">
                         <div class="flex items-center justify-between text-xs text-slate-300 mb-2">
-                            <span>Coverage intensity</span>
+                            <span>Інтенсивність покриття</span>
                             <span>${client.intelScore}</span>
                         </div>
                         <div class="w-full h-2 rounded-full bg-slate-800 overflow-hidden">
@@ -3793,10 +3845,10 @@ async function showCompetitorIntel() {
                         <div class="flex flex-wrap gap-2">
                             ${client.coverageNames.map(name => `<span class="cih-swatch"><span class="cih-dot" style="background: rgba(56,189,248,0.6);"></span>${name}</span>`).join('')}
                         </div>
-                        <span class="cih-swatch ${competitorHubRiskBadge(client.riskLevel)}"><span class="cih-dot" style="background: currentColor;"></span>${client.riskLevel} risk</span>
+                        <span class="cih-swatch ${competitorHubRiskBadge(client.riskLevel)}"><span class="cih-dot" style="background: currentColor;"></span>Ризик: ${translateRiskLabel(client.riskLevel)}</span>
                     </div>
                 </div>
-            `).join('') : '<p class="text-slate-400">No client coverage matches the current filters.</p>';
+            `).join('') : '<p class="text-slate-400">За обраними фільтрами клієнтів не знайдено.</p>';
         };
 
         clientSearchInput.addEventListener('input', applyClientFilters);
@@ -3809,23 +3861,25 @@ async function showCompetitorIntel() {
         const renderComparePanel = () => {
             if (!compareSelection.size) {
                 comparePanel.innerHTML = `
-                    <h4 class="text-slate-200">Comparison Drawer</h4>
-                    <p class="text-sm text-slate-400">Select competitors to compare tier, status, pricing and watchlist focus.</p>
+                    <h4 class="text-slate-200">Панель порівняння</h4>
+                    <p class="text-sm text-slate-400">Оберіть конкурентів для порівняння рівня, статусу, цін і фокусу спостереження.</p>
                 `;
                 return;
             }
             const selectedCompetitors = Array.from(compareSelection).map(id => competitorProfiles.find(comp => comp.id === id)).filter(Boolean);
+            const count = selectedCompetitors.length;
+            const noun = count === 1 ? 'конкурент' : (count >= 2 && count <= 4 ? 'конкуренти' : 'конкурентів');
             comparePanel.innerHTML = `
-                <h4 class="text-slate-200">${selectedCompetitors.length} competitor${selectedCompetitors.length > 1 ? 's' : ''} selected</h4>
+                <h4 class="text-slate-200">${count} ${noun} обрано</h4>
                 <div class="grid gap-3 md:grid-cols-${Math.min(selectedCompetitors.length, 3)}">
                     ${selectedCompetitors.map(comp => `
                         <div class="cih-card">
                             <div class="flex items-center justify-between">
                                 <p class="text-slate-100 font-semibold">${comp.name}</p>
-                                <span class="cih-tag">${comp.tier || 'Tier 3'}</span>
+                                <span class="cih-tag">${translateTierLabel(comp.tier) || 'Рівень 3'}</span>
                             </div>
-                            <p class="text-xs text-slate-400 mt-2">${comp.status || 'Monitoring'} · ${comp.intel_owner || 'Unassigned'}</p>
-                            <p class="text-sm text-slate-300 mt-3">${comp.enhancement?.pricing?.summary || comp.latest_move || 'No latest move logged.'}</p>
+                            <p class="text-xs text-slate-400 mt-2">${translateStatusLabel(comp.status) || 'Моніторинг'} · ${comp.intel_owner || 'Не призначено'}</p>
+                            <p class="text-sm text-slate-300 mt-3">${comp.enhancement?.pricing?.summary || comp.latest_move || 'Останні кроки не зафіксовані.'}</p>
                         </div>
                     `).join('')}
                 </div>
@@ -3873,17 +3927,23 @@ async function showCompetitorIntel() {
         const getTemplateById = templateId => templateIndex.get(templateId) || workspaceState.customTemplates.find(template => template.id === templateId);
 
         const renderTemplateCard = (template, options = {}) => {
-            const sizeLabel = (template.defaultSize || 'medium').replace(/\b\w/g, char => char.toUpperCase());
+            const sizeTranslations = {
+                small: 'малий',
+                medium: 'середній',
+                large: 'великий',
+                fullwidth: 'повна ширина'
+            };
+            const sizeLabel = sizeTranslations[template.defaultSize || 'medium'] || template.defaultSize;
             return `
                 <div class="cih-library-item" data-template-id="${template.id}" data-template-source="${options.custom ? 'custom' : 'library'}">
                     <div class="flex items-center justify-between">
                         <span class="cih-module-tag"><i class="fas fa-puzzle-piece"></i>${template.title}</span>
                         <span class="text-xs text-slate-500">${sizeLabel}</span>
                     </div>
-                    <p>${template.description || 'No description provided.'}</p>
+                    <p>${template.description || 'Опис відсутній.'}</p>
                     <div class="cih-library-actions">
-                        <button class="cih-outline-button" data-add-template="${template.id}"><i class="fas fa-plus"></i> Active tab</button>
-                        <button class="cih-outline-button" data-add-template-bulk="${template.id}"><i class="fas fa-layer-group"></i> Bulk add</button>
+                        <button class="cih-outline-button" data-add-template="${template.id}"><i class="fas fa-plus"></i> Активна вкладка</button>
+                        <button class="cih-outline-button" data-add-template-bulk="${template.id}"><i class="fas fa-layer-group"></i> Масове додавання</button>
                         ${options.custom ? `<button class="cih-outline-button" data-remove-template="${template.id}"><i class="fas fa-trash"></i></button>` : ''}
                     </div>
                 </div>
@@ -3905,17 +3965,43 @@ async function showCompetitorIntel() {
                     <button type="button" data-module-action="remove" data-module-id="${module.id}"><i class="fas fa-times"></i></button>
                 </div>
             `;
-            const permissionChips = (module.permissions || []).map(permission => `<span class="cih-permission-chip"><i class="fas fa-check"></i>${permission}</span>`).join('');
+            const permissionLabels = {
+                view: 'перегляд',
+                edit: 'редагування',
+                delete: 'видалення'
+            };
+            const permissionChips = (module.permissions || []).map(permission => {
+                const label = permissionLabels[permission] || permission;
+                return `<span class="cih-permission-chip"><i class="fas fa-check"></i>${label}</span>`;
+            }).join('');
+            const typeTranslations = {
+                custom: 'кастом',
+                contacts: 'контакти',
+                docs: 'документи',
+                prices: 'ціни',
+                media: 'медіа',
+                swot: 'SWOT',
+                network: 'мережа',
+                kanban: 'канбан'
+            };
+            const sizeTranslations = {
+                small: 'малий',
+                medium: 'середній',
+                large: 'великий',
+                fullwidth: 'повна ширина'
+            };
+            const translatedType = typeTranslations[template.type] || template.type;
+            const translatedSize = sizeTranslations[module.size || 'medium'] || (module.size || 'medium');
             const meta = `
                 <div class="cih-module-meta">
-                    <span><i class="fas fa-shapes"></i>${template.type}</span>
-                    <span><i class="fas fa-expand"></i>${module.size || 'medium'}</span>
+                    <span><i class="fas fa-shapes"></i>${translatedType}</span>
+                    <span><i class="fas fa-expand"></i>${translatedSize}</span>
                     <span><i class="fas fa-th"></i>${module.position?.x ?? 0},${module.position?.y ?? 0}</span>
                 </div>
             `;
-            const bodyContent = template.render ? template.render(module, competitor, { context, split: isSplit }) : '<p class="text-sm text-slate-400">No renderer defined.</p>';
+            const bodyContent = template.render ? template.render(module, competitor, { context, split: isSplit }) : '<p class="text-sm text-slate-400">Рендерер не визначено.</p>';
             const moduleBody = module.status === 'minimized'
-                ? '<div class="text-xs text-slate-400">Module minimized. Use controls to restore.</div>'
+                ? '<div class="text-xs text-slate-400">Модуль згорнуто. Скористайтеся керуванням, щоб відновити.</div>'
                 : `<div class="cih-module-body">${bodyContent}</div>`;
             return `
                 <div class="cih-workspace-module ${sizeClass}" data-module-id="${module.id}" data-status="${module.status}">
@@ -3934,13 +4020,13 @@ async function showCompetitorIntel() {
 
         const renderModulesForCanvas = (tab, competitor, options = {}) => {
             if (!tab || !competitor) {
-                return '<p class="text-sm text-slate-400">No competitor selected.</p>';
+                return '<p class="text-sm text-slate-400">Конкурента не обрано.</p>';
             }
             const moduleFilter = options.split
                 ? tab.modules.filter(module => ['info-card', 'kpi-card', 'status-card', 'price-timeline'].includes(module.templateId)).slice(0, 4)
                 : tab.modules;
             if (!moduleFilter.length) {
-                return '<p class="text-sm text-slate-400">No modules configured yet.</p>';
+                return '<p class="text-sm text-slate-400">Модулі ще не налаштовані.</p>';
             }
             return moduleFilter.map(module => renderModuleCard(module, competitor, workspaceContext, options)).join('');
         };
@@ -3961,27 +4047,27 @@ async function showCompetitorIntel() {
             const customTemplates = context.workspaceState.customTemplates;
             const customListHtml = customTemplates.length
                 ? `<div class="cih-library-grid">${customTemplates.map(template => renderTemplateCard(template, { custom: true })).join('')}</div>`
-                : '<p class="text-sm text-slate-400">No custom templates saved yet.</p>';
+                : '<p class="text-sm text-slate-400">Користувацькі шаблони ще не збережені.</p>';
             libraryContainer.innerHTML = `
                 ${baseLibraryHtml}
                 <div class="cih-custom-template">
-                    <h4 class="text-slate-100 font-semibold flex items-center gap-2"><i class="fas fa-pen-nib"></i>Custom Templates</h4>
+                    <h4 class="text-slate-100 font-semibold flex items-center gap-2"><i class="fas fa-pen-nib"></i>Користувацькі шаблони</h4>
                     <form id="cihCustomTemplateForm">
                         <div class="grid md:grid-cols-2 gap-2">
-                            <input type="text" id="cihCustomTemplateName" placeholder="Template name" required>
+                            <input type="text" id="cihCustomTemplateName" placeholder="Назва шаблону" required>
                             <select id="cihCustomTemplateType">
-                                <option value="custom">Custom</option>
-                                <option value="kanban">Kanban</option>
-                                <option value="contacts">Contacts</option>
-                                <option value="docs">Docs</option>
-                                <option value="prices">Prices</option>
-                                <option value="media">Media</option>
+                                <option value="custom">Індивідуальний</option>
+                                <option value="kanban">Канбан</option>
+                                <option value="contacts">Контакти</option>
+                                <option value="docs">Документи</option>
+                                <option value="prices">Ціни</option>
+                                <option value="media">Медіа</option>
                                 <option value="swot">SWOT</option>
-                                <option value="network">Network</option>
+                                <option value="network">Мережа</option>
                             </select>
                         </div>
-                        <textarea id="cihCustomTemplateNotes" placeholder="Describe the layout, fields or analysis captured by this template..."></textarea>
-                        <button class="cih-primary-button" type="submit"><i class="fas fa-plus"></i>Create template</button>
+                        <textarea id="cihCustomTemplateNotes" placeholder="Опишіть макет, поля чи аналіз, який містить цей шаблон..."></textarea>
+                        <button class="cih-primary-button" type="submit"><i class="fas fa-plus"></i>Створити шаблон</button>
                     </form>
                     ${customListHtml}
                 </div>
@@ -4003,12 +4089,12 @@ async function showCompetitorIntel() {
                 tabBar.innerHTML = '<p class="text-sm text-slate-400">Open a competitor workspace from the portfolio cards above.</p>';
                 splitSelector.innerHTML = '<p class="text-xs text-slate-500">Enable split view once competitors are added.</p>';
                 canvas.dataset.split = 'false';
-                canvas.innerHTML = '<p class="text-sm text-slate-400">No competitor tab selected.</p>';
+                canvas.innerHTML = '<p class="text-sm text-slate-400">Вкладку конкурента не обрано.</p>';
             } else {
                 const tabsHtml = workspaceState.openTabs.map(tab => `
                     <div class="cih-tab" data-tab="${tab.competitorId}" data-active="${tab.competitorId === workspaceState.activeTabId}">
                         <label class="flex items-center gap-2">
-                            <input type="checkbox" data-bulk-select="${tab.competitorId}" ${workspaceState.bulkSelection.has(tab.competitorId) ? 'checked' : ''} title="Select for bulk actions">
+                            <input type="checkbox" data-bulk-select="${tab.competitorId}" ${workspaceState.bulkSelection.has(tab.competitorId) ? 'checked' : ''} title="Позначити для масових дій">
                             <button type="button" data-activate-tab="${tab.competitorId}"><i class="fas fa-chess-knight mr-1"></i>${tab.competitorName}</button>
                         </label>
                         <button type="button" data-close-tab="${tab.competitorId}" title="Close tab"><i class="fas fa-times"></i></button>
@@ -4023,7 +4109,7 @@ async function showCompetitorIntel() {
                             ${tab.competitorName}
                         </label>
                     `).join('');
-                    splitSelector.innerHTML = `${selectorHtml}<p class="text-xs text-slate-500">Select 2–4 tabs for side-by-side comparison.</p>`;
+                    splitSelector.innerHTML = `${selectorHtml}<p class="text-xs text-slate-500">Оберіть 2–4 вкладки для порівняння поруч.</p>`;
                 } else {
                     splitSelector.innerHTML = '<p class="text-xs text-slate-500">Toggle split view to compare multiple competitors or select tab checkboxes for bulk actions.</p>';
                 }
@@ -4043,17 +4129,17 @@ async function showCompetitorIntel() {
                             <div class="cih-workspace-column">
                                 <div class="cih-workspace-column-header">
                                     <span class="font-semibold text-slate-100">${tab.competitorName}</span>
-                                    <span class="text-xs text-slate-400">${competitor.tier || 'Tier 3'} • ${competitor.status || 'Monitoring'}</span>
+                                    <span class="text-xs text-slate-400">${translateTierLabel(competitor.tier) || 'Рівень 3'} • ${translateStatusLabel(competitor.status) || 'Моніторинг'}</span>
                                 </div>
                                 ${renderModulesForCanvas(tab, competitor, { split: true })}
                             </div>
                         `;
                     }).join('');
-                    canvas.innerHTML = splitColumns || '<p class="text-sm text-slate-400">No competitors selected for split view.</p>';
+                    canvas.innerHTML = splitColumns || '<p class="text-sm text-slate-400">Для розділеного режиму не обрано конкурентів.</p>';
                 } else {
                     canvas.dataset.split = 'false';
                     if (!activeTab) {
-                        canvas.innerHTML = '<p class="text-sm text-slate-400">Select a competitor tab to view modules.</p>';
+                        canvas.innerHTML = '<p class="text-sm text-slate-400">Оберіть вкладку конкурента, щоб переглянути модулі.</p>';
                     } else {
                         const competitor = context.competitorProfiles.find(item => item.id === activeTab.competitorId);
                         canvas.innerHTML = `
@@ -4061,9 +4147,9 @@ async function showCompetitorIntel() {
                                 <div class="cih-workspace-column-header">
                                     <div class="flex items-center gap-2">
                                         <span class="font-semibold text-slate-100">${activeTab.competitorName}</span>
-                                        <span class="cih-module-tag">${competitor?.tier || 'Tier 3'}</span>
+                                        <span class="cih-module-tag">${translateTierLabel(competitor?.tier) || 'Рівень 3'}</span>
                                     </div>
-                                    <span class="text-xs text-slate-400">Status: ${competitor?.status || 'Monitoring'}</span>
+                                    <span class="text-xs text-slate-400">Статус: ${translateStatusLabel(competitor?.status) || 'Моніторинг'}</span>
                                 </div>
                                 ${renderModulesForCanvas(activeTab, competitor)}
                             </div>
@@ -4073,7 +4159,7 @@ async function showCompetitorIntel() {
             }
 
             splitToggleButton.dataset.toggleSplitView = workspaceState.splitView ? 'true' : 'false';
-            splitToggleButton.innerHTML = `<i class="fas fa-columns"></i> Split view: ${workspaceState.splitView ? 'On' : 'Off'}`;
+            splitToggleButton.innerHTML = `<i class="fas fa-columns"></i> Розділений режим: ${workspaceState.splitView ? 'увімкнено' : 'вимкнено'}`;
         };
 
         const openWorkspaceTab = (competitorId, context, options = {}) => {
@@ -4146,19 +4232,19 @@ async function showCompetitorIntel() {
         const addTemplateToTabs = (templateId, context, options = {}) => {
             const template = getTemplateById(templateId);
             if (!template) {
-                showToast('Template not found', 'error');
+                showToast('Шаблон не знайдено', 'error');
                 return;
             }
             const { workspaceState } = context;
             if (!workspaceState.openTabs.length) {
-                showToast('Open a competitor tab before adding modules.', 'warning');
+                showToast('Відкрийте вкладку конкурента перед додаванням модулів.', 'warning');
                 return;
             }
             const targets = options.bulk
                 ? (workspaceState.bulkSelection.size ? workspaceState.openTabs.filter(tab => workspaceState.bulkSelection.has(tab.competitorId)) : workspaceState.openTabs)
                 : workspaceState.openTabs.filter(tab => tab.competitorId === workspaceState.activeTabId);
             if (!targets.length) {
-                showToast('Select a target tab for module insertion.', 'warning');
+                showToast('Оберіть вкладку для вставки модуля.', 'warning');
                 return;
             }
             targets.forEach(tab => {
@@ -4219,7 +4305,7 @@ async function showCompetitorIntel() {
         const handleSplitSelection = (competitorId, checked) => {
             if (checked) {
                 if (workspaceState.splitSelection.size >= 4) {
-                    showToast('Split view supports up to four competitors.', 'warning');
+                    showToast('Розділений режим підтримує до чотирьох конкурентів.', 'warning');
                     return false;
                 }
                 workspaceState.splitSelection.add(competitorId);
@@ -4308,7 +4394,7 @@ async function showCompetitorIntel() {
                     const notesInput = document.getElementById('cihCustomTemplateNotes');
                     const name = nameInput.value.trim();
                     if (!name) {
-                        showToast('Provide a name for the custom template.', 'warning');
+                        showToast('Вкажіть назву для користувацького шаблону.', 'warning');
                         return;
                     }
                     const type = typeSelect.value;
@@ -4318,16 +4404,16 @@ async function showCompetitorIntel() {
                         id: templateId,
                         type,
                         title: name,
-                        description: notes || 'Custom analyst template.',
+                        description: notes || 'Користувацький шаблон аналітика.',
                         defaultSize: 'medium',
                         defaultStatus: 'expanded',
                         permissions: ['view', 'edit', 'delete'],
                         build: competitor => ({
-                            summary: notes || 'Custom workspace insights.',
+                            summary: notes || 'Аналітичні нотатки робочого простору.',
                             context: {
-                                tier: competitor.tier || 'Tier 3',
-                                owner: competitor.intel_owner || 'Unassigned',
-                                lastMove: competitor.latest_move || competitor.enhancement?.pricing?.summary || 'No updates logged.'
+                                tier: translateTierLabel(competitor.tier) || 'Рівень 3',
+                                owner: competitor.intel_owner || 'Не призначено',
+                                lastMove: competitor.latest_move || competitor.enhancement?.pricing?.summary || 'Оновлень не зафіксовано.'
                             }
                         }),
                         render: module => {
@@ -4335,9 +4421,9 @@ async function showCompetitorIntel() {
                             return `
                                 <div class="cih-card">
                                     <p class="text-sm text-slate-100 font-medium">${module.title}</p>
-                                    <p class="text-xs text-slate-400">Owner: ${data.context?.owner || 'Unassigned'} · Tier: ${data.context?.tier || 'Tier 3'}</p>
+                                    <p class="text-xs text-slate-400">Відповідальний: ${data.context?.owner || 'Не призначено'} · Рівень: ${data.context?.tier || 'Рівень 3'}</p>
                                     <p class="text-sm text-slate-300 mt-2">${data.summary}</p>
-                                    <p class="text-xs text-slate-500 mt-2">Last move: ${data.context?.lastMove || '—'}</p>
+                                    <p class="text-xs text-slate-500 mt-2">Останній крок: ${data.context?.lastMove || '—'}</p>
                                 </div>
                             `;
                         }
@@ -4345,7 +4431,7 @@ async function showCompetitorIntel() {
                     workspaceState.customTemplates.push(customTemplate);
                     renderModuleLibrary(workspaceContext);
                     event.target.reset();
-                    showToast('Custom template saved to the library.', 'success');
+                    showToast('Користувацький шаблон збережено в бібліотеці.', 'success');
                 }
             });
         }
@@ -4362,7 +4448,7 @@ async function showCompetitorIntel() {
 
     } catch (error) {
         console.error('Error loading competitor intelligence hub:', error);
-        showToast('Failed to load competitor intelligence hub', 'error');
+        showToast('Не вдалося завантажити конкурентний хаб', 'error');
         hubView.innerHTML = `
             <div class="cih-section text-sm text-rose-200 border border-rose-500/40 bg-rose-500/10">
                 <p class="font-semibold">We could not load the competitor hub.</p>
@@ -4489,7 +4575,7 @@ async function loadTasks(page = 1, search, status, priority, type) {
 
     } catch (error) {
         console.error('Error loading tasks:', error);
-        showToast('Failed to load tasks', 'error');
+        showToast('Не вдалося завантажити задачі', 'error');
     } finally {
         hideLoading();
     }
@@ -4620,7 +4706,7 @@ async function loadActivities() {
         
     } catch (error) {
         console.error('Error loading activities:', error);
-        showToast('Failed to load activities', 'error');
+        showToast('Не вдалося завантажити активності', 'error');
     } finally {
         hideLoading();
     }
