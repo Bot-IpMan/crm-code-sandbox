@@ -301,6 +301,11 @@ let fileManagerInitialized = false;
 let fileManagerExpandedNodes = new Set();
 let fileManagerDragData = null;
 let fileManagerSearchQuery = '';
+let fileManagerSelectedItems = new Set();
+let fileManagerLastSelectedPath = null;
+let fileManagerContextMenuElement = null;
+let fileManagerContextMenuState = null;
+let fileManagerContextMenuInitialized = false;
 
 function showFiles() {
     showView('files');
@@ -317,6 +322,7 @@ function initializeFileManager() {
     if (!fileManagerInitialized) {
         buildFileManagerLayout();
         initializeTreeExpansion();
+        setupFileContextMenu();
         fileManagerInitialized = true;
     }
 
@@ -380,6 +386,7 @@ function buildFileManagerLayout() {
     filesView.querySelector('#filesCreateFolderBtn').addEventListener('click', () => openCreateItemModal('folder'));
     filesView.querySelector('#filesCreateFileBtn').addEventListener('click', () => openCreateItemModal('file'));
     filesView.querySelector('#filesList').addEventListener('click', handleFileListClick);
+    filesView.querySelector('#filesList').addEventListener('contextmenu', handleFileContextMenu);
     filesView.querySelector('#filesBreadcrumbs').addEventListener('click', handleBreadcrumbClick);
     filesView.querySelector('#filesList').addEventListener('dragstart', handleListDragStart);
     filesView.querySelector('#filesList').addEventListener('dragend', handleListDragEnd);
@@ -390,6 +397,7 @@ function buildFileManagerLayout() {
 
     const treeContainer = filesView.querySelector('#filesTree');
     treeContainer.addEventListener('click', handleTreeClick);
+    treeContainer.addEventListener('contextmenu', handleTreeContextMenu);
     treeContainer.addEventListener('dragenter', handleDropTargetDragEnter);
     treeContainer.addEventListener('dragover', handleDropTargetDragOver);
     treeContainer.addEventListener('dragleave', handleDropTargetDragLeave);
@@ -409,6 +417,9 @@ function renderFileManager() {
     if (!fileSystemState) {
         fileSystemState = cloneDefaultFileSystem();
     }
+
+    hideFileContextMenu();
+    cleanSelectedItems();
 
     const currentNode = getCurrentFolderNode();
     if (!currentNode) {
@@ -560,9 +571,16 @@ function renderFolderPreview(folderNode, pathSegments) {
         ? nestedChildren.map(child => renderNestedItem(child, pathSegments)).join('')
         : `<p class="text-xs text-gray-400 bg-white border border-dashed border-gray-200 rounded-md px-3 py-2">No items inside this folder yet.</p>`;
     const totalCount = nestedChildren.length;
+    const isSelected = fileManagerSelectedItems.has(folderPathKey);
+    const containerClasses = isSelected
+        ? 'border border-blue-300 rounded-lg shadow-sm transition bg-blue-50 ring-2 ring-blue-300'
+        : 'border border-gray-200 rounded-lg shadow-sm hover:border-blue-300 transition bg-white';
+    const actionButtonClasses = isSelected
+        ? 'px-3 py-1.5 text-xs font-semibold text-blue-700 bg-blue-100 rounded-md flex items-center gap-1 border border-blue-200'
+        : 'px-3 py-1.5 text-xs font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-md flex items-center gap-1';
 
     return `
-        <div class="border border-gray-200 rounded-lg shadow-sm hover:border-blue-300 transition bg-white" data-drop-path="${folderPathKey}">
+        <div class="${containerClasses}" data-drop-path="${folderPathKey}" data-item-path="${folderPathKey}" data-item-type="folder">
             <div class="flex items-start justify-between gap-3 p-3 pb-0">
                 <div class="flex items-center gap-3">
                     <span class="w-10 h-10 rounded-lg flex items-center justify-center bg-yellow-100 text-yellow-600">
@@ -573,7 +591,7 @@ function renderFolderPreview(folderNode, pathSegments) {
                         <p class="text-xs text-gray-500">${totalCount} item${totalCount === 1 ? '' : 's'} inside</p>
                     </div>
                 </div>
-                <button type="button" class="px-3 py-1.5 text-xs font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-md flex items-center gap-1"
+                <button type="button" class="${actionButtonClasses}"
                         data-name="${encodedName}" data-type="folder" data-item-path="${folderPathKey}" data-item-type="folder" draggable="true">
                     <i class="fas fa-folder-open text-xs"></i>
                     Open
@@ -598,10 +616,14 @@ function renderNestedItem(node, parentPathSegments) {
     const childCount = Array.isArray(node.children) ? node.children.length : 0;
     const detailLabel = isFolder ? `${childCount} item${childCount === 1 ? '' : 's'}` : 'Markdown file';
     const grandchildrenPreview = isFolder ? renderGrandchildrenPreview(node, itemPathSegments) : '';
+    const isSelected = fileManagerSelectedItems.has(itemPathKey);
+    const buttonClasses = isSelected
+        ? 'w-full flex items-center justify-between gap-3 px-3 py-2 bg-blue-50 rounded-md border border-blue-300 ring-2 ring-blue-300 text-left'
+        : 'w-full flex items-center justify-between gap-3 px-3 py-2 bg-white rounded-md border border-gray-200 hover:border-blue-300 hover:bg-blue-50 transition text-left';
 
     return `
         <div class="space-y-2">
-            <button type="button" class="w-full flex items-center justify-between gap-3 px-3 py-2 bg-white rounded-md border border-gray-200 hover:border-blue-300 hover:bg-blue-50 transition text-left"
+            <button type="button" class="${buttonClasses}"
                     data-name="${encodedName}" data-type="${node.type}" data-item-path="${itemPathKey}" data-item-type="${node.type}" ${dropAttribute} draggable="true">
                 <div class="flex items-center gap-3">
                     <span class="w-8 h-8 rounded-md flex items-center justify-center ${accent}">
@@ -656,15 +678,278 @@ function renderGrandchildChip(node, pathSegments) {
         ? `${childCount} item${childCount === 1 ? '' : 's'}`
         : 'Markdown file';
     const dropAttribute = isFolder ? `data-drop-path="${childPathKey}"` : '';
+    const isSelected = fileManagerSelectedItems.has(childPathKey);
+    const selectionClasses = isSelected
+        ? 'ring-2 ring-blue-300 bg-blue-50 border-blue-200 text-blue-700'
+        : chipClasses;
 
     return `
-        <button type="button" class="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium ${chipClasses} hover:bg-blue-100 hover:text-blue-700 transition"
+        <button type="button" class="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium ${selectionClasses} hover:bg-blue-100 hover:text-blue-700 transition"
                 data-name="${encodedName}" data-type="${node.type}" data-item-path="${childPathKey}" data-item-type="${node.type}" ${dropAttribute} draggable="true">
             <i class="fas ${icon}"></i>
             <span class="truncate max-w-[160px]">${safeName}</span>
             <span class="text-[10px] uppercase tracking-wide text-gray-400">${detailLabel}</span>
         </button>
     `;
+}
+
+function getSelectedPaths() {
+    return Array.from(fileManagerSelectedItems);
+}
+
+function setSelectedPaths(paths, anchorPath = null, options = {}) {
+    const { render = true } = options;
+    const sanitized = Array.isArray(paths) ? paths.filter(Boolean) : [];
+    fileManagerSelectedItems = new Set(sanitized);
+    if (anchorPath && sanitized.includes(anchorPath)) {
+        fileManagerLastSelectedPath = anchorPath;
+    } else {
+        fileManagerLastSelectedPath = sanitized.length > 0 ? sanitized[sanitized.length - 1] : null;
+    }
+    if (render) {
+        renderFileManager();
+    }
+}
+
+function clearSelectedPaths() {
+    setSelectedPaths([]);
+}
+
+function getVisibleItemPathKeys() {
+    const listContainer = document.getElementById('filesList');
+    if (!listContainer) {
+        return [];
+    }
+    const buttons = listContainer.querySelectorAll('button[data-item-path]');
+    return Array.from(buttons).map(button => button.getAttribute('data-item-path') || '');
+}
+
+function resetSelectionState() {
+    fileManagerSelectedItems = new Set();
+    fileManagerLastSelectedPath = null;
+}
+
+function cleanSelectedItems() {
+    if (!fileManagerSelectedItems || fileManagerSelectedItems.size === 0) {
+        return;
+    }
+
+    const validKeys = [];
+    fileManagerSelectedItems.forEach(pathKey => {
+        const segments = parsePathKey(pathKey);
+        if (getNodeByPath(segments)) {
+            validKeys.push(pathKey);
+        }
+    });
+
+    if (validKeys.length === fileManagerSelectedItems.size) {
+        return;
+    }
+
+    fileManagerSelectedItems = new Set(validKeys);
+    if (validKeys.includes(fileManagerLastSelectedPath)) {
+        fileManagerLastSelectedPath = fileManagerLastSelectedPath;
+    } else {
+        fileManagerLastSelectedPath = validKeys.length > 0 ? validKeys[validKeys.length - 1] : null;
+    }
+}
+
+function setupFileContextMenu() {
+    if (fileManagerContextMenuInitialized) {
+        return;
+    }
+
+    fileManagerContextMenuElement = document.createElement('div');
+    fileManagerContextMenuElement.id = 'fileManagerContextMenu';
+    fileManagerContextMenuElement.className = 'fixed z-50 bg-white border border-gray-200 rounded-lg shadow-lg min-w-[200px] text-sm';
+    fileManagerContextMenuElement.innerHTML = `
+        <div class="py-2">
+            <button type="button" data-action="open" class="w-full px-4 py-2 flex items-center gap-2 text-left hover:bg-blue-50">
+                <i class="fas fa-up-right-from-square text-xs text-gray-400"></i>
+                <span>Open</span>
+            </button>
+            <button type="button" data-action="rename" class="w-full px-4 py-2 flex items-center gap-2 text-left hover:bg-blue-50">
+                <i class="fas fa-pen text-xs text-gray-400"></i>
+                <span>Rename</span>
+            </button>
+            <button type="button" data-action="delete" class="w-full px-4 py-2 flex items-center gap-2 text-left hover:bg-red-50 text-red-600">
+                <i class="fas fa-trash-can text-xs"></i>
+                <span>Delete</span>
+            </button>
+        </div>
+    `;
+    document.body.appendChild(fileManagerContextMenuElement);
+    fileManagerContextMenuElement.style.display = 'none';
+
+    fileManagerContextMenuElement.addEventListener('click', handleContextMenuAction);
+    document.addEventListener('click', event => {
+        if (!fileManagerContextMenuElement || fileManagerContextMenuElement.style.display === 'none') {
+            return;
+        }
+        if (!fileManagerContextMenuElement.contains(event.target)) {
+            hideFileContextMenu();
+        }
+    });
+    window.addEventListener('resize', hideFileContextMenu);
+    window.addEventListener('blur', hideFileContextMenu);
+
+    fileManagerContextMenuInitialized = true;
+}
+
+function handleFileContextMenu(event) {
+    const target = event.target.closest('[data-item-path]');
+    if (!target) {
+        hideFileContextMenu();
+        return;
+    }
+
+    event.preventDefault();
+    const pathKey = target.getAttribute('data-item-path') || '';
+    const itemType = target.getAttribute('data-item-type') || target.dataset.type || 'file';
+    const alreadySelected = fileManagerSelectedItems.has(pathKey);
+    const clickX = event.clientX;
+    const clickY = event.clientY;
+
+    if (!alreadySelected) {
+        setSelectedPaths([pathKey], pathKey, { render: true });
+    }
+
+    showFileContextMenu(clickX, clickY, {
+        anchorPath: pathKey,
+        targetType: itemType,
+        paths: alreadySelected ? getSelectedPaths() : [pathKey],
+        source: 'list'
+    });
+}
+
+function handleTreeContextMenu(event) {
+    const selectButton = event.target.closest('[data-tree-action="select"]');
+    if (!selectButton) {
+        return;
+    }
+
+    event.preventDefault();
+    const pathKey = selectButton.getAttribute('data-path') || '';
+    showFileContextMenu(event.clientX, event.clientY, {
+        anchorPath: pathKey,
+        targetType: 'folder',
+        paths: [pathKey],
+        source: 'tree'
+    });
+}
+
+function showFileContextMenu(x, y, context) {
+    if (!fileManagerContextMenuElement) {
+        return;
+    }
+
+    fileManagerContextMenuState = context;
+    updateContextMenuOptions();
+
+    fileManagerContextMenuElement.style.display = 'block';
+    fileManagerContextMenuElement.style.visibility = 'hidden';
+    fileManagerContextMenuElement.style.left = '0px';
+    fileManagerContextMenuElement.style.top = '0px';
+
+    const { offsetWidth, offsetHeight } = fileManagerContextMenuElement;
+    const viewportWidth = window.innerWidth || document.documentElement.clientWidth;
+    const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
+    const adjustedX = Math.max(8, Math.min(x, viewportWidth - offsetWidth - 8));
+    const adjustedY = Math.max(8, Math.min(y, viewportHeight - offsetHeight - 8));
+
+    fileManagerContextMenuElement.style.left = `${adjustedX}px`;
+    fileManagerContextMenuElement.style.top = `${adjustedY}px`;
+    fileManagerContextMenuElement.style.visibility = 'visible';
+}
+
+function hideFileContextMenu() {
+    if (fileManagerContextMenuElement) {
+        fileManagerContextMenuElement.style.display = 'none';
+        fileManagerContextMenuElement.style.visibility = 'hidden';
+    }
+    fileManagerContextMenuState = null;
+}
+
+function updateContextMenuOptions() {
+    if (!fileManagerContextMenuElement || !fileManagerContextMenuState) {
+        return;
+    }
+
+    const { paths, targetType } = fileManagerContextMenuState;
+    const singleSelection = paths.length === 1;
+    const anchorSegments = singleSelection ? parsePathKey(paths[0]) : [];
+    const isRoot = singleSelection && anchorSegments.length === 0;
+
+    const openButton = fileManagerContextMenuElement.querySelector('[data-action="open"]');
+    const renameButton = fileManagerContextMenuElement.querySelector('[data-action="rename"]');
+    const deleteButton = fileManagerContextMenuElement.querySelector('[data-action="delete"]');
+
+    setContextMenuButtonState(openButton, singleSelection);
+    const canRename = singleSelection && !isRoot;
+    setContextMenuButtonState(renameButton, canRename);
+
+    const canDelete = paths.every(pathKey => parsePathKey(pathKey).length > 0);
+    setContextMenuButtonState(deleteButton, canDelete);
+
+    if (openButton) {
+        openButton.querySelector('span').textContent = targetType === 'folder' ? 'Open' : 'Open';
+    }
+}
+
+function setContextMenuButtonState(button, enabled) {
+    if (!button) {
+        return;
+    }
+    if (enabled) {
+        button.disabled = false;
+        button.classList.remove('opacity-50', 'cursor-not-allowed');
+    } else {
+        button.disabled = true;
+        button.classList.add('opacity-50', 'cursor-not-allowed');
+    }
+}
+
+function handleContextMenuAction(event) {
+    const actionButton = event.target.closest('button[data-action]');
+    if (!actionButton || !fileManagerContextMenuState) {
+        return;
+    }
+
+    const { action } = actionButton.dataset;
+    const { paths, targetType } = fileManagerContextMenuState;
+    hideFileContextMenu();
+
+    if (action === 'open' && paths.length === 1) {
+        openItemFromContext(paths[0], targetType);
+    } else if (action === 'rename' && paths.length === 1) {
+        openRenameModal(paths[0]);
+    } else if (action === 'delete' && paths.length > 0) {
+        openDeleteConfirmation(paths);
+    }
+}
+
+function openItemFromContext(pathKey, fallbackType) {
+    const segments = parsePathKey(pathKey);
+    const node = getNodeByPath(segments);
+    const targetType = node ? node.type : fallbackType;
+
+    if (targetType === 'folder') {
+        resetSelectionState();
+        fileManagerCurrentPath = segments;
+        expandTreeForPath(segments);
+        fileManagerSearchQuery = '';
+        renderFileManager();
+    } else if (targetType === 'file') {
+        const fileName = segments[segments.length - 1];
+        if (!fileName) {
+            return;
+        }
+        const previousPath = [...fileManagerCurrentPath];
+        const parentSegments = segments.slice(0, -1);
+        fileManagerCurrentPath = parentSegments;
+        openFilePreviewModal(fileName);
+        fileManagerCurrentPath = previousPath;
+    }
 }
 
 function handleFileSearchInput(event) {
@@ -714,9 +999,13 @@ function renderSearchResultRow(result, query) {
     const rootName = fileSystemState.name || DEFAULT_FILE_SYSTEM.name;
     const breadcrumbPath = '/' + [rootName, ...path].join('/');
     const safePath = escapeHtml(breadcrumbPath);
+    const isSelected = fileManagerSelectedItems.has(itemPathKey);
+    const buttonClasses = isSelected
+        ? 'w-full flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 px-4 py-3 bg-blue-50 ring-2 ring-blue-300 border border-blue-300 focus:outline-none text-left'
+        : 'w-full flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 px-4 py-3 hover:bg-blue-50 focus:outline-none focus:bg-blue-100 transition text-left';
 
     return `
-        <button type="button" class="w-full flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 px-4 py-3 hover:bg-blue-50 focus:outline-none focus:bg-blue-100 transition text-left"
+        <button type="button" class="${buttonClasses}"
                 data-name="${encodedName}" data-type="${node.type}" data-item-path="${itemPathKey}" data-item-type="${node.type}" ${dropAttribute} draggable="true">
             <div class="flex items-start gap-3">
                 <span class="w-9 h-9 rounded-md flex items-center justify-center ${accent}">
@@ -871,6 +1160,7 @@ function handleTreeClick(event) {
 
     const pathKey = selectButton.getAttribute('data-path') || '';
     const segments = parsePathKey(pathKey);
+    resetSelectionState();
     fileManagerCurrentPath = segments;
     fileManagerExpandedNodes.add(pathKey);
     expandTreeForPath(segments);
@@ -885,23 +1175,35 @@ function handleListDragStart(event) {
     }
 
     const pathKey = dragSource.getAttribute('data-item-path');
-    const itemType = dragSource.getAttribute('data-item-type');
-    if (!pathKey || !itemType) {
+    if (!pathKey) {
         return;
     }
 
-    fileManagerDragData = { pathKey, type: itemType };
+    const selectedPaths = (fileManagerSelectedItems.has(pathKey) && fileManagerSelectedItems.size > 0)
+        ? getSelectedPaths()
+        : [pathKey];
+
+    const dragElements = [];
+    const listContainer = document.getElementById('filesList');
+    if (listContainer) {
+        selectedPaths.forEach(selectedPath => {
+            const elements = Array.from(listContainer.querySelectorAll('[data-item-path]'))
+                .filter(element => (element.getAttribute('data-item-path') || '') === selectedPath);
+            dragElements.push(...elements);
+        });
+    }
+
+    fileManagerDragData = { pathKeys: selectedPaths, dragElements };
     if (event.dataTransfer) {
         event.dataTransfer.effectAllowed = 'move';
-        event.dataTransfer.setData('text/plain', pathKey);
+        event.dataTransfer.setData('text/plain', selectedPaths.join(','));
     }
-    dragSource.classList.add('opacity-60');
+    dragElements.forEach(element => element.classList.add('opacity-60'));
 }
 
 function handleListDragEnd(event) {
-    const dragSource = event.target.closest('[data-item-path]');
-    if (dragSource) {
-        dragSource.classList.remove('opacity-60');
+    if (fileManagerDragData && Array.isArray(fileManagerDragData.dragElements)) {
+        fileManagerDragData.dragElements.forEach(element => element.classList.remove('opacity-60'));
     }
     fileManagerDragData = null;
     clearDropIndicators();
@@ -966,7 +1268,7 @@ function handleDropOnTarget(event) {
     }
 
     event.preventDefault();
-    const success = moveItem(fileManagerDragData.pathKey, pathKey);
+    const success = moveItems(fileManagerDragData.pathKeys, pathKey);
     if (success) {
         fileManagerDragData = null;
     }
@@ -993,67 +1295,157 @@ function clearDropIndicators() {
 }
 
 function canDropOnTarget(dragData, targetPathKey) {
-    if (!dragData || !targetPathKey && targetPathKey !== '') {
+    if (!dragData || !Array.isArray(dragData.pathKeys) || targetPathKey === null || targetPathKey === undefined) {
         return false;
     }
 
     const targetSegments = parsePathKey(targetPathKey);
-    const targetFolder = getFolderNodeFromPath(targetSegments);
-    if (!targetFolder) {
+    const validation = validateMoveOperation(dragData.pathKeys, targetSegments, { silent: true });
+    return validation.valid;
+}
+
+function moveItems(itemPathKeys, targetPathKey) {
+    if (!Array.isArray(itemPathKeys) || itemPathKeys.length === 0) {
         return false;
     }
 
-    const itemSegments = parsePathKey(dragData.pathKey);
-    if (itemSegments.length === 0) {
+    const uniqueKeys = normalizeMovePaths(itemPathKeys);
+    const targetSegments = parsePathKey(targetPathKey);
+    const validation = validateMoveOperation(uniqueKeys, targetSegments, { silent: false });
+    if (!validation.valid) {
+        if (validation.message) {
+            showToast(validation.message, validation.level || 'error');
+        }
         return false;
     }
 
-    const parentSegments = itemSegments.slice(0, -1);
-    if (pathsEqual(parentSegments, targetSegments)) {
-        return false;
-    }
+    const targetFolder = validation.targetFolder;
+    const newSelectionKeys = [];
+    const movedNames = [];
 
-    if (dragData.type === 'folder' && isDescendantPath(targetSegments, itemSegments)) {
-        return false;
-    }
+    uniqueKeys.forEach(pathKey => {
+        const newKey = moveSingleItem(pathKey, targetSegments, targetFolder);
+        if (newKey) {
+            newSelectionKeys.push(newKey);
+            const segments = parsePathKey(newKey);
+            movedNames.push(segments[segments.length - 1]);
+        }
+    });
 
+    fileManagerExpandedNodes.add(targetPathKey);
+    fileManagerSelectedItems = new Set(newSelectionKeys);
+    fileManagerLastSelectedPath = newSelectionKeys.length > 0 ? newSelectionKeys[newSelectionKeys.length - 1] : null;
+    saveFileSystemState(fileSystemState);
+    renderFileManager();
+
+    if (movedNames.length === 1) {
+        showToast(`Moved "${movedNames[0]}" successfully.`, 'success');
+    } else if (movedNames.length > 1) {
+        showToast(`Moved ${movedNames.length} items successfully.`, 'success');
+    }
     return true;
 }
 
-function moveItem(itemPathKey, targetPathKey) {
-    const itemSegments = parsePathKey(itemPathKey);
-    const targetSegments = parsePathKey(targetPathKey);
+function normalizeMovePaths(pathKeys) {
+    const unique = Array.from(new Set(pathKeys.filter(Boolean)));
+    unique.sort((a, b) => parsePathKey(a).length - parsePathKey(b).length);
+    return unique.filter((pathKey, index) => {
+        const segments = parsePathKey(pathKey);
+        return !unique.some((otherKey, otherIndex) => {
+            if (otherIndex === index) {
+                return false;
+            }
+            const otherSegments = parsePathKey(otherKey);
+            if (otherSegments.length >= segments.length) {
+                return false;
+            }
+            return isDescendantPath(segments, otherSegments);
+        });
+    });
+}
 
+function validateMoveOperation(pathKeys, targetSegments, options = {}) {
+    const { silent = false } = options;
+    const result = { valid: false, message: '', level: 'error', targetFolder: null };
+
+    const targetFolder = getFolderNodeFromPath(targetSegments);
+    if (!targetFolder) {
+        if (!silent) {
+            result.message = 'Unable to locate the destination folder.';
+        }
+        return result;
+    }
+
+    const existingNames = new Set((targetFolder.children || []).map(child => child.name.toLowerCase()));
+    const incomingNames = new Set();
+
+    for (const pathKey of pathKeys) {
+        const itemSegments = parsePathKey(pathKey);
+        if (itemSegments.length === 0) {
+            if (!silent) {
+                result.message = 'Unable to move the selected item.';
+            }
+            return result;
+        }
+
+        const itemName = itemSegments[itemSegments.length - 1];
+        const sourceSegments = itemSegments.slice(0, -1);
+        const node = getNodeByPath(itemSegments);
+        if (!node) {
+            if (!silent) {
+                result.message = 'Unable to move the selected item.';
+            }
+            return result;
+        }
+
+        if (pathsEqual(sourceSegments, targetSegments)) {
+            if (!silent) {
+                result.message = 'The item is already in this folder.';
+                result.level = 'info';
+            }
+            return result;
+        }
+
+        if (node.type === 'folder' && isDescendantPath(targetSegments, itemSegments)) {
+            if (!silent) {
+                result.message = 'You cannot move a folder into itself.';
+                result.level = 'warning';
+            }
+            return result;
+        }
+
+        const lowerName = itemName.toLowerCase();
+        if (existingNames.has(lowerName) || incomingNames.has(lowerName)) {
+            if (!silent) {
+                result.message = 'The destination already contains an item with this name.';
+                result.level = 'warning';
+            }
+            return result;
+        }
+        incomingNames.add(lowerName);
+    }
+
+    result.valid = true;
+    result.targetFolder = targetFolder;
+    return result;
+}
+
+function moveSingleItem(pathKey, targetSegments, targetFolder) {
+    const itemSegments = parsePathKey(pathKey);
     const itemName = itemSegments[itemSegments.length - 1];
     const sourceSegments = itemSegments.slice(0, -1);
     const sourceFolder = getFolderNodeFromPath(sourceSegments);
-    const targetFolder = getFolderNodeFromPath(targetSegments);
 
-    if (!sourceFolder || !targetFolder || !itemName) {
-        showToast('Unable to move the selected item.', 'error');
-        return false;
+    if (!sourceFolder || !itemName) {
+        return null;
     }
 
     const itemIndex = (sourceFolder.children || []).findIndex(child => child.name === itemName);
     if (itemIndex === -1) {
-        showToast('Unable to move the selected item.', 'error');
-        return false;
+        return null;
     }
 
-    const itemNode = sourceFolder.children[itemIndex];
-
-    if (itemNode.type === 'folder' && isDescendantPath(targetSegments, itemSegments)) {
-        showToast('You cannot move a folder into itself.', 'warning');
-        return false;
-    }
-
-    const duplicate = (targetFolder.children || []).some(child => child.name.toLowerCase() === itemName.toLowerCase());
-    if (duplicate) {
-        showToast('The destination already contains an item with this name.', 'warning');
-        return false;
-    }
-
-    sourceFolder.children.splice(itemIndex, 1);
+    const [itemNode] = sourceFolder.children.splice(itemIndex, 1);
     if (!Array.isArray(targetFolder.children)) {
         targetFolder.children = [];
     }
@@ -1061,20 +1453,112 @@ function moveItem(itemPathKey, targetPathKey) {
     sortChildren(targetFolder.children);
     sortChildren(sourceFolder.children);
 
+    const newSegments = [...targetSegments, itemName];
     if (itemNode.type === 'folder') {
-        const previousKey = itemPathKey;
-        const newFolderKey = createPathKey([...targetSegments, itemName]);
-        if (fileManagerExpandedNodes.has(previousKey)) {
-            fileManagerExpandedNodes.delete(previousKey);
-            fileManagerExpandedNodes.add(newFolderKey);
-        }
+        remapExpandedNodeKeys(itemSegments, newSegments);
     }
 
-    fileManagerExpandedNodes.add(targetPathKey);
-    saveFileSystemState(fileSystemState);
-    renderFileManager();
-    showToast(`Moved "${itemName}" successfully.`, 'success');
-    return true;
+    return createPathKey(newSegments);
+}
+
+function remapExpandedNodeKeys(oldSegments, newSegments) {
+    const oldKey = createPathKey(oldSegments);
+    const newKey = createPathKey(newSegments);
+    const updated = new Set();
+
+    fileManagerExpandedNodes.forEach(existingKey => {
+        if (existingKey === oldKey) {
+            updated.add(newKey);
+            return;
+        }
+        if (oldKey && existingKey.startsWith(`${oldKey}/`)) {
+            const suffix = existingKey.slice(oldKey.length + 1);
+            updated.add(`${newKey}/${suffix}`);
+            return;
+        }
+        updated.add(existingKey);
+    });
+
+    fileManagerExpandedNodes = updated;
+}
+
+function remapSelectionKeys(oldSegments, newSegments, isFolder) {
+    const oldKey = createPathKey(oldSegments);
+    const newKey = createPathKey(newSegments);
+    const updated = new Set();
+
+    fileManagerSelectedItems.forEach(pathKey => {
+        if (pathKey === oldKey) {
+            updated.add(newKey);
+            return;
+        }
+        if (isFolder && oldKey && pathKey.startsWith(`${oldKey}/`)) {
+            const suffix = pathKey.slice(oldKey.length + 1);
+            updated.add(`${newKey}/${suffix}`);
+            return;
+        }
+        updated.add(pathKey);
+    });
+
+    fileManagerSelectedItems = updated;
+    if (fileManagerLastSelectedPath === oldKey) {
+        fileManagerLastSelectedPath = newKey;
+    } else if (isFolder && fileManagerLastSelectedPath && fileManagerLastSelectedPath.startsWith(`${oldKey}/`)) {
+        const suffix = fileManagerLastSelectedPath.slice(oldKey.length + 1);
+        fileManagerLastSelectedPath = `${newKey}/${suffix}`;
+    }
+}
+
+function remapCurrentPath(oldSegments, newSegments) {
+    if (fileManagerCurrentPath.length < oldSegments.length) {
+        return;
+    }
+    const prefix = fileManagerCurrentPath.slice(0, oldSegments.length);
+    if (pathsEqual(prefix, oldSegments)) {
+        const remainder = fileManagerCurrentPath.slice(oldSegments.length);
+        fileManagerCurrentPath = [...newSegments, ...remainder];
+    }
+}
+
+function removeSelectionForDeletedPath(segments, isFolder) {
+    const targetKey = createPathKey(segments);
+    const updated = new Set();
+    fileManagerSelectedItems.forEach(pathKey => {
+        if (pathKey === targetKey) {
+            return;
+        }
+        if (isFolder && targetKey && pathKey.startsWith(`${targetKey}/`)) {
+            return;
+        }
+        updated.add(pathKey);
+    });
+    fileManagerSelectedItems = updated;
+    if (fileManagerLastSelectedPath === targetKey || (isFolder && fileManagerLastSelectedPath && fileManagerLastSelectedPath.startsWith(`${targetKey}/`))) {
+        const remaining = Array.from(updated);
+        fileManagerLastSelectedPath = remaining.length > 0 ? remaining[remaining.length - 1] : null;
+    }
+}
+
+function removeExpandedNodesForDeletedPath(segments) {
+    const targetKey = createPathKey(segments);
+    const updated = new Set();
+    fileManagerExpandedNodes.forEach(key => {
+        if (key === targetKey || (targetKey && key.startsWith(`${targetKey}/`))) {
+            return;
+        }
+        updated.add(key);
+    });
+    fileManagerExpandedNodes = updated;
+}
+
+function adjustCurrentPathAfterDeletion(segments) {
+    if (fileManagerCurrentPath.length < segments.length) {
+        return;
+    }
+    const prefix = fileManagerCurrentPath.slice(0, segments.length);
+    if (pathsEqual(prefix, segments)) {
+        fileManagerCurrentPath = fileManagerCurrentPath.slice(0, segments.length - 1);
+    }
 }
 
 function createPathKey(segments) {
@@ -1110,6 +1594,46 @@ function getFolderNodeFromPath(pathSegments) {
     return node;
 }
 
+function getNodeByPath(pathSegments) {
+    if (!fileSystemState || !Array.isArray(pathSegments)) {
+        return null;
+    }
+
+    let node = fileSystemState;
+    if (pathSegments.length === 0) {
+        return node;
+    }
+
+    for (const segment of pathSegments) {
+        if (!node || !Array.isArray(node.children)) {
+            return null;
+        }
+        const nextNode = node.children.find(child => child.name === segment);
+        if (!nextNode) {
+            return null;
+        }
+        node = nextNode;
+    }
+
+    return node;
+}
+
+function findNodeAndParent(pathSegments) {
+    if (!Array.isArray(pathSegments) || pathSegments.length === 0) {
+        return { node: fileSystemState, parent: null };
+    }
+
+    const parentSegments = pathSegments.slice(0, -1);
+    const parentNode = parentSegments.length === 0 ? fileSystemState : getFolderNodeFromPath(parentSegments);
+    if (!parentNode || !Array.isArray(parentNode.children)) {
+        return { node: null, parent: null };
+    }
+
+    const nodeName = pathSegments[pathSegments.length - 1];
+    const node = parentNode.children.find(child => child.name === nodeName) || null;
+    return { node, parent: parentNode };
+}
+
 function pathsEqual(a, b) {
     if (a.length !== b.length) {
         return false;
@@ -1132,6 +1656,9 @@ function isDescendantPath(targetSegments, itemSegments) {
 function handleFileListClick(event) {
     const button = event.target.closest('button[data-name]');
     if (!button) {
+        if (!event.ctrlKey && !event.metaKey && !event.shiftKey && fileManagerSelectedItems.size > 0) {
+            clearSelectedPaths();
+        }
         return;
     }
 
@@ -1139,6 +1666,13 @@ function handleFileListClick(event) {
     const itemType = button.dataset.type;
     const itemPathKey = button.getAttribute('data-item-path') || '';
     const itemPathSegments = parsePathKey(itemPathKey);
+
+    if (event.shiftKey || event.ctrlKey || event.metaKey) {
+        handleListSelectionClick(itemPathKey, event);
+        return;
+    }
+
+    setSelectedPaths([itemPathKey], itemPathKey);
 
     if (itemType === 'folder') {
         fileManagerCurrentPath = itemPathSegments;
@@ -1153,6 +1687,40 @@ function handleFileListClick(event) {
         }
         openFilePreviewModal(itemName);
         fileManagerCurrentPath = previousPath;
+    }
+}
+
+function handleListSelectionClick(pathKey, event) {
+    if (!pathKey) {
+        return;
+    }
+
+    const visiblePaths = getVisibleItemPathKeys();
+    if (event.shiftKey) {
+        const anchor = fileManagerLastSelectedPath && visiblePaths.includes(fileManagerLastSelectedPath)
+            ? fileManagerLastSelectedPath
+            : pathKey;
+        const anchorIndex = visiblePaths.indexOf(anchor);
+        const targetIndex = visiblePaths.indexOf(pathKey);
+        if (anchorIndex === -1 || targetIndex === -1) {
+            setSelectedPaths([pathKey], pathKey);
+            return;
+        }
+        const start = Math.min(anchorIndex, targetIndex);
+        const end = Math.max(anchorIndex, targetIndex);
+        const range = visiblePaths.slice(start, end + 1);
+        setSelectedPaths(range, pathKey);
+        return;
+    }
+
+    const current = getSelectedPaths();
+    if (current.includes(pathKey)) {
+        const remaining = current.filter(item => item !== pathKey);
+        setSelectedPaths(remaining, remaining.length > 0 ? remaining[remaining.length - 1] : null);
+    } else {
+        const combined = [...current, pathKey];
+        combined.sort((a, b) => visiblePaths.indexOf(a) - visiblePaths.indexOf(b));
+        setSelectedPaths(combined, pathKey);
     }
 }
 
@@ -1304,6 +1872,188 @@ function openFilePreviewModal(fileName) {
     `;
 
     showModal(`Preview: ${fileName}`, modalContent);
+}
+
+function openRenameModal(pathKey) {
+    const segments = parsePathKey(pathKey);
+    if (segments.length === 0) {
+        showToast('You cannot rename the vault root.', 'warning');
+        return;
+    }
+
+    const { node, parent } = findNodeAndParent(segments);
+    if (!node || !parent) {
+        showToast('Unable to rename this item.', 'error');
+        return;
+    }
+
+    const safeCurrentName = escapeHtml(node.name);
+    const isFolder = node.type === 'folder';
+    const modalTitle = isFolder ? 'Rename Folder' : 'Rename File';
+    const modalContent = `
+        <form id="fileManagerRenameForm" class="space-y-5">
+            <div>
+                <label for="fileManagerRenameInput" class="block text-sm font-medium text-gray-700">New name</label>
+                <input type="text" id="fileManagerRenameInput" name="fileManagerRenameInput"
+                       class="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                       value="${safeCurrentName}" autocomplete="off">
+                <p id="fileManagerRenameError" class="text-xs text-red-500 mt-2 hidden"></p>
+            </div>
+            <div class="flex justify-end space-x-3">
+                <button type="button" class="px-4 py-2 border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50" onclick="closeModal()">Cancel</button>
+                <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Rename</button>
+            </div>
+        </form>
+    `;
+
+    showModal(modalTitle, modalContent);
+
+    const form = document.getElementById('fileManagerRenameForm');
+    const input = document.getElementById('fileManagerRenameInput');
+    const errorLabel = document.getElementById('fileManagerRenameError');
+    if (input) {
+        input.focus();
+        input.select();
+        input.addEventListener('input', () => {
+            if (errorLabel) {
+                errorLabel.classList.add('hidden');
+                errorLabel.textContent = '';
+            }
+        });
+    }
+
+    form.addEventListener('submit', event => {
+        event.preventDefault();
+        if (!input) {
+            return;
+        }
+
+        const rawValue = input.value.trim();
+        if (!rawValue) {
+            showFieldError(errorLabel, 'Please enter a name.');
+            return;
+        }
+        if (/[\\\/]/.test(rawValue)) {
+            showFieldError(errorLabel, 'Names cannot include \\ or /.');
+            return;
+        }
+        if (rawValue === '.' || rawValue === '..') {
+            showFieldError(errorLabel, 'Please choose a different name.');
+            return;
+        }
+        if (rawValue === node.name) {
+            closeModal();
+            return;
+        }
+
+        const siblingConflict = (parent.children || []).some(child => child !== node && child.name.toLowerCase() === rawValue.toLowerCase());
+        if (siblingConflict) {
+            showFieldError(errorLabel, 'Another item with this name already exists.');
+            return;
+        }
+
+        const newSegments = [...segments.slice(0, -1), rawValue];
+        const oldSegments = [...segments];
+        node.name = rawValue;
+        sortChildren(parent.children);
+
+        if (isFolder) {
+            remapExpandedNodeKeys(oldSegments, newSegments);
+            remapSelectionKeys(oldSegments, newSegments, true);
+            remapCurrentPath(oldSegments, newSegments);
+        } else {
+            remapSelectionKeys(oldSegments, newSegments, false);
+        }
+
+        saveFileSystemState(fileSystemState);
+        closeModal();
+        renderFileManager();
+        showToast(`Renamed to "${rawValue}" successfully.`, 'success');
+    });
+}
+
+function openDeleteConfirmation(pathKeys) {
+    const normalizedKeys = normalizeMovePaths(pathKeys).filter(Boolean);
+    if (normalizedKeys.length === 0) {
+        return;
+    }
+
+    const items = normalizedKeys.map(pathKey => {
+        const segments = parsePathKey(pathKey);
+        const node = getNodeByPath(segments);
+        const name = node ? node.name : segments[segments.length - 1] || 'Unknown item';
+        const safeName = escapeHtml(name);
+        const typeLabel = node && node.type === 'folder' ? 'Folder' : 'File';
+        return `<li class="flex items-center justify-between gap-3 px-3 py-2 bg-gray-50 rounded-md border border-gray-200">
+            <span class="font-medium text-gray-700">${safeName}</span>
+            <span class="text-xs uppercase tracking-wide text-gray-400">${typeLabel}</span>
+        </li>`;
+    }).join('');
+
+    const summary = normalizedKeys.length === 1
+        ? 'Are you sure you want to delete this item? This action cannot be undone.'
+        : `Are you sure you want to delete these ${normalizedKeys.length} items? This action cannot be undone.`;
+
+    const modalContent = `
+        <div class="space-y-5 text-sm text-gray-600">
+            <p>${summary}</p>
+            <ul class="space-y-2 max-h-48 overflow-y-auto">${items}</ul>
+            <div class="flex justify-end space-x-3">
+                <button type="button" class="px-4 py-2 border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50" onclick="closeModal()">Cancel</button>
+                <button type="button" id="fileManagerDeleteConfirm" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">Delete</button>
+            </div>
+        </div>
+    `;
+
+    showModal('Delete items', modalContent);
+
+    const confirmButton = document.getElementById('fileManagerDeleteConfirm');
+    if (confirmButton) {
+        confirmButton.addEventListener('click', () => {
+            closeModal();
+            deleteItems(normalizedKeys);
+        });
+    }
+}
+
+function deleteItems(pathKeys) {
+    if (!Array.isArray(pathKeys) || pathKeys.length === 0) {
+        return;
+    }
+
+    const uniqueKeys = normalizeMovePaths(pathKeys)
+        .filter(pathKey => parsePathKey(pathKey).length > 0)
+        .sort((a, b) => parsePathKey(b).length - parsePathKey(a).length);
+
+    const removedNames = [];
+
+    uniqueKeys.forEach(pathKey => {
+        const segments = parsePathKey(pathKey);
+        const { node, parent } = findNodeAndParent(segments);
+        if (!node || !parent || !Array.isArray(parent.children)) {
+            return;
+        }
+
+        const index = parent.children.findIndex(child => child === node);
+        if (index === -1) {
+            return;
+        }
+
+        parent.children.splice(index, 1);
+        removedNames.push(node.name);
+        removeSelectionForDeletedPath(segments, node.type === 'folder');
+        removeExpandedNodesForDeletedPath(segments);
+        adjustCurrentPathAfterDeletion(segments);
+    });
+
+    saveFileSystemState(fileSystemState);
+    renderFileManager();
+
+    if (removedNames.length === 1) {
+        showToast(`Deleted "${removedNames[0]}".`, 'success');
+    } else if (removedNames.length > 1) {
+        showToast(`Deleted ${removedNames.length} items.`, 'success');
+    }
 }
 
 function getCurrentFolderNode() {
