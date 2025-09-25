@@ -34,6 +34,255 @@ const SUPPORTED_THEMES = {
     dark: 'dark'
 };
 
+const entityDirectories = {
+    companies: {
+        list: [],
+        byId: new Map(),
+        byName: new Map()
+    },
+    contacts: {
+        list: [],
+        byId: new Map(),
+        byEmail: new Map(),
+        byName: new Map()
+    }
+};
+
+function sanitizeText(value) {
+    if (value === undefined || value === null) {
+        return '';
+    }
+    return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function updateCompanyDirectory(companies = [], options = {}) {
+    const { merge = false } = options;
+    const directory = entityDirectories.companies;
+    const combined = merge ? [...directory.list, ...companies] : [...companies];
+    const normalized = new Map();
+    combined.forEach(company => {
+        if (!company || !company.id) {
+            return;
+        }
+        normalized.set(company.id, company);
+    });
+
+    directory.list = Array.from(normalized.values());
+    directory.byId.clear();
+    directory.byName.clear();
+    directory.list.forEach(company => {
+        directory.byId.set(company.id, company);
+        if (company.name) {
+            directory.byName.set(company.name.trim().toLowerCase(), company);
+        }
+    });
+}
+
+function updateContactDirectory(contacts = [], options = {}) {
+    const { merge = false } = options;
+    const directory = entityDirectories.contacts;
+    const combined = merge ? [...directory.list, ...contacts] : [...contacts];
+    const normalized = new Map();
+    combined.forEach(contact => {
+        if (!contact || !contact.id) {
+            return;
+        }
+        normalized.set(contact.id, contact);
+    });
+
+    directory.list = Array.from(normalized.values());
+    directory.byId.clear();
+    directory.byEmail.clear();
+    directory.byName.clear();
+    directory.list.forEach(contact => {
+        directory.byId.set(contact.id, contact);
+        if (contact.email) {
+            directory.byEmail.set(contact.email.trim().toLowerCase(), contact);
+        }
+        const fullName = [contact.first_name, contact.last_name]
+            .filter(Boolean)
+            .join(' ')
+            .trim()
+            .toLowerCase();
+        if (fullName) {
+            directory.byName.set(fullName, contact);
+        }
+    });
+}
+
+async function ensureCompanyAssociation(options = {}) {
+    const {
+        selectedId,
+        companyName,
+        newCompany = {}
+    } = options;
+
+    const trimmedSelectedId = selectedId ? String(selectedId).trim() : '';
+    const trimmedCompanyName = companyName ? companyName.trim() : '';
+    const trimmedNewName = newCompany.name ? newCompany.name.trim() : '';
+
+    if (trimmedSelectedId) {
+        const cached = entityDirectories.companies.byId.get(trimmedSelectedId);
+        if (cached) {
+            return { company_id: cached.id, company_name: cached.name || trimmedCompanyName || trimmedNewName };
+        }
+        try {
+            const response = await fetch(`tables/companies/${encodeURIComponent(trimmedSelectedId)}`);
+            if (response.ok) {
+                const record = await response.json();
+                updateCompanyDirectory([record], { merge: true });
+                return { company_id: record.id, company_name: record.name || trimmedCompanyName || trimmedNewName };
+            }
+        } catch (error) {
+            console.warn('Unable to fetch company by id:', error);
+        }
+    }
+
+    const normalizedName = trimmedNewName || trimmedCompanyName;
+    if (normalizedName) {
+        const cachedByName = entityDirectories.companies.byName.get(normalizedName.toLowerCase());
+        if (cachedByName) {
+            return { company_id: cachedByName.id, company_name: cachedByName.name || normalizedName };
+        }
+    }
+
+    if (trimmedNewName) {
+        const payload = {
+            name: trimmedNewName,
+            status: newCompany.status || 'Prospect',
+            industry: newCompany.industry || undefined,
+            website: newCompany.website || undefined,
+            size: newCompany.size || undefined,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+        };
+
+        Object.keys(payload).forEach(key => {
+            if (payload[key] === undefined || payload[key] === '') {
+                delete payload[key];
+            }
+        });
+
+        try {
+            const response = await fetch('tables/companies', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            if (!response.ok) {
+                throw new Error('Failed to create company');
+            }
+            const record = await response.json();
+            updateCompanyDirectory([record], { merge: true });
+            return { company_id: record.id, company_name: record.name };
+        } catch (error) {
+            console.error('Error creating company from inline form:', error);
+            throw error;
+        }
+    }
+
+    if (normalizedName) {
+        return { company_name: normalizedName };
+    }
+
+    return null;
+}
+
+async function ensureContactAssociation(options = {}) {
+    const {
+        selectedId,
+        newContact = {},
+        companyLink,
+        defaultStatus = 'Active'
+    } = options;
+
+    const trimmedSelectedId = selectedId ? String(selectedId).trim() : '';
+    if (trimmedSelectedId) {
+        const cached = entityDirectories.contacts.byId.get(trimmedSelectedId);
+        if (cached) {
+            return { contact_id: cached.id, contact: cached };
+        }
+        try {
+            const response = await fetch(`tables/contacts/${encodeURIComponent(trimmedSelectedId)}`);
+            if (response.ok) {
+                const record = await response.json();
+                updateContactDirectory([record], { merge: true });
+                return { contact_id: record.id, contact: record };
+            }
+        } catch (error) {
+            console.warn('Unable to fetch contact by id:', error);
+        }
+    }
+
+    const hasNewContactData = Boolean(
+        (newContact.firstName && newContact.firstName.trim()) ||
+        (newContact.lastName && newContact.lastName.trim()) ||
+        (newContact.email && newContact.email.trim()) ||
+        (newContact.phone && newContact.phone.trim())
+    );
+
+    if (!hasNewContactData) {
+        return null;
+    }
+
+    const normalizedEmail = newContact.email ? newContact.email.trim().toLowerCase() : '';
+    if (normalizedEmail) {
+        const existing = entityDirectories.contacts.byEmail.get(normalizedEmail);
+        if (existing) {
+            return { contact_id: existing.id, contact: existing };
+        }
+    }
+
+    const nowIso = new Date().toISOString();
+    const payload = {
+        first_name: newContact.firstName?.trim() || '',
+        last_name: newContact.lastName?.trim() || '',
+        email: newContact.email?.trim() || undefined,
+        phone: newContact.phone?.trim() || undefined,
+        status: newContact.status || defaultStatus,
+        created_at: nowIso,
+        updated_at: nowIso
+    };
+
+    if (companyLink?.company_id) {
+        payload.company_id = companyLink.company_id;
+        payload.company_name = companyLink.company_name;
+    }
+
+    Object.keys(payload).forEach(key => {
+        if (payload[key] === undefined || payload[key] === '') {
+            delete payload[key];
+        }
+    });
+
+    try {
+        const response = await fetch('tables/contacts', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        if (!response.ok) {
+            throw new Error('Failed to create contact');
+        }
+        const record = await response.json();
+        updateContactDirectory([record], { merge: true });
+        return { contact_id: record.id, contact: record };
+    } catch (error) {
+        console.error('Error creating contact from inline form:', error);
+        throw error;
+    }
+}
+
+window.updateCompanyDirectory = updateCompanyDirectory;
+window.updateContactDirectory = updateContactDirectory;
+window.ensureCompanyAssociation = ensureCompanyAssociation;
+window.ensureContactAssociation = ensureContactAssociation;
+
 const TRANSLATIONS = {
     en: {
         'common.loading': 'Loading...',
@@ -957,8 +1206,12 @@ async function loadContacts(page = 1, search, status, source) {
 
         const response = await fetch(`tables/contacts?${params.toString()}`);
         const data = await response.json();
-        
-        displayContacts(data.data || []);
+        const records = Array.isArray(data?.data) ? data.data : [];
+
+        displayContacts(records);
+        if (typeof updateContactDirectory === 'function') {
+            updateContactDirectory(records, { merge: true });
+        }
         displayPagination('contacts', data, page);
 
     } catch (error) {
@@ -1067,17 +1320,56 @@ function setupContactFilters() {
 async function showContactForm(contactId = null) {
     const isEdit = contactId !== null;
     let contact = {};
-    
+
     if (isEdit) {
         try {
             const response = await fetch(`tables/contacts/${contactId}`);
+            if (!response.ok) {
+                throw new Error('Not found');
+            }
             contact = await response.json();
         } catch (error) {
+            console.error('Error loading contact details:', error);
             showToast('Failed to load contact', 'error');
             return;
         }
     }
-    
+
+    let companies = [];
+    try {
+        const response = await fetch('tables/companies?limit=1000');
+        if (response.ok) {
+            const payload = await response.json();
+            companies = Array.isArray(payload?.data) ? payload.data : Array.isArray(payload) ? payload : [];
+        }
+    } catch (error) {
+        console.warn('Unable to load companies for contact form:', error);
+    }
+
+    if (typeof updateCompanyDirectory === 'function') {
+        updateCompanyDirectory(companies, { merge: true });
+    }
+
+    const selectedCompanyId = contact.company_id || '';
+    let hasCurrentCompany = false;
+    const companyOptionsHtml = companies.map(company => {
+        if (!company || !company.id) {
+            return '';
+        }
+        const isSelected = selectedCompanyId && company.id === selectedCompanyId;
+        if (isSelected) {
+            hasCurrentCompany = true;
+        }
+        const optionLabel = sanitizeText(company.name || company.website || company.id);
+        return `<option value="${sanitizeText(company.id)}" ${isSelected ? 'selected' : ''}>${optionLabel}</option>`;
+    }).join('');
+
+    const fallbackCompanyOption = !hasCurrentCompany && selectedCompanyId && contact.company_name
+        ? `<option value="${sanitizeText(selectedCompanyId)}" selected>${sanitizeText(contact.company_name)}</option>`
+        : '';
+
+    const hiddenCompanyName = sanitizeText(contact.company_name || '');
+
     showModal(isEdit ? 'Edit Contact' : 'Add New Contact', `
         <form id="contactForm" class="space-y-6">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -1092,7 +1384,7 @@ async function showContactForm(contactId = null) {
                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                 </div>
             </div>
-            
+
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">Email</label>
@@ -1105,7 +1397,7 @@ async function showContactForm(contactId = null) {
                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                 </div>
             </div>
-            
+
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">Title</label>
@@ -1118,13 +1410,55 @@ async function showContactForm(contactId = null) {
                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                 </div>
             </div>
-            
+
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">Company ID</label>
-                <input type="text" name="company_id" value="${contact.company_id || ''}"
-                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Company</label>
+                <select id="contactCompanySelect" name="company_id"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    <option value="">Not linked</option>
+                    ${fallbackCompanyOption}
+                    ${companyOptionsHtml}
+                </select>
+                <input type="hidden" name="company_name" id="contactCompanyName" value="${hiddenCompanyName}">
+                <p class="mt-1 text-xs text-gray-500">Link this person to an account now or leave unlinked and connect later.</p>
+                <button type="button" id="contactNewCompanyToggle" data-label-create="Create new company" data-label-cancel="Use existing company"
+                        class="mt-2 text-sm text-blue-600 hover:text-blue-700">Create new company</button>
+                <div id="contactNewCompanySection" class="hidden mt-4 space-y-4 border border-blue-100 rounded-lg p-4 bg-blue-50/50">
+                    <p class="text-xs text-blue-700">We'll automatically create this company when you save the contact.</p>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Company Name</label>
+                            <input type="text" name="new_company_name" placeholder="Acme Corporation"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Website</label>
+                            <input type="url" name="new_company_website" placeholder="https://example.com"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Industry</label>
+                            <input type="text" name="new_company_industry" placeholder="Software"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Status</label>
+                            <select name="new_company_status" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                <option value="Prospect">Prospect</option>
+                                <option value="Customer">Customer</option>
+                                <option value="Partner">Partner</option>
+                                <option value="Vendor">Vendor</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Company Size</label>
+                            <input type="text" name="new_company_size" placeholder="50-100"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        </div>
+                    </div>
+                </div>
             </div>
-            
+
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">Status</label>
@@ -1154,12 +1488,12 @@ async function showContactForm(contactId = null) {
                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                 </div>
             </div>
-            
+
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-2">Address</label>
                 <textarea name="address" rows="2" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">${contact.address || ''}</textarea>
             </div>
-            
+
             <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">City</label>
@@ -1182,12 +1516,12 @@ async function showContactForm(contactId = null) {
                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                 </div>
             </div>
-            
+
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-2">Notes</label>
                 <textarea name="notes" rows="4" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">${contact.notes || ''}</textarea>
             </div>
-            
+
             <div class="flex justify-end space-x-3 pt-6 border-t border-gray-200">
                 <button type="button" onclick="closeModal()" class="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50">
                     Cancel
@@ -1198,46 +1532,160 @@ async function showContactForm(contactId = null) {
             </div>
         </form>
     `);
-    
-    // Setup form submission
-    document.getElementById('contactForm').addEventListener('submit', async function(e) {
-        e.preventDefault();
-        await saveContact(contactId, new FormData(this));
+
+    const form = document.getElementById('contactForm');
+    const companySelect = form.querySelector('#contactCompanySelect');
+    const companyNameInput = form.querySelector('#contactCompanyName');
+    const newCompanyToggle = form.querySelector('#contactNewCompanyToggle');
+    const newCompanySection = form.querySelector('#contactNewCompanySection');
+    const newCompanyNameInput = form.querySelector('input[name="new_company_name"]');
+    const toggleCreateLabel = newCompanyToggle?.dataset?.labelCreate || 'Create new company';
+    const toggleCancelLabel = newCompanyToggle?.dataset?.labelCancel || 'Use existing company';
+
+    const syncCompanyName = () => {
+        if (!companySelect || !companyNameInput) {
+            return;
+        }
+        const selectedOption = companySelect.selectedOptions?.[0];
+        companyNameInput.value = selectedOption ? selectedOption.textContent.trim() : '';
+    };
+
+    syncCompanyName();
+
+    companySelect?.addEventListener('change', () => {
+        if (newCompanySection) {
+            newCompanySection.classList.add('hidden');
+        }
+        if (newCompanyToggle) {
+            newCompanyToggle.setAttribute('data-expanded', 'false');
+            newCompanyToggle.textContent = toggleCreateLabel;
+        }
+        if (newCompanyNameInput) {
+            newCompanyNameInput.value = '';
+        }
+        syncCompanyName();
+    });
+
+    newCompanyToggle?.addEventListener('click', event => {
+        event.preventDefault();
+        if (!newCompanySection) {
+            return;
+        }
+        const expanded = newCompanyToggle.getAttribute('data-expanded') === 'true';
+        if (expanded) {
+            newCompanySection.classList.add('hidden');
+            newCompanyToggle.setAttribute('data-expanded', 'false');
+            newCompanyToggle.textContent = toggleCreateLabel;
+            syncCompanyName();
+        } else {
+            newCompanySection.classList.remove('hidden');
+            newCompanyToggle.setAttribute('data-expanded', 'true');
+            newCompanyToggle.textContent = toggleCancelLabel;
+            if (companySelect) {
+                companySelect.value = '';
+            }
+            if (companyNameInput) {
+                companyNameInput.value = '';
+            }
+            newCompanyNameInput?.focus();
+        }
+    });
+
+    form.addEventListener('submit', async event => {
+        event.preventDefault();
+        await saveContact(contactId, new FormData(form));
     });
 }
 
 async function saveContact(contactId, formData) {
     showLoading();
     try {
-        const data = {};
-        for (let [key, value] of formData.entries()) {
-            if (value.trim()) data[key] = value.trim();
+        const formValues = {};
+        for (const [rawKey, rawValue] of formData.entries()) {
+            if (typeof rawValue === 'string') {
+                const trimmed = rawValue.trim();
+                if (trimmed) {
+                    formValues[rawKey] = trimmed;
+                }
+            } else if (rawValue !== undefined && rawValue !== null) {
+                formValues[rawKey] = rawValue;
+            }
         }
-        
-        // Add metadata
-        data.created_by = currentUser;
+
+        let companyLink = null;
+        if (typeof ensureCompanyAssociation === 'function') {
+            companyLink = await ensureCompanyAssociation({
+                selectedId: formValues.company_id,
+                companyName: formValues.company_name,
+                newCompany: {
+                    name: formValues.new_company_name,
+                    website: formValues.new_company_website,
+                    industry: formValues.new_company_industry,
+                    status: formValues.new_company_status,
+                    size: formValues.new_company_size
+                }
+            });
+        }
+
+        if (companyLink) {
+            if (companyLink.company_id) {
+                formValues.company_id = companyLink.company_id;
+            } else {
+                delete formValues.company_id;
+            }
+            if (companyLink.company_name) {
+                formValues.company_name = companyLink.company_name;
+            }
+        } else {
+            if (!formValues.company_id) {
+                delete formValues.company_id;
+            }
+            if (!formValues.company_name) {
+                delete formValues.company_name;
+            }
+        }
+
+        delete formValues.new_company_name;
+        delete formValues.new_company_website;
+        delete formValues.new_company_industry;
+        delete formValues.new_company_status;
+        delete formValues.new_company_size;
+
+        const data = { ...formValues };
+        const nowIso = new Date().toISOString();
+        data.updated_at = nowIso;
+
         if (!contactId) {
-            data.created_at = Date.now();
+            data.created_at = nowIso;
+            if (currentUser) {
+                data.created_by = currentUser;
+            }
+            if (!data.status) {
+                data.status = 'Active';
+            }
         }
-        data.updated_at = Date.now();
-        
+
         const method = contactId ? 'PUT' : 'POST';
         const url = contactId ? `tables/contacts/${contactId}` : 'tables/contacts';
-        
+
         const response = await fetch(url, {
-            method: method,
+            method,
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data)
         });
-        
-        if (response.ok) {
-            showToast(contactId ? 'Contact updated successfully' : 'Contact created successfully', 'success');
-            closeModal();
-            loadContacts();
-        } else {
+
+        if (!response.ok) {
             throw new Error('Save failed');
         }
-        
+
+        const savedContact = await response.json();
+        if (savedContact && typeof updateContactDirectory === 'function') {
+            updateContactDirectory([savedContact], { merge: true });
+        }
+
+        showToast(contactId ? 'Contact updated successfully' : 'Contact created successfully', 'success');
+        closeModal();
+        await loadContacts();
     } catch (error) {
         console.error('Error saving contact:', error);
         showToast('Failed to save contact', 'error');
