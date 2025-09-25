@@ -215,63 +215,65 @@ async function showLeads() {
         <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
             <div class="flex items-center justify-between mb-6">
                 <div class="flex items-center space-x-4">
-                    <h3 class="text-lg font-semibold text-gray-800">All Leads</h3>
+                    <h3 class="text-lg font-semibold text-gray-800" data-i18n="leads.heading">All Leads</h3>
                     <div class="relative">
-                        <input type="text" id="leadSearch" placeholder="Search leads..." 
+                        <input type="text" id="leadSearch" placeholder="Search leads..." data-i18n="leads.searchPlaceholder" data-i18n-attr="placeholder"
                                class="pl-10 pr-4 py-2 w-64 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                         <i class="fas fa-search absolute left-3 top-3 text-gray-400"></i>
                     </div>
                 </div>
                 <div class="flex items-center space-x-3">
                     <button onclick="showLeadForm()" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-                        <i class="fas fa-plus mr-2"></i>Add Lead
+                        <i class="fas fa-plus mr-2"></i><span data-i18n="leads.addLead">Add Lead</span>
                     </button>
                 </div>
             </div>
-            
+
             <div class="flex items-center space-x-4 mb-6">
                 <select id="leadStatusFilter" class="border border-gray-300 rounded-lg px-3 py-2">
-                    <option value="">All Statuses</option>
-                    <option value="New">New</option>
-                    <option value="Contacted">Contacted</option>
-                    <option value="Qualified">Qualified</option>
-                    <option value="Proposal">Proposal</option>
-                    <option value="Negotiation">Negotiation</option>
-                    <option value="Won">Won</option>
-                    <option value="Lost">Lost</option>
+                    <option value="" data-i18n="leads.filter.status.all">All Statuses</option>
+                    <option value="New" data-i18n="leads.filter.status.new">New</option>
+                    <option value="Contacted" data-i18n="leads.filter.status.contacted">Contacted</option>
+                    <option value="Qualified" data-i18n="leads.filter.status.qualified">Qualified</option>
+                    <option value="Proposal" data-i18n="leads.filter.status.proposal">Proposal</option>
+                    <option value="Negotiation" data-i18n="leads.filter.status.negotiation">Negotiation</option>
+                    <option value="Won" data-i18n="leads.filter.status.won">Won</option>
+                    <option value="Lost" data-i18n="leads.filter.status.lost">Lost</option>
                 </select>
                 <select id="leadPriorityFilter" class="border border-gray-300 rounded-lg px-3 py-2">
-                    <option value="">All Priorities</option>
-                    <option value="Low">Low</option>
-                    <option value="Medium">Medium</option>
-                    <option value="High">High</option>
-                    <option value="Critical">Critical</option>
+                    <option value="" data-i18n="leads.filter.priority.all">All Priorities</option>
+                    <option value="Low" data-i18n="leads.filter.priority.low">Low</option>
+                    <option value="Medium" data-i18n="leads.filter.priority.medium">Medium</option>
+                    <option value="High" data-i18n="leads.filter.priority.high">High</option>
+                    <option value="Critical" data-i18n="leads.filter.priority.critical">Critical</option>
                 </select>
             </div>
-            
+
             <div class="overflow-x-auto">
                 <table class="w-full">
                     <thead class="bg-gray-50">
                         <tr>
-                            <th class="text-left p-3 font-medium text-gray-600">Lead Title</th>
-                            <th class="text-left p-3 font-medium text-gray-600">Value</th>
-                            <th class="text-left p-3 font-medium text-gray-600">Status</th>
-                            <th class="text-left p-3 font-medium text-gray-600">Priority</th>
-                            <th class="text-left p-3 font-medium text-gray-600">Expected Close</th>
-                            <th class="text-left p-3 font-medium text-gray-600">Assigned To</th>
-                            <th class="text-left p-3 font-medium text-gray-600">Actions</th>
+                            <th class="text-left p-3 font-medium text-gray-600" data-i18n="leads.table.title">Lead Title</th>
+                            <th class="text-left p-3 font-medium text-gray-600" data-i18n="leads.table.value">Value</th>
+                            <th class="text-left p-3 font-medium text-gray-600" data-i18n="leads.table.status">Status</th>
+                            <th class="text-left p-3 font-medium text-gray-600" data-i18n="leads.table.priority">Priority</th>
+                            <th class="text-left p-3 font-medium text-gray-600" data-i18n="leads.table.expectedClose">Expected Close</th>
+                            <th class="text-left p-3 font-medium text-gray-600" data-i18n="leads.table.assignedTo">Assigned To</th>
+                            <th class="text-left p-3 font-medium text-gray-600" data-i18n="leads.table.actions">Actions</th>
                         </tr>
                     </thead>
                     <tbody id="leadsTableBody">
                     </tbody>
                 </table>
             </div>
-            
+
             <div id="leadsPagination" class="mt-6 flex items-center justify-between">
             </div>
         </div>
     `;
-    
+
+    applyTranslations();
+
     await loadLeads();
     setupLeadFilters();
 }
@@ -304,7 +306,7 @@ async function loadLeads(page = 1, search, status, priority) {
 
     } catch (error) {
         console.error('Error loading leads:', error);
-        showToast('Failed to load leads', 'error');
+        showToast(translate('leads.loadError'), 'error');
     } finally {
         hideLoading();
     }
@@ -312,37 +314,38 @@ async function loadLeads(page = 1, search, status, priority) {
 
 function displayLeads(leads) {
     const tbody = document.getElementById('leadsTableBody');
-    
+
     if (leads.length === 0) {
         tbody.innerHTML = `
             <tr>
                 <td colspan="7" class="text-center py-8 text-gray-500">
                     <i class="fas fa-bullseye text-4xl mb-4"></i>
-                    <p>No leads found</p>
-                    <button onclick="showLeadForm()" class="mt-2 text-blue-600 hover:text-blue-700">Add your first lead</button>
+                    <p data-i18n="leads.empty">No leads found</p>
+                    <button onclick="showLeadForm()" class="mt-2 text-blue-600 hover:text-blue-700" data-i18n="leads.emptyCta">Add your first lead</button>
                 </td>
             </tr>
         `;
+        applyTranslations();
         return;
     }
-    
+
     tbody.innerHTML = leads.map(lead => `
         <tr class="border-b border-gray-100 hover:bg-gray-50">
             <td class="p-3">
                 <div>
                     <p class="font-medium text-gray-800">${lead.title}</p>
-                    <p class="text-sm text-gray-600">${lead.description ? lead.description.substring(0, 50) + '...' : 'No description'}</p>
+                    <p class="text-sm text-gray-600">${lead.description ? lead.description.substring(0, 50) + '...' : translate('leads.noDescription')}</p>
                 </div>
             </td>
             <td class="p-3 text-gray-600">${formatCurrency(lead.value)}</td>
             <td class="p-3">
-                <span class="px-2 py-1 text-xs rounded-full ${getStatusClass(lead.status)}">${lead.status}</span>
+                <span class="px-2 py-1 text-xs rounded-full ${getStatusClass(lead.status)}">${translateLeadStatus(lead.status)}</span>
             </td>
             <td class="p-3">
-                <span class="px-2 py-1 text-xs rounded-full ${getPriorityClass(lead.priority)}">${lead.priority}</span>
+                <span class="px-2 py-1 text-xs rounded-full ${getPriorityClass(lead.priority)}">${translateLeadPriority(lead.priority)}</span>
             </td>
-            <td class="p-3 text-gray-600">${lead.expected_close_date ? new Date(lead.expected_close_date).toLocaleDateString() : 'Not set'}</td>
-            <td class="p-3 text-gray-600">${lead.assigned_to || 'Unassigned'}</td>
+            <td class="p-3 text-gray-600">${lead.expected_close_date ? new Date(lead.expected_close_date).toLocaleDateString(currentLanguage === 'uk' ? 'uk-UA' : undefined) : translate('leads.notSet')}</td>
+            <td class="p-3 text-gray-600">${lead.assigned_to || translate('leads.unassigned')}</td>
             <td class="p-3">
                 <div class="flex items-center space-x-2">
                     <button onclick="viewLead('${lead.id}')" class="p-2 text-blue-600 hover:bg-blue-50 rounded">
@@ -358,6 +361,53 @@ function displayLeads(leads) {
             </td>
         </tr>
     `).join('');
+
+    applyTranslations();
+}
+
+const LEAD_STATUS_TRANSLATION_KEYS = {
+    'New': 'leads.status.new',
+    'Contacted': 'leads.status.contacted',
+    'Qualified': 'leads.status.qualified',
+    'Proposal': 'leads.status.proposal',
+    'Negotiation': 'leads.status.negotiation',
+    'Won': 'leads.status.won',
+    'Lost': 'leads.status.lost'
+};
+
+const LEAD_PRIORITY_TRANSLATION_KEYS = {
+    'Low': 'leads.priority.low',
+    'Medium': 'leads.priority.medium',
+    'High': 'leads.priority.high',
+    'Critical': 'leads.priority.critical'
+};
+
+function translateLeadStatus(status) {
+    if (!status) {
+        return '';
+    }
+
+    const key = LEAD_STATUS_TRANSLATION_KEYS[status];
+    if (!key) {
+        return status;
+    }
+
+    const translated = translate(key);
+    return translated === key ? status : translated;
+}
+
+function translateLeadPriority(priority) {
+    if (!priority) {
+        return '';
+    }
+
+    const key = LEAD_PRIORITY_TRANSLATION_KEYS[priority];
+    if (!key) {
+        return priority;
+    }
+
+    const translated = translate(key);
+    return translated === key ? priority : translated;
 }
 
 function setupLeadFilters() {
