@@ -4,6 +4,56 @@
  */
 
 // Companies Management
+
+function normalizeCompetitorTargets(competitor, companyLookup = new Map()) {
+    const ids = new Set();
+    const names = new Set();
+
+    if (Array.isArray(competitor?.linked_clients)) {
+        competitor.linked_clients.forEach(name => {
+            if (name !== undefined && name !== null && String(name).trim()) {
+                names.add(String(name));
+            }
+        });
+    }
+
+    const rawIds = Array.isArray(competitor?.linked_company_ids)
+        ? competitor.linked_company_ids
+        : Array.isArray(competitor?.related_company_ids)
+            ? competitor.related_company_ids
+            : [];
+
+    rawIds.forEach(id => {
+        if (id === undefined || id === null) {
+            return;
+        }
+        const normalizedId = String(id);
+        ids.add(normalizedId);
+        const match = companyLookup.get(normalizedId);
+        if (match?.name) {
+            names.add(match.name);
+        }
+    });
+
+    return { ids: Array.from(ids), names: Array.from(names) };
+}
+
+function competitorTargetsCompany(competitor, company, companyLookup = new Map()) {
+    if (!competitor || !company) {
+        return false;
+    }
+    const normalizedTargets = normalizeCompetitorTargets(competitor, companyLookup);
+    const companyId = company.id || company.company_id;
+    if (companyId && normalizedTargets.ids.includes(String(companyId))) {
+        return true;
+    }
+    const companyName = (company.name || '').trim().toLowerCase();
+    if (!companyName) {
+        return false;
+    }
+    return normalizedTargets.names.some(name => String(name).trim().toLowerCase() === companyName);
+}
+
 async function showCompanies() {
     showView('companies');
     setPageHeader('companies');
@@ -352,13 +402,16 @@ function displayLeads(leads) {
             <td class="p-3 text-gray-600">${lead.assigned_to || translate('leads.unassigned')}</td>
             <td class="p-3">
                 <div class="flex items-center space-x-2">
-                    <button onclick="viewLead('${lead.id}')" class="p-2 text-blue-600 hover:bg-blue-50 rounded">
+                    <button onclick="viewLead('${lead.id}')" class="p-2 text-blue-600 hover:bg-blue-50 rounded" title="View lead details">
                         <i class="fas fa-eye"></i>
                     </button>
-                    <button onclick="editLead('${lead.id}')" class="p-2 text-green-600 hover:bg-green-50 rounded">
+                    <button onclick="showLeadConversionWizard('${lead.id}')" class="p-2 text-purple-600 hover:bg-purple-50 rounded" title="Convert lead">
+                        <i class="fas fa-exchange-alt"></i>
+                    </button>
+                    <button onclick="editLead('${lead.id}')" class="p-2 text-green-600 hover:bg-green-50 rounded" title="Edit lead">
                         <i class="fas fa-edit"></i>
                     </button>
-                    <button onclick="deleteLead('${lead.id}')" class="p-2 text-red-600 hover:bg-red-50 rounded">
+                    <button onclick="deleteLead('${lead.id}')" class="p-2 text-red-600 hover:bg-red-50 rounded" title="Delete lead">
                         <i class="fas fa-trash"></i>
                     </button>
                 </div>
@@ -2694,6 +2747,12 @@ async function showCompetitorIntel() {
         const tasks = tasksResponse?.data || [];
         const activities = activitiesResponse?.data || [];
         const contacts = contactsResponse?.data || [];
+        const companyLookup = new Map();
+        companies.forEach(item => {
+            if (item?.id) {
+                companyLookup.set(String(item.id), item);
+            }
+        });
 
         const translateTierLabel = tier => {
             if (!tier) return '';
@@ -2802,17 +2861,20 @@ async function showCompetitorIntel() {
             });
 
             const linkedContacts = contacts.filter(contact => (contact.company_name || '').toLowerCase().includes((comp.name || '').toLowerCase()));
+            const targets = normalizeCompetitorTargets(comp, companyLookup);
 
             return {
                 ...comp,
                 kanbanColumns,
                 signals: activeSignals,
                 enhancement,
-                linkedContacts
+                linkedContacts,
+                linked_clients: targets.names,
+                linkedCompanyIds: targets.ids
             };
         });
         const clientsWithCoverage = companies.map(company => {
-            const coverage = competitorProfiles.filter(comp => (comp.linked_clients || []).includes(company.name));
+            const coverage = competitorProfiles.filter(comp => competitorTargetsCompany(comp, company, companyLookup));
             const watchers = Array.from(new Set(coverage.flatMap(comp => (comp.enhancement?.contacts || []).slice(0, 2).map(c => c.name))));
             const tierValue = coverage.reduce((acc, comp) => Math.min(acc, competitorHubTierRank(comp.tier)), 3);
             const tierLabel = tierValue === 0 ? 'Фокус рівня 1' : tierValue === 1 ? 'Покриття рівня 2' : 'Моніторинг';
@@ -3333,7 +3395,7 @@ async function showCompetitorIntel() {
                                 { label: 'Активні задачі', value: computeActiveTasks(competitor) },
                                 { label: 'Сигнали (30 днів)', value: computeSignalsWithinDays(competitor, 30) },
                                 { label: 'Пов’язані контакти', value: (competitor.linkedContacts || []).length || (competitor.enhancement?.contacts?.length || 0) },
-                                { label: 'Клієнти зі списку спостереження', value: (competitor.linked_clients || []).length }
+                                { label: 'Клієнти зі списку спостереження', value: competitor.linkedCompanyIds?.length || (competitor.linked_clients || []).length }
                             ]
                         }),
                         render: module => {
@@ -3592,14 +3654,14 @@ async function showCompetitorIntel() {
                             const total = peers.length || 1;
                             const avgTasks = peers.reduce((acc, item) => acc + computeActiveTasks(item), 0) / total;
                             const avgSignals = peers.reduce((acc, item) => acc + (item.signals?.length || 0), 0) / total;
-                            const avgClients = peers.reduce((acc, item) => acc + (item.linked_clients?.length || 0), 0) / total;
+                            const avgClients = peers.reduce((acc, item) => acc + (item.linkedCompanyIds?.length || item.linked_clients?.length || 0), 0) / total;
                             return {
                                 competitor: {
                                     name: competitor.name,
                                     tier: translateTierLabel(competitor.tier) || 'Рівень 3',
                                     tasks: computeActiveTasks(competitor),
                                     signals: competitor.signals?.length || 0,
-                                    clients: competitor.linked_clients?.length || 0
+                                    clients: competitor.linkedCompanyIds?.length || competitor.linked_clients?.length || 0
                                 },
                                 averages: {
                                     tasks: Math.round(avgTasks),
@@ -6381,6 +6443,12 @@ async function showCompanyForm(companyId = null) {
     }
 
     const selectedStatus = company.status || 'Active';
+    const normalizedObsidianPath = company.obsidian_note
+        ? String(company.obsidian_note).trim().replace(/^\\+/,'').replace(/^vault\\//i, '')
+        : '';
+    const obsidianOpenLink = normalizedObsidianPath
+        ? `<a href="vault/${encodeURI(normalizedObsidianPath)}" target="_blank" class="inline-flex items-center px-3 py-2 text-sm bg-gray-100 border border-gray-300 rounded-lg hover:bg-gray-200"><i class=\"fas fa-external-link-alt mr-2\"></i>Open</a>`
+        : '';
 
     showModal(isEdit ? 'Edit Company' : 'Add New Company', `
         <form id="companyForm" class="space-y-6">
@@ -6428,6 +6496,19 @@ async function showCompanyForm(companyId = null) {
                     <label class="block text-sm font-medium text-gray-700 mb-2">Phone</label>
                     <input type="tel" name="phone" value="${company.phone || ''}"
                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div class="md:col-span-3">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Obsidian Note Path</label>
+                    <div class="flex flex-col sm:flex-row sm:items-center gap-3">
+                        <input type="text" name="obsidian_note" value="${company.obsidian_note || ''}"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                               placeholder="Clients/TechCorp Solutions.md">
+                        ${obsidianOpenLink}
+                    </div>
+                    <p class="mt-1 text-xs text-gray-500">Store the relative path inside your Obsidian vault to jump to notes directly from this workspace.</p>
                 </div>
             </div>
 
@@ -6553,60 +6634,641 @@ async function viewCompany(id) {
         }
         const company = await response.json();
 
+        const parseList = payload => {
+            if (Array.isArray(payload?.data)) {
+                return payload.data;
+            }
+            if (Array.isArray(payload)) {
+                return payload;
+            }
+            return [];
+        };
+
+        const [contactsPayload, leadsPayload, dealsPayload, competitorsPayload] = await Promise.all([
+            fetch(`tables/contacts?company_id=${encodeURIComponent(company.id)}&limit=1000`).then(res => res.json()).catch(() => ({ data: [] })),
+            fetch(`tables/leads?company_id=${encodeURIComponent(company.id)}&limit=1000`).then(res => res.json()).catch(() => ({ data: [] })),
+            fetch(`tables/opportunities?company_id=${encodeURIComponent(company.id)}&limit=1000`).then(res => res.json()).catch(() => ({ data: [] })),
+            fetch('tables/competitors?limit=1000').then(res => res.json()).catch(() => ({ data: [] }))
+        ]);
+
+        const contacts = parseList(contactsPayload);
+        const leads = parseList(leadsPayload);
+        const deals = parseList(dealsPayload);
+        const allCompetitors = parseList(competitorsPayload);
+
+        const companyLookup = new Map();
+        if (typeof entityDirectories === 'object' && entityDirectories?.companies?.list) {
+            entityDirectories.companies.list.forEach(item => {
+                if (item?.id) {
+                    companyLookup.set(item.id, item);
+                }
+            });
+        }
+        if (company?.id) {
+            companyLookup.set(company.id, company);
+        }
+
+        const relevantCompetitors = allCompetitors.filter(comp => competitorTargetsCompany(comp, company, companyLookup));
+
+        const formatDateOnly = value => {
+            if (!value) {
+                return '';
+            }
+            const date = new Date(value);
+            if (Number.isNaN(date.getTime())) {
+                return '';
+            }
+            return date.toLocaleDateString();
+        };
+
+        const safeCompanyName = sanitizeText(company.name || 'Unnamed Company');
+        const statusBadge = `<span class="px-2 py-1 rounded-full ${getStatusClass(company.status)}">${sanitizeText(company.status || 'Active')}</span>`;
+        const ownerText = company.owner ? `<span><i class="fas fa-user mr-1 text-gray-400"></i>${sanitizeText(company.owner)}</span>` : '';
+        const industryText = company.industry ? `<span><i class="fas fa-industry mr-1 text-gray-400"></i>${sanitizeText(company.industry)}</span>` : '';
+
+        const metrics = [
+            { label: 'Contacts', value: contacts.length, icon: 'fa-address-book' },
+            { label: 'Leads', value: leads.length, icon: 'fa-bullseye' },
+            { label: 'Deals', value: deals.length, icon: 'fa-briefcase' },
+            { label: 'Competitors Tracked', value: relevantCompetitors.length, icon: 'fa-chess-knight' }
+        ];
+        const metricCards = metrics.map(metric => `
+            <div class="p-4 bg-gray-50 rounded-xl border border-gray-200 flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide">${metric.label}</p>
+                    <p class="mt-2 text-2xl font-semibold text-gray-800">${metric.value}</p>
+                </div>
+                <div class="w-10 h-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center">
+                    <i class="fas ${metric.icon}"></i>
+                </div>
+            </div>
+        `).join('');
+        const metricsHtml = `<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">${metricCards}</div>`;
+
+        const websiteValue = company.website
+            ? `<a href="${encodeURI(company.website)}" target="_blank" rel="noopener" class="text-blue-600 hover:text-blue-700">${sanitizeText(company.website)}</a>`
+            : '—';
+        const emailValue = company.email
+            ? `<a href="mailto:${encodeURIComponent(company.email)}" class="text-blue-600 hover:text-blue-700">${sanitizeText(company.email)}</a>`
+            : '—';
+
+        const obsidianRaw = company.obsidian_note ? String(company.obsidian_note).trim() : '';
+        const obsidianNormalized = obsidianRaw ? obsidianRaw.replace(/^\/+/, '').replace(/^vault\//i, '') : '';
+        const obsidianHref = obsidianNormalized ? `vault/${encodeURI(obsidianNormalized)}` : '';
+        const obsidianValue = obsidianHref
+            ? `<a href="${obsidianHref}" target="_blank" class="text-blue-600 hover:text-blue-700"><i class="fas fa-book mr-1"></i>${sanitizeText(obsidianRaw)}</a>`
+            : '—';
+
         const details = [
-            { label: 'Industry', value: company.industry || '—' },
-            { label: 'Size', value: company.size || '—' },
-            { label: 'Status', value: company.status || '—' },
-            { label: 'Phone', value: company.phone || '—' },
-            { label: 'Email', value: company.email || '—' },
-            { label: 'Website', value: company.website ? `<a href="${company.website}" target="_blank" class="text-blue-600 hover:text-blue-700">${company.website}</a>` : '—' },
-            { label: 'City', value: company.city || '—' },
-            { label: 'State / Region', value: company.state || '—' },
-            { label: 'Country', value: company.country || '—' },
+            { label: 'Industry', value: sanitizeText(company.industry || '—') },
+            { label: 'Size', value: sanitizeText(company.size || '—') },
+            { label: 'Status', value: statusBadge },
+            { label: 'Phone', value: company.phone ? sanitizeText(company.phone) : '—' },
+            { label: 'Email', value: emailValue },
+            { label: 'Website', value: websiteValue },
+            { label: 'Obsidian Note', value: obsidianValue },
+            { label: 'City', value: sanitizeText(company.city || '—') },
+            { label: 'State / Region', value: sanitizeText(company.state || '—') },
+            { label: 'Country', value: sanitizeText(company.country || '—') },
             { label: 'Annual Revenue', value: formatCurrency(company.annual_revenue) },
-            { label: 'Owner', value: company.owner || '—' },
-            { label: 'Notes', value: company.notes || '—' },
+            { label: 'Owner', value: sanitizeText(company.owner || '—') },
             { label: 'Created At', value: formatDate(company.created_at) },
             { label: 'Last Updated', value: formatDate(company.updated_at) }
         ];
 
-        const detailHtml = details.map(detail => `
-            <div class="p-4 bg-gray-50 rounded-lg">
+        const detailCards = details.map(detail => `
+            <div class="p-4 bg-white border border-gray-200 rounded-xl shadow-sm">
                 <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide">${detail.label}</p>
                 <p class="mt-2 text-sm text-gray-800">${detail.value}</p>
             </div>
         `).join('');
 
-        showModal('Company Details', `
+        const overviewNotes = company.notes
+            ? `<div class="p-4 bg-gray-50 border border-gray-200 rounded-xl"><p class="text-sm text-gray-700 whitespace-pre-line">${sanitizeText(company.notes).replace(/\n/g, '<br>')}</p></div>`
+            : '';
+
+        const overviewHtml = `
             <div class="space-y-6">
-                <div class="flex flex-col md:flex-row md:items-start md:justify-between md:space-x-6 space-y-4 md:space-y-0">
-                    <div>
-                        <h4 class="text-2xl font-semibold text-gray-800">${company.name || 'Unnamed Company'}</h4>
-                        <div class="mt-2 flex items-center space-x-2 text-sm text-gray-600">
-                            <span class="px-2 py-1 rounded-full ${getStatusClass(company.status)}">${company.status || '—'}</span>
-                            ${company.owner ? `<span>Owned by <span class="font-medium text-gray-700">${company.owner}</span></span>` : ''}
+                ${metricsHtml}
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">${detailCards}</div>
+                ${overviewNotes}
+            </div>
+        `;
+
+        const buildContactDetails = contact => {
+            const detailItems = [];
+            if (contact.email) {
+                detailItems.push(`<span class="flex items-center gap-1 text-sm text-gray-600"><i class="fas fa-envelope text-gray-400"></i><a href="mailto:${encodeURIComponent(contact.email)}" class="text-blue-600 hover:text-blue-700">${sanitizeText(contact.email)}</a></span>`);
+            }
+            if (contact.phone) {
+                detailItems.push(`<span class="flex items-center gap-1 text-sm text-gray-600"><i class="fas fa-phone text-gray-400"></i>${sanitizeText(contact.phone)}</span>`);
+            }
+            if (!detailItems.length) {
+                detailItems.push('<span class="text-sm text-gray-500">No contact details</span>');
+            }
+            return detailItems.join('');
+        };
+
+        const contactCards = contacts.map(contact => {
+            const fullNameRaw = [contact.first_name, contact.last_name].filter(Boolean).join(' ').trim();
+            const displayName = sanitizeText(fullNameRaw || contact.email || contact.phone || 'Unnamed Contact');
+            const title = contact.title ? `<p class="text-sm text-gray-600">${sanitizeText(contact.title)}</p>` : '';
+            const status = contact.status ? `<span class="px-2 py-1 rounded-full text-xs ${getStatusClass(contact.status)}">${sanitizeText(contact.status)}</span>` : '';
+            const updated = contact.updated_at ? `<span class="text-xs text-gray-400">Updated ${formatDateOnly(contact.updated_at)}</span>` : '';
+            const encodedContactName = encodeURIComponent(fullNameRaw || contact.email || contact.phone || '');
+            return `
+                <div class="border border-gray-200 rounded-xl p-4 bg-white shadow-sm">
+                    <div class="flex items-start justify-between gap-4">
+                        <div>
+                            <p class="text-base font-semibold text-gray-800">${displayName}</p>
+                            ${title}
+                            <div class="mt-2 flex flex-wrap gap-3">${buildContactDetails(contact)}</div>
+                        </div>
+                        <div class="flex flex-col items-end gap-2 text-right">
+                            ${status}
+                            ${updated}
                         </div>
                     </div>
-                    <div class="flex space-x-3">
-                        <button onclick="showCompanyForm('${company.id}')" class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100">
-                            Edit
+                    <div class="mt-4 flex flex-wrap gap-2">
+                        <button type="button" class="px-3 py-1 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100" data-company-action="edit-contact" data-id="${contact.id}">
+                            <i class="fas fa-pen mr-1"></i>Edit
                         </button>
-                        <button onclick="deleteCompany('${company.id}')" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">
-                            Delete
+                        <button type="button" class="px-3 py-1 border border-blue-200 rounded-lg text-blue-600 hover:bg-blue-50" data-company-action="create-lead" data-company-id="${company.id}" data-company-name="${encodeURIComponent(company.name || '')}" data-contact-id="${contact.id}" data-contact-name="${encodedContactName}">
+                            <i class="fas fa-user-plus mr-1"></i>New Lead
+                        </button>
+                        <button type="button" class="px-3 py-1 border border-purple-200 rounded-lg text-purple-600 hover:bg-purple-50" data-company-action="create-deal" data-company-id="${company.id}" data-company-name="${encodeURIComponent(company.name || '')}" data-contact-id="${contact.id}" data-contact-name="${encodedContactName}">
+                            <i class="fas fa-briefcase mr-1"></i>New Deal
                         </button>
                     </div>
                 </div>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    ${detailHtml}
+            `;
+        }).join('');
+
+        const contactsSectionHtml = `
+            <div class="space-y-4">
+                <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                    <div>
+                        <h4 class="text-lg font-semibold text-gray-800">Contacts</h4>
+                        <p class="text-sm text-gray-500">People connected with ${safeCompanyName}</p>
+                    </div>
+                    <button type="button" class="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700" data-company-action="add-contact" data-company-id="${company.id}" data-company-name="${encodeURIComponent(company.name || '')}">
+                        <i class="fas fa-user-plus mr-2"></i>Add Contact
+                    </button>
+                </div>
+                ${contacts.length ? `<div class="space-y-3">${contactCards}</div>` : `<div class="border border-dashed border-gray-300 rounded-xl p-8 text-center text-gray-500"><p>No contacts linked yet.</p><button type="button" class="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700" data-company-action="add-contact" data-company-id="${company.id}" data-company-name="${encodeURIComponent(company.name || '')}">Create the first contact</button></div>`}
+            </div>
+        `;
+
+        const leadCards = leads.map(lead => {
+            const title = sanitizeText(lead.title || 'Untitled Lead');
+            const status = lead.status ? `<span class="px-2 py-1 rounded-full text-xs ${getStatusClass(lead.status)}">${sanitizeText(lead.status)}</span>` : '';
+            const priority = lead.priority ? `<span class="px-2 py-1 rounded-full text-xs ${getPriorityClass(lead.priority)}">${sanitizeText(lead.priority)}</span>` : '';
+            const probability = Number.isFinite(Number(lead.probability)) ? `<span class="px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-700">${Math.round(Number(lead.probability))}% probability</span>` : '';
+            const expectedClose = lead.expected_close_date ? `<span class="px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-600">Close ${formatDateOnly(lead.expected_close_date)}</span>` : '';
+            const contactName = lead.contact_name ? `<span class="flex items-center gap-1 text-sm text-gray-600"><i class="fas fa-user text-gray-400"></i>${sanitizeText(lead.contact_name)}</span>` : '';
+            const valueLine = lead.value ? `<span class="flex items-center gap-1 text-sm text-gray-600"><i class="fas fa-dollar-sign text-gray-400"></i>${formatCurrency(lead.value)}</span>` : '';
+            const encodedLeadTitle = encodeURIComponent(lead.title || '');
+            const encodedContactName = encodeURIComponent(lead.contact_name || '');
+            return `
+                <div class="border border-gray-200 rounded-xl p-4 bg-white shadow-sm">
+                    <div class="flex items-start justify-between gap-4">
+                        <div>
+                            <p class="text-base font-semibold text-gray-800">${title}</p>
+                            <div class="mt-2 flex flex-wrap gap-2 text-xs text-gray-600">
+                                ${status}
+                                ${priority}
+                                ${probability}
+                                ${expectedClose}
+                            </div>
+                            <div class="mt-3 flex flex-wrap gap-3 text-sm text-gray-600">
+                                ${contactName}
+                                ${valueLine}
+                            </div>
+                        </div>
+                        <div class="text-right text-xs text-gray-500">
+                            ${lead.updated_at ? `Updated ${formatDateOnly(lead.updated_at)}` : ''}
+                        </div>
+                    </div>
+                    <div class="mt-4 flex flex-wrap gap-2">
+                        <button type="button" class="px-3 py-1 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100" data-company-action="edit-lead" data-id="${lead.id}">
+                            <i class="fas fa-pen mr-1"></i>Edit
+                        </button>
+                        <button type="button" class="px-3 py-1 border border-purple-200 rounded-lg text-purple-600 hover:bg-purple-50" data-company-action="convert-lead" data-company-id="${company.id}" data-company-name="${encodeURIComponent(company.name || '')}" data-lead-id="${lead.id}" data-lead-title="${encodedLeadTitle}" data-contact-id="${lead.contact_id || ''}" data-contact-name="${encodedContactName}">
+                            <i class="fas fa-arrow-right mr-1"></i>Create Deal
+                        </button>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        const leadsSectionHtml = `
+            <div class="space-y-4">
+                <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                    <div>
+                        <h4 class="text-lg font-semibold text-gray-800">Leads</h4>
+                        <p class="text-sm text-gray-500">Pipeline linked to ${safeCompanyName}</p>
+                    </div>
+                    <button type="button" class="px-3 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700" data-company-action="add-lead" data-company-id="${company.id}" data-company-name="${encodeURIComponent(company.name || '')}">
+                        <i class="fas fa-bullseye mr-2"></i>Add Lead
+                    </button>
+                </div>
+                ${leads.length ? `<div class="space-y-3">${leadCards}</div>` : `<div class="border border-dashed border-gray-300 rounded-xl p-8 text-center text-gray-500"><p>No leads attached to this company.</p><button type="button" class="mt-4 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700" data-company-action="add-lead" data-company-id="${company.id}" data-company-name="${encodeURIComponent(company.name || '')}">Create a lead</button></div>`}
+            </div>
+        `;
+
+        const dealCards = deals.map(opportunity => {
+            const name = sanitizeText(opportunity.name || 'Untitled Deal');
+            const stage = opportunity.stage ? `<span class="px-2 py-1 rounded-full text-xs bg-indigo-100 text-indigo-700">${sanitizeText(opportunity.stage)}</span>` : '';
+            const probabilityBadge = Number.isFinite(Number(opportunity.probability)) ? `<span class="px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-700">${Math.round(Number(opportunity.probability))}%</span>` : '';
+            const expectedClose = opportunity.expected_close_date ? `<span class="px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-600">Close ${formatDateOnly(opportunity.expected_close_date)}</span>` : '';
+            const valueLine = opportunity.value ? `<span class="flex items-center gap-1 text-sm text-gray-600"><i class="fas fa-dollar-sign text-gray-400"></i>${formatCurrency(opportunity.value)}</span>` : '';
+            const contactLine = opportunity.primary_contact_name ? `<span class="flex items-center gap-1 text-sm text-gray-600"><i class="fas fa-user text-gray-400"></i>${sanitizeText(opportunity.primary_contact_name)}</span>` : '';
+            const leadLine = opportunity.lead?.title || opportunity.lead_name ? `<span class="flex items-center gap-1 text-sm text-gray-600"><i class="fas fa-bullseye text-gray-400"></i>${sanitizeText(opportunity.lead?.title || opportunity.lead_name)}</span>` : '';
+            return `
+                <div class="border border-gray-200 rounded-xl p-4 bg-white shadow-sm">
+                    <div class="flex items-start justify-between gap-4">
+                        <div>
+                            <p class="text-base font-semibold text-gray-800">${name}</p>
+                            <div class="mt-2 flex flex-wrap gap-2 text-xs text-gray-600">
+                                ${stage}
+                                ${probabilityBadge}
+                                ${expectedClose}
+                            </div>
+                            <div class="mt-3 flex flex-wrap gap-3 text-sm text-gray-600">
+                                ${valueLine}
+                                ${contactLine}
+                                ${leadLine}
+                            </div>
+                        </div>
+                        <div class="text-right text-xs text-gray-500">
+                            ${opportunity.updated_at ? `Updated ${formatDateOnly(opportunity.updated_at)}` : ''}
+                        </div>
+                    </div>
+                    <div class="mt-4 flex flex-wrap gap-2">
+                        <button type="button" class="px-3 py-1 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100" data-company-action="edit-deal" data-id="${opportunity.id}">
+                            <i class="fas fa-pen mr-1"></i>Edit
+                        </button>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        const dealsSectionHtml = `
+            <div class="space-y-4">
+                <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                    <div>
+                        <h4 class="text-lg font-semibold text-gray-800">Deals</h4>
+                        <p class="text-sm text-gray-500">Opportunities sourced from ${safeCompanyName}</p>
+                    </div>
+                    <button type="button" class="px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700" data-company-action="add-deal" data-company-id="${company.id}" data-company-name="${encodeURIComponent(company.name || '')}">
+                        <i class="fas fa-briefcase mr-2"></i>Add Deal
+                    </button>
+                </div>
+                ${deals.length ? `<div class="space-y-3">${dealCards}</div>` : `<div class="border border-dashed border-gray-300 rounded-xl p-8 text-center text-gray-500"><p>No deals in the pipeline yet.</p><button type="button" class="mt-4 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700" data-company-action="add-deal" data-company-id="${company.id}" data-company-name="${encodeURIComponent(company.name || '')}">Create a deal</button></div>`}
+            </div>
+        `;
+
+        const competitorCards = relevantCompetitors.map(comp => {
+            const targets = normalizeCompetitorTargets(comp, companyLookup);
+            const targetBadges = targets.names.map(name => `<span class="inline-flex items-center px-3 py-1 rounded-full bg-slate-100 text-slate-700 text-xs"><i class="fas fa-building mr-1"></i>${sanitizeText(name)}</span>`).join('');
+            const noteRaw = comp.note_file || comp.obsidian_note || '';
+            const noteNormalized = noteRaw ? String(noteRaw).trim().replace(/^\/+/, '').replace(/^vault\//i, '') : '';
+            const noteHref = noteNormalized ? `vault/${encodeURI(noteNormalized)}` : '';
+            const noteLink = noteHref ? `<a href="${noteHref}" target="_blank" class="text-sm text-blue-600 hover:text-blue-700"><i class="fas fa-book mr-1"></i>${sanitizeText(noteRaw)}</a>` : '';
+            const latestMove = comp.latest_move ? `<p class="text-sm text-gray-600 mt-3">${sanitizeText(comp.latest_move)}</p>` : '';
+            const lastUpdate = comp.last_update || comp.updated_at;
+            return `
+                <div class="border border-gray-200 rounded-xl p-4 bg-white shadow-sm">
+                    <div class="flex items-start justify-between gap-4">
+                        <div>
+                            <p class="text-base font-semibold text-gray-800">${sanitizeText(comp.name || 'Competitor')}</p>
+                            <div class="mt-2 flex flex-wrap gap-2 text-xs text-gray-600">
+                                <span class="px-2 py-1 rounded-full bg-gray-100 text-gray-700">${sanitizeText(comp.tier || 'Tier')}</span>
+                                ${comp.status ? `<span class="px-2 py-1 rounded-full ${getStatusClass(comp.status)}">${sanitizeText(comp.status)}</span>` : ''}
+                            </div>
+                        </div>
+                        <div class="text-right text-xs text-gray-500 space-y-1">
+                            ${lastUpdate ? `<div>Updated ${formatDateOnly(lastUpdate)}</div>` : ''}
+                            ${noteLink}
+                        </div>
+                    </div>
+                    ${latestMove}
+                    ${targetBadges ? `<div class="mt-3 flex flex-wrap gap-2">${targetBadges}</div>` : ''}
+                </div>
+            `;
+        }).join('');
+
+        const competitorsSectionHtml = `
+            <div class="space-y-4">
+                <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                    <div>
+                        <h4 class="text-lg font-semibold text-gray-800">Competitors</h4>
+                        <p class="text-sm text-gray-500">Competitive research linked to ${safeCompanyName}</p>
+                    </div>
+                    <button type="button" class="px-3 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100" data-company-action="open-competitor-hub">
+                        <i class="fas fa-chess-knight mr-2"></i>Open Competitor Hub
+                    </button>
+                </div>
+                ${relevantCompetitors.length ? `<div class="space-y-3">${competitorCards}</div>` : `<div class="border border-dashed border-gray-300 rounded-xl p-8 text-center text-gray-500"><p>No competitor intelligence is attached to this account.</p><p class="text-sm mt-2">Track competitors from the Competitor Hub and link this company to their watchlists.</p><button type="button" class="mt-4 inline-flex items-center px-4 py-2 bg-slate-800 text-white rounded-lg hover:bg-slate-900" data-company-action="open-competitor-hub"><i class="fas fa-chess-knight mr-2"></i>Open Competitor Hub</button></div>`}
+            </div>
+        `;
+
+        const tabs = [
+            { id: 'company-overview', label: 'Overview', content: overviewHtml },
+            { id: 'company-contacts', label: `Contacts (${contacts.length})`, content: contactsSectionHtml },
+            { id: 'company-leads', label: `Leads (${leads.length})`, content: leadsSectionHtml },
+            { id: 'company-deals', label: `Deals (${deals.length})`, content: dealsSectionHtml },
+            { id: 'company-competitors', label: `Competitors (${relevantCompetitors.length})`, content: competitorsSectionHtml }
+        ];
+
+        const tabButtons = tabs.map((tab, index) => `
+            <button type="button" class="px-4 py-2 rounded-lg text-sm font-medium ${index === 0 ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600'}" data-company-tab="${tab.id}">
+                ${sanitizeText(tab.label)}
+            </button>
+        `).join('');
+
+        const tabPanels = tabs.map((tab, index) => `
+            <div data-company-panel="${tab.id}" class="${index === 0 ? '' : 'hidden'}">
+                ${tab.content}
+            </div>
+        `).join('');
+
+        const headerHtml = `
+            <div class="flex flex-col md:flex-row md:items-start md:justify-between gap-6">
+                <div>
+                    <h4 class="text-2xl font-semibold text-gray-800">${safeCompanyName}</h4>
+                    <div class="mt-2 flex flex-wrap items-center gap-2 text-sm text-gray-600">
+                        ${statusBadge}
+                        ${ownerText}
+                        ${industryText}
+                    </div>
+                </div>
+                <div class="flex flex-col items-stretch md:items-end gap-3">
+                    <div class="flex flex-wrap gap-2 justify-end">
+                        <button type="button" class="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700" data-company-action="add-contact" data-company-id="${company.id}" data-company-name="${encodeURIComponent(company.name || '')}">
+                            <i class="fas fa-user-plus mr-2"></i>New Contact
+                        </button>
+                        <button type="button" class="px-3 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700" data-company-action="add-lead" data-company-id="${company.id}" data-company-name="${encodeURIComponent(company.name || '')}">
+                            <i class="fas fa-bullseye mr-2"></i>New Lead
+                        </button>
+                        <button type="button" class="px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700" data-company-action="add-deal" data-company-id="${company.id}" data-company-name="${encodeURIComponent(company.name || '')}">
+                            <i class="fas fa-briefcase mr-2"></i>New Deal
+                        </button>
+                    </div>
+                    <div class="flex flex-wrap gap-2 justify-end">
+                        <button type="button" class="px-3 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100" data-company-action="edit-company" data-company-id="${company.id}">
+                            <i class="fas fa-edit mr-1"></i>Edit
+                        </button>
+                        <button type="button" class="px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700" data-company-action="delete-company" data-company-id="${company.id}">
+                            <i class="fas fa-trash mr-1"></i>Delete
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        const modalTitle = company.name ? `Company – ${company.name}` : 'Company';
+
+        showModal(modalTitle, `
+            <div class="space-y-6">
+                <div class="bg-white border border-gray-200 rounded-2xl p-6 space-y-6">
+                    ${headerHtml}
+                    <div>
+                        <div class="flex flex-wrap gap-2" data-company-tablist>
+                            ${tabButtons}
+                        </div>
+                        <div class="mt-4">
+                            ${tabPanels}
+                        </div>
+                    </div>
                 </div>
             </div>
         `);
+
+        initializeCompanyModal(company);
     } catch (error) {
         console.error('Error viewing company:', error);
         showToast('Failed to load company', 'error');
     } finally {
         hideLoading();
     }
+}
+
+function initializeCompanyModal(company, context = {}) {
+    const modalContent = document.getElementById('modalContent');
+    if (!modalContent) {
+        return;
+    }
+
+    const decodeValue = value => {
+        if (!value) {
+            return '';
+        }
+        try {
+            return decodeURIComponent(value);
+        } catch (error) {
+            return value;
+        }
+    };
+
+    const tabButtons = Array.from(modalContent.querySelectorAll('[data-company-tab]'));
+    const panels = Array.from(modalContent.querySelectorAll('[data-company-panel]'));
+
+    const setActiveTab = targetId => {
+        if (!targetId) {
+            return;
+        }
+        tabButtons.forEach(button => {
+            const isActive = button.getAttribute('data-company-tab') === targetId;
+            button.setAttribute('data-active', isActive ? 'true' : 'false');
+            button.classList.toggle('bg-blue-600', isActive);
+            button.classList.toggle('text-white', isActive);
+            button.classList.toggle('bg-gray-100', !isActive);
+            button.classList.toggle('text-gray-600', !isActive);
+        });
+        panels.forEach(panel => {
+            const matches = panel.getAttribute('data-company-panel') === targetId;
+            panel.classList.toggle('hidden', !matches);
+        });
+    };
+
+    if (tabButtons.length) {
+        const initialTab = tabButtons[0].getAttribute('data-company-tab');
+        setActiveTab(initialTab);
+        tabButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                setActiveTab(button.getAttribute('data-company-tab'));
+            });
+        });
+    }
+
+    const register = (selector, handler) => {
+        modalContent.querySelectorAll(selector).forEach(element => {
+            element.addEventListener('click', event => {
+                event.preventDefault();
+                handler(element, event);
+            });
+        });
+    };
+
+    register('[data-company-action="add-contact"]', element => {
+        if (typeof showContactForm !== 'function') {
+            return;
+        }
+        const companyId = element.getAttribute('data-company-id') || '';
+        const companyName = decodeValue(element.getAttribute('data-company-name'));
+        showContactForm(null, {
+            defaultCompanyId: companyId,
+            defaultCompanyName: companyName
+        });
+    });
+
+    register('[data-company-action="edit-contact"]', element => {
+        if (typeof showContactForm !== 'function') {
+            return;
+        }
+        const contactId = element.getAttribute('data-id');
+        if (contactId) {
+            showContactForm(contactId);
+        }
+    });
+
+    register('[data-company-action="add-lead"]', element => {
+        if (typeof showLeadForm !== 'function') {
+            return;
+        }
+        const companyId = element.getAttribute('data-company-id') || '';
+        const companyName = decodeValue(element.getAttribute('data-company-name'));
+        showLeadForm(null, {
+            defaultCompanyId: companyId,
+            defaultCompanyName: companyName
+        });
+    });
+
+    register('[data-company-action="create-lead"]', element => {
+        if (typeof showLeadForm !== 'function') {
+            return;
+        }
+        const companyId = element.getAttribute('data-company-id') || '';
+        const companyName = decodeValue(element.getAttribute('data-company-name'));
+        const contactId = element.getAttribute('data-contact-id') || '';
+        const contactName = decodeValue(element.getAttribute('data-contact-name'));
+        showLeadForm(null, {
+            defaultCompanyId: companyId,
+            defaultCompanyName: companyName,
+            defaultContactId: contactId,
+            defaultContactName: contactName
+        });
+    });
+
+    register('[data-company-action="edit-lead"]', element => {
+        if (typeof showLeadForm !== 'function') {
+            return;
+        }
+        const leadId = element.getAttribute('data-id');
+        if (leadId) {
+            showLeadForm(leadId);
+        }
+    });
+
+    register('[data-company-action="add-deal"]', element => {
+        if (typeof showOpportunityForm !== 'function') {
+            return;
+        }
+        const companyId = element.getAttribute('data-company-id') || '';
+        const companyName = decodeValue(element.getAttribute('data-company-name'));
+        showOpportunityForm(null, {
+            defaultCompanyId: companyId,
+            defaultCompanyName: companyName
+        });
+    });
+
+    register('[data-company-action="create-deal"]', element => {
+        if (typeof showOpportunityForm !== 'function') {
+            return;
+        }
+        const companyId = element.getAttribute('data-company-id') || '';
+        const companyName = decodeValue(element.getAttribute('data-company-name'));
+        const contactId = element.getAttribute('data-contact-id') || '';
+        const contactName = decodeValue(element.getAttribute('data-contact-name'));
+        showOpportunityForm(null, {
+            defaultCompanyId: companyId,
+            defaultCompanyName: companyName,
+            defaultContactId: contactId,
+            defaultContactName: contactName
+        });
+    });
+
+    register('[data-company-action="convert-lead"]', element => {
+        const companyId = element.getAttribute('data-company-id') || '';
+        const companyName = decodeValue(element.getAttribute('data-company-name'));
+        const leadId = element.getAttribute('data-lead-id') || '';
+        const leadTitle = decodeValue(element.getAttribute('data-lead-title'));
+        const contactId = element.getAttribute('data-contact-id') || '';
+        const contactName = decodeValue(element.getAttribute('data-contact-name'));
+
+        if (!leadId) {
+            return;
+        }
+
+        if (typeof showLeadConversionWizard === 'function') {
+            showLeadConversionWizard(leadId, {
+                defaultCompanyId: companyId,
+                defaultCompanyName: companyName,
+                defaultContactId: contactId,
+                defaultContactName: contactName
+            });
+            return;
+        }
+
+        if (typeof showOpportunityForm === 'function') {
+            showOpportunityForm(null, {
+                defaultCompanyId: companyId,
+                defaultCompanyName: companyName,
+                defaultLeadId: leadId,
+                defaultLeadName: leadTitle,
+                defaultContactId: contactId,
+                defaultContactName: contactName
+            });
+        }
+    });
+
+    register('[data-company-action="edit-deal"]', element => {
+        if (typeof showOpportunityForm !== 'function') {
+            return;
+        }
+        const oppId = element.getAttribute('data-id');
+        if (oppId) {
+            showOpportunityForm(oppId);
+        }
+    });
+
+    register('[data-company-action="edit-company"]', element => {
+        if (typeof showCompanyForm !== 'function') {
+            return;
+        }
+        const companyId = element.getAttribute('data-company-id');
+        if (companyId) {
+            showCompanyForm(companyId);
+        }
+    });
+
+    register('[data-company-action="delete-company"]', element => {
+        if (typeof deleteCompany !== 'function') {
+            return;
+        }
+        const companyId = element.getAttribute('data-company-id');
+        if (companyId) {
+            deleteCompany(companyId);
+        }
+    });
+
+    register('[data-company-action="open-competitor-hub"]', () => {
+        closeModal();
+        if (typeof showCompetitorIntel === 'function') {
+            showCompetitorIntel();
+        }
+    });
 }
 
 async function editCompany(id) {
@@ -6663,8 +7325,14 @@ async function exportCompanies() {
 }
 
 
-async function showLeadForm(leadId = null) {
+async function showLeadForm(leadId = null, context = {}) {
     const isEdit = Boolean(leadId);
+    const {
+        defaultCompanyId = '',
+        defaultCompanyName = '',
+        defaultContactId = '',
+        defaultContactName = ''
+    } = context || {};
     let lead = {};
 
     if (isEdit) {
@@ -6682,6 +7350,21 @@ async function showLeadForm(leadId = null) {
             return;
         }
         hideLoading();
+    }
+
+    if (!isEdit) {
+        if (defaultCompanyId) {
+            lead.company_id = defaultCompanyId;
+        }
+        if (defaultCompanyName) {
+            lead.company_name = defaultCompanyName;
+        }
+        if (defaultContactId) {
+            lead.contact_id = defaultContactId;
+        }
+        if (defaultContactName) {
+            lead.contact_name = defaultContactName;
+        }
     }
 
     let companies = [];
@@ -7243,6 +7926,9 @@ async function viewLead(id) {
                         ${badges}
                     </div>
                     <div class="flex space-x-3">
+                        <button onclick="showLeadConversionWizard('${lead.id}')" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                            Convert Lead
+                        </button>
                         <button onclick="showLeadForm('${lead.id}')" class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100">
                             Edit
                         </button>
@@ -7263,6 +7949,678 @@ async function viewLead(id) {
     } finally {
         hideLoading();
     }
+}
+
+async function showLeadConversionWizard(leadId, context = {}) {
+    showLoading();
+    let lead;
+    try {
+        const response = await fetch(`tables/leads/${leadId}`);
+        if (!response.ok) {
+            throw new Error('Failed to load lead');
+        }
+        lead = await response.json();
+    } catch (error) {
+        console.error('Error loading lead for conversion:', error);
+        hideLoading();
+        showToast('Unable to load lead for conversion', 'error');
+        return;
+    }
+
+    const {
+        defaultCompanyId = '',
+        defaultCompanyName = '',
+        defaultContactId = '',
+        defaultContactName = ''
+    } = context || {};
+
+    if (!lead.company_id && defaultCompanyId) {
+        lead.company_id = defaultCompanyId;
+    }
+    if (!lead.company_name && defaultCompanyName) {
+        lead.company_name = defaultCompanyName;
+    }
+    if (!lead.contact_id && defaultContactId) {
+        lead.contact_id = defaultContactId;
+    }
+    if (!lead.contact_name && defaultContactName) {
+        lead.contact_name = defaultContactName;
+    }
+
+    const parseList = payload => {
+        if (Array.isArray(payload?.data)) {
+            return payload.data;
+        }
+        if (Array.isArray(payload)) {
+            return payload;
+        }
+        return [];
+    };
+
+    let companies = [];
+    let contacts = [];
+    try {
+        const [companiesResponse, contactsResponse] = await Promise.all([
+            fetch('tables/companies?limit=1000').then(res => res.ok ? res.json() : { data: [] }).catch(() => ({ data: [] })),
+            fetch('tables/contacts?limit=1000').then(res => res.ok ? res.json() : { data: [] }).catch(() => ({ data: [] }))
+        ]);
+        companies = parseList(companiesResponse);
+        contacts = parseList(contactsResponse);
+    } catch (error) {
+        console.warn('Unable to load lookup data for lead conversion:', error);
+    }
+
+    if (typeof updateCompanyDirectory === 'function') {
+        updateCompanyDirectory(companies, { merge: true });
+    }
+    if (typeof updateContactDirectory === 'function') {
+        updateContactDirectory(contacts, { merge: true });
+    }
+
+    hideLoading();
+
+    const selectedCompanyId = lead.company_id || '';
+    let hasCurrentCompany = false;
+    const companyOptionsHtml = companies.map(company => {
+        if (!company?.id) {
+            return '';
+        }
+        const label = sanitizeText(company.name || company.website || company.id);
+        const isSelected = selectedCompanyId && company.id === selectedCompanyId;
+        if (isSelected) {
+            hasCurrentCompany = true;
+        }
+        return `<option value="${sanitizeText(company.id)}" ${isSelected ? 'selected' : ''}>${label}</option>`;
+    }).join('');
+
+    const fallbackCompanyOption = !hasCurrentCompany && selectedCompanyId && lead.company_name
+        ? `<option value="${sanitizeText(selectedCompanyId)}" selected>${sanitizeText(lead.company_name)}</option>`
+        : '';
+
+    const selectedContactId = lead.contact_id || '';
+    let hasCurrentContact = false;
+    const contactOptionsHtml = contacts.map(contact => {
+        if (!contact?.id) {
+            return '';
+        }
+        const fullName = [contact.first_name, contact.last_name].filter(Boolean).join(' ');
+        const fallback = contact.email || contact.phone || contact.id;
+        const label = sanitizeText(fullName || fallback);
+        const isSelected = selectedContactId && contact.id === selectedContactId;
+        if (isSelected) {
+            hasCurrentContact = true;
+        }
+        return `<option value="${sanitizeText(contact.id)}" ${isSelected ? 'selected' : ''}>${label}</option>`;
+    }).join('');
+
+    const contactFallbackLabel = lead.contact_name || defaultContactName || '';
+    const fallbackContactOption = !hasCurrentContact && selectedContactId && contactFallbackLabel
+        ? `<option value="${sanitizeText(selectedContactId)}" selected>${sanitizeText(contactFallbackLabel)}</option>`
+        : '';
+
+    const statusOptions = ['New', 'Contacted', 'Qualified', 'Proposal', 'Negotiation', 'Won', 'Lost'];
+    if (lead.status && !statusOptions.includes(lead.status)) {
+        statusOptions.unshift(lead.status);
+    }
+    let selectedLeadStatus = 'Qualified';
+    if (lead.status && statusOptions.includes(lead.status)) {
+        selectedLeadStatus = ['New', 'Contacted'].includes(lead.status) ? 'Qualified' : lead.status;
+    }
+
+    const statusToStageMap = {
+        Qualified: 'Qualification',
+        Proposal: 'Proposal',
+        Negotiation: 'Negotiation',
+        Won: 'Closed Won',
+        Lost: 'Closed Lost'
+    };
+    const stageOptions = ['Qualification', 'Needs Analysis', 'Proposal', 'Negotiation', 'Closed Won', 'Closed Lost'];
+    const mappedStage = statusToStageMap[lead.status] || statusToStageMap[selectedLeadStatus] || 'Qualification';
+    if (mappedStage && !stageOptions.includes(mappedStage)) {
+        stageOptions.unshift(mappedStage);
+    }
+
+    const stageProbabilityDefaults = {
+        'Qualification': 20,
+        'Needs Analysis': 35,
+        'Proposal': 55,
+        'Negotiation': 75,
+        'Closed Won': 100,
+        'Closed Lost': 0
+    };
+
+    const probabilityDefault = typeof lead.probability === 'number'
+        ? lead.probability
+        : stageProbabilityDefaults[mappedStage];
+    const probabilityValue = probabilityDefault !== undefined && probabilityDefault !== null
+        ? String(probabilityDefault)
+        : '';
+
+    const expectedCloseDate = lead.expected_close_date
+        ? new Date(lead.expected_close_date).toISOString().split('T')[0]
+        : '';
+
+    const opportunityName = lead.title || '';
+    const opportunityValue = lead.value ?? '';
+    const opportunityOwner = lead.assigned_to || (typeof currentUser !== 'undefined' ? currentUser : '');
+    const opportunityDescription = lead.description || '';
+
+    const shouldPrefillOpportunity = ['Qualified', 'Proposal', 'Negotiation', 'Won'].includes(lead.status);
+    const opportunitySectionClass = shouldPrefillOpportunity ? '' : 'hidden';
+    const createOpportunityChecked = shouldPrefillOpportunity ? 'checked' : '';
+
+    const initialContactName = contactFallbackLabel.trim();
+    const [initialFirstName, ...initialLastNameParts] = initialContactName ? initialContactName.split(' ') : ['', ''];
+    const initialLastName = initialLastNameParts.join(' ');
+    const initialEmail = lead.email || '';
+    const initialPhone = lead.phone || '';
+
+    const hiddenCompanyName = sanitizeText(lead.company_name || '');
+
+    showModal('Convert Lead', `
+        <form id="leadConversionForm" class="space-y-6">
+            <div class="bg-blue-50 border border-blue-100 rounded-xl p-4">
+                <h4 class="text-lg font-semibold text-blue-800">${sanitizeText(lead.title || 'Untitled Lead')}</h4>
+                <p class="text-sm text-blue-700 mt-1">Transform this lead into structured CRM records without losing context.</p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                    <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Lead Value</p>
+                    <p class="mt-2 text-sm text-gray-800">${formatCurrency(lead.value || 0)}</p>
+                </div>
+                <div class="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                    <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Current Status</p>
+                    <p class="mt-2 text-sm text-gray-800">${sanitizeText(lead.status || 'New')}</p>
+                </div>
+            </div>
+
+            <div>
+                <h5 class="text-sm font-semibold text-gray-700 mb-3">Company Association</h5>
+                <select id="leadConversionCompanySelect" name="company_id" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    <option value="">Not linked</option>
+                    ${fallbackCompanyOption}
+                    ${companyOptionsHtml}
+                </select>
+                <input type="hidden" name="company_name" id="leadConversionCompanyName" value="${hiddenCompanyName}">
+                <p class="mt-1 text-xs text-gray-500">Link the lead to an existing account or create a new company inline.</p>
+                <button type="button" id="leadConversionNewCompanyToggle" data-label-create="Create new company" data-label-cancel="Use existing company" class="mt-2 text-sm text-blue-600 hover:text-blue-700">Create new company</button>
+                <div id="leadConversionNewCompanySection" class="hidden mt-4 border border-blue-100 rounded-lg p-4 bg-blue-50/50 space-y-4">
+                    <p class="text-xs text-blue-700">Provide minimal details and we'll create the company once you convert.</p>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Company Name</label>
+                            <input type="text" name="new_company_name" value="" placeholder="Acme Corporation" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Website</label>
+                            <input type="url" name="new_company_website" value="" placeholder="https://example.com" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Industry</label>
+                            <input type="text" name="new_company_industry" value="" placeholder="Software" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Status</label>
+                            <select name="new_company_status" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                <option value="Prospect">Prospect</option>
+                                <option value="Customer">Customer</option>
+                                <option value="Partner">Partner</option>
+                                <option value="Vendor">Vendor</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Company Size</label>
+                            <input type="text" name="new_company_size" value="" placeholder="50-100" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div>
+                <h5 class="text-sm font-semibold text-gray-700 mb-3">Primary Contact</h5>
+                <select id="leadConversionContactSelect" name="contact_id" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    <option value="">Create new contact</option>
+                    ${fallbackContactOption}
+                    ${contactOptionsHtml}
+                </select>
+                <p class="mt-1 text-xs text-gray-500">Select an existing person or capture their details to create a new contact.</p>
+                <button type="button" id="leadConversionNewContactToggle" data-label-create="Create new contact" data-label-cancel="Use existing contact" class="mt-2 text-sm text-blue-600 hover:text-blue-700">Create new contact</button>
+                <div id="leadConversionNewContactSection" class="hidden mt-4 border border-purple-100 rounded-lg p-4 bg-purple-50/50">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">First Name</label>
+                            <input type="text" name="new_contact_first_name" value="${sanitizeText(initialFirstName)}" placeholder="First name" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Last Name</label>
+                            <input type="text" name="new_contact_last_name" value="${sanitizeText(initialLastName)}" placeholder="Last name" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                            <input type="email" name="new_contact_email" value="${sanitizeText(initialEmail)}" placeholder="name@example.com" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Phone</label>
+                            <input type="tel" name="new_contact_phone" value="${sanitizeText(initialPhone)}" placeholder="+1 (555) 123-4567" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Lead Status After Conversion</label>
+                    <select name="lead_status" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        ${statusOptions.map(status => `<option value="${status}" ${selectedLeadStatus === status ? 'selected' : ''}>${status}</option>`).join('')}
+                    </select>
+                </div>
+                <div class="flex items-center mt-6 md:mt-0">
+                    <input type="checkbox" id="leadConversionOpportunityToggle" name="create_opportunity" class="h-4 w-4 text-blue-600 border-gray-300 rounded" ${createOpportunityChecked}>
+                    <label for="leadConversionOpportunityToggle" class="ml-3 text-sm text-gray-700">Launch opportunity form after conversion</label>
+                </div>
+            </div>
+
+            <div id="leadConversionOpportunityFields" class="${opportunitySectionClass} space-y-6 border border-gray-200 rounded-xl p-4 bg-gray-50">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Opportunity Name</label>
+                        <input type="text" name="opportunity_name" value="${sanitizeText(opportunityName)}" placeholder="Engagement name" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Stage</label>
+                        <select id="leadConversionOpportunityStage" name="opportunity_stage" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                            ${stageOptions.map(stage => `<option value="${stage}" ${mappedStage === stage ? 'selected' : ''}>${stage}</option>`).join('')}
+                        </select>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Value (USD)</label>
+                        <input type="number" min="0" step="1000" name="opportunity_value" value="${opportunityValue}" placeholder="50000" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Probability (%)</label>
+                        <input type="number" id="leadConversionOpportunityProbability" name="opportunity_probability" min="0" max="100" step="1" value="${probabilityValue}" placeholder="60" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Expected Close Date</label>
+                        <input type="date" name="opportunity_expected_close_date" value="${expectedCloseDate}" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Assigned To</label>
+                        <input type="text" name="opportunity_assigned_to" value="${sanitizeText(opportunityOwner)}" placeholder="Team member" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Next Step</label>
+                    <textarea name="opportunity_next_step" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Outline the immediate follow-up">${sanitizeText(lead.next_step || '')}</textarea>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Description</label>
+                    <textarea name="opportunity_description" rows="4" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Carry over context from the lead">${sanitizeText(opportunityDescription)}</textarea>
+                </div>
+            </div>
+
+            <div class="flex justify-end space-x-3 pt-4 border-t border-gray-200">
+                <button type="button" onclick="closeModal()" class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100">Cancel</button>
+                <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Convert Lead</button>
+            </div>
+        </form>
+    `);
+
+    const form = document.getElementById('leadConversionForm');
+    if (!form) {
+        return;
+    }
+    const companySelect = form.querySelector('#leadConversionCompanySelect');
+    const companyNameInput = form.querySelector('#leadConversionCompanyName');
+    const newCompanyToggle = form.querySelector('#leadConversionNewCompanyToggle');
+    const newCompanySection = form.querySelector('#leadConversionNewCompanySection');
+    const newCompanyNameInput = form.querySelector('input[name="new_company_name"]');
+    const newContactToggle = form.querySelector('#leadConversionNewContactToggle');
+    const newContactSection = form.querySelector('#leadConversionNewContactSection');
+    const createOpportunityToggle = form.querySelector('#leadConversionOpportunityToggle');
+    const opportunityFields = form.querySelector('#leadConversionOpportunityFields');
+    const stageSelect = form.querySelector('#leadConversionOpportunityStage');
+    const probabilityInput = form.querySelector('#leadConversionOpportunityProbability');
+
+    const companyToggleCreate = newCompanyToggle?.dataset?.labelCreate || 'Create new company';
+    const companyToggleCancel = newCompanyToggle?.dataset?.labelCancel || 'Use existing company';
+    const contactToggleCreate = newContactToggle?.dataset?.labelCreate || 'Create new contact';
+    const contactToggleCancel = newContactToggle?.dataset?.labelCancel || 'Use existing contact';
+
+    const syncCompanyName = () => {
+        if (!companySelect || !companyNameInput) {
+            return;
+        }
+        const option = companySelect.selectedOptions?.[0];
+        companyNameInput.value = option ? option.textContent.trim() : '';
+    };
+
+    syncCompanyName();
+
+    companySelect?.addEventListener('change', () => {
+        if (newCompanySection) {
+            newCompanySection.classList.add('hidden');
+        }
+        if (newCompanyToggle) {
+            newCompanyToggle.setAttribute('data-expanded', 'false');
+            newCompanyToggle.textContent = companyToggleCreate;
+        }
+        if (newCompanyNameInput) {
+            newCompanyNameInput.value = '';
+        }
+        syncCompanyName();
+    });
+
+    newCompanyToggle?.addEventListener('click', event => {
+        event.preventDefault();
+        if (!newCompanySection) {
+            return;
+        }
+        const expanded = newCompanyToggle.getAttribute('data-expanded') === 'true';
+        if (expanded) {
+            newCompanySection.classList.add('hidden');
+            newCompanyToggle.setAttribute('data-expanded', 'false');
+            newCompanyToggle.textContent = companyToggleCreate;
+            syncCompanyName();
+        } else {
+            newCompanySection.classList.remove('hidden');
+            newCompanyToggle.setAttribute('data-expanded', 'true');
+            newCompanyToggle.textContent = companyToggleCancel;
+            if (companySelect) {
+                companySelect.value = '';
+            }
+            if (companyNameInput) {
+                companyNameInput.value = '';
+            }
+            newCompanyNameInput?.focus();
+        }
+    });
+
+    newContactToggle?.addEventListener('click', event => {
+        event.preventDefault();
+        if (!newContactSection) {
+            return;
+        }
+        const expanded = newContactToggle.getAttribute('data-expanded') === 'true';
+        if (expanded) {
+            newContactSection.classList.add('hidden');
+            newContactToggle.setAttribute('data-expanded', 'false');
+            newContactToggle.textContent = contactToggleCreate;
+        } else {
+            newContactSection.classList.remove('hidden');
+            newContactToggle.setAttribute('data-expanded', 'true');
+            newContactToggle.textContent = contactToggleCancel;
+        }
+    });
+
+    if (!lead.contact_id) {
+        if (newContactSection) {
+            newContactSection.classList.remove('hidden');
+        }
+        if (newContactToggle) {
+            newContactToggle.setAttribute('data-expanded', 'true');
+            newContactToggle.textContent = contactToggleCancel;
+        }
+    }
+
+    const updateProbabilityForStage = () => {
+        if (!stageSelect || !probabilityInput) {
+            return;
+        }
+        const stage = stageSelect.value;
+        if (stage === 'Closed Won') {
+            probabilityInput.value = '100';
+            probabilityInput.setAttribute('readonly', 'readonly');
+        } else if (stage === 'Closed Lost') {
+            probabilityInput.value = '0';
+            probabilityInput.setAttribute('readonly', 'readonly');
+        } else {
+            probabilityInput.removeAttribute('readonly');
+            if (!probabilityInput.value || probabilityInput.value === '0' || probabilityInput.value === '100') {
+                const defaultValue = stageProbabilityDefaults[stage];
+                if (defaultValue !== undefined) {
+                    probabilityInput.value = String(defaultValue);
+                }
+            }
+        }
+    };
+
+    stageSelect?.addEventListener('change', () => {
+        if (!createOpportunityToggle || createOpportunityToggle.checked) {
+            updateProbabilityForStage();
+        }
+    });
+
+    const toggleOpportunityFields = () => {
+        if (!opportunityFields) {
+            return;
+        }
+        const shouldShow = Boolean(createOpportunityToggle?.checked);
+        opportunityFields.classList.toggle('hidden', !shouldShow);
+        if (shouldShow) {
+            updateProbabilityForStage();
+        }
+    };
+
+    createOpportunityToggle?.addEventListener('change', toggleOpportunityFields);
+    toggleOpportunityFields();
+
+    if (!createOpportunityToggle || createOpportunityToggle.checked) {
+        updateProbabilityForStage();
+    }
+
+    form.addEventListener('submit', async event => {
+        event.preventDefault();
+        const result = await processLeadConversion(lead, form);
+        if (result?.opportunityContext && typeof showOpportunityForm === 'function') {
+            showOpportunityForm(null, result.opportunityContext);
+        }
+    });
+}
+
+async function processLeadConversion(lead, form) {
+    if (!lead || !form) {
+        return null;
+    }
+
+    const formData = new FormData(form);
+    const selectedContactId = (formData.get('contact_id') || '').trim();
+    const newContactFirstName = formData.get('new_contact_first_name');
+    const newContactLastName = formData.get('new_contact_last_name');
+    const newContactEmail = formData.get('new_contact_email');
+    const newContactPhone = formData.get('new_contact_phone');
+    const hasNewContactData = [newContactFirstName, newContactLastName, newContactEmail, newContactPhone]
+        .some(value => value && value.trim());
+
+    if (!selectedContactId && !hasNewContactData) {
+        showToast('Select or create a contact before converting the lead', 'error');
+        return null;
+    }
+
+    const leadStatus = formData.get('lead_status') || lead.status || 'Qualified';
+    const createOpportunity = formData.get('create_opportunity') === 'on';
+
+    const companyPayload = {
+        selectedId: formData.get('company_id'),
+        companyName: formData.get('company_name'),
+        newCompany: {
+            name: formData.get('new_company_name'),
+            website: formData.get('new_company_website'),
+            industry: formData.get('new_company_industry'),
+            status: formData.get('new_company_status'),
+            size: formData.get('new_company_size')
+        }
+    };
+
+    const newContactPayload = {
+        firstName: newContactFirstName,
+        lastName: newContactLastName,
+        email: newContactEmail,
+        phone: newContactPhone
+    };
+
+    let companyLink = null;
+    let contactLink = null;
+
+    showLoading();
+
+    if (typeof ensureCompanyAssociation === 'function') {
+        try {
+            companyLink = await ensureCompanyAssociation(companyPayload);
+        } catch (error) {
+            console.error('Error linking company during lead conversion:', error);
+            showToast('Failed to link company for lead conversion', 'error');
+            hideLoading();
+            return null;
+        }
+    } else if (companyPayload.companyName) {
+        companyLink = { company_name: companyPayload.companyName };
+    }
+
+    if (typeof ensureContactAssociation === 'function') {
+        try {
+            contactLink = await ensureContactAssociation({
+                selectedId: selectedContactId,
+                newContact: newContactPayload,
+                companyLink,
+                defaultStatus: 'Customer'
+            });
+        } catch (error) {
+            console.error('Error linking contact during lead conversion:', error);
+            showToast('Failed to create or link contact for conversion', 'error');
+            hideLoading();
+            return null;
+        }
+    }
+
+    if (!contactLink?.contact_id) {
+        showToast('Select or create a contact before converting the lead', 'error');
+        hideLoading();
+        return null;
+    }
+
+    const timestamp = new Date().toISOString();
+    const patch = {
+        status: leadStatus,
+        updated_at: timestamp,
+        converted_at: timestamp
+    };
+
+    if (companyLink?.company_id) {
+        patch.company_id = companyLink.company_id;
+    }
+    if (companyLink?.company_name) {
+        patch.company_name = companyLink.company_name;
+    }
+    const trimmedCompanyName = companyPayload.companyName ? companyPayload.companyName.trim() : '';
+    if (!patch.company_name && trimmedCompanyName) {
+        patch.company_name = trimmedCompanyName;
+    }
+    if (contactLink.contact_id) {
+        patch.contact_id = contactLink.contact_id;
+    }
+
+    const contactRecord = contactLink.contact
+        || (contactLink.contact_id ? entityDirectories.contacts.byId.get(contactLink.contact_id) : null);
+    if (contactRecord) {
+        const contactName = [contactRecord.first_name, contactRecord.last_name]
+            .filter(Boolean)
+            .join(' ')
+            .trim();
+        if (contactName) {
+            patch.contact_name = contactName;
+        }
+        if (contactRecord.email) {
+            patch.contact_email = contactRecord.email;
+        }
+    }
+
+    try {
+        const response = await fetch(`tables/leads/${lead.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(patch)
+        });
+        if (!response.ok) {
+            throw new Error('Update failed');
+        }
+        await response.json();
+    } catch (error) {
+        console.error('Error updating lead during conversion:', error);
+        showToast('Failed to update lead during conversion', 'error');
+        hideLoading();
+        return null;
+    }
+
+    await loadLeads();
+    closeModal();
+    showToast('Lead converted successfully', 'success');
+    hideLoading();
+
+    const fallbackContactName = contactRecord
+        ? [contactRecord.first_name, contactRecord.last_name].filter(Boolean).join(' ').trim()
+        : [newContactFirstName, newContactLastName].filter(Boolean).join(' ').trim();
+    const companyNameFallback = (companyLink?.company_name
+        || formData.get('company_name')
+        || formData.get('new_company_name')
+        || lead.company_name
+        || '').trim();
+
+    let opportunityContext = null;
+    if (createOpportunity && typeof showOpportunityForm === 'function') {
+        const opportunityName = (formData.get('opportunity_name') || lead.title || '').trim();
+        const valueRaw = (formData.get('opportunity_value') || '').toString().trim();
+        const probabilityRaw = (formData.get('opportunity_probability') || '').toString().trim();
+        const stage = (formData.get('opportunity_stage') || '').trim();
+        const expectedClose = (formData.get('opportunity_expected_close_date') || lead.expected_close_date || '').trim();
+        const assignedTo = (formData.get('opportunity_assigned_to') || lead.assigned_to || '').trim();
+        const nextStep = (formData.get('opportunity_next_step') || '').trim();
+        const description = (formData.get('opportunity_description') || lead.description || '').trim();
+
+        const valueNumber = valueRaw && !Number.isNaN(Number(valueRaw)) ? Number(valueRaw) : undefined;
+        const probabilityNumber = probabilityRaw && !Number.isNaN(Number(probabilityRaw)) ? Number(probabilityRaw) : undefined;
+
+        opportunityContext = {
+            defaultCompanyId: companyLink?.company_id || '',
+            defaultCompanyName: companyNameFallback,
+            defaultLeadId: lead.id,
+            defaultLeadName: lead.title || '',
+            defaultContactId: contactLink.contact_id || '',
+            defaultContactName: fallbackContactName
+        };
+
+        if (opportunityName) {
+            opportunityContext.defaultOpportunityName = opportunityName;
+        }
+        if (Number.isFinite(valueNumber)) {
+            opportunityContext.defaultOpportunityValue = valueNumber;
+        }
+        if (stage) {
+            opportunityContext.defaultStage = stage;
+        }
+        if (Number.isFinite(probabilityNumber)) {
+            opportunityContext.defaultProbability = Math.max(0, Math.min(100, probabilityNumber));
+        }
+        if (expectedClose) {
+            opportunityContext.defaultExpectedCloseDate = expectedClose;
+        }
+        if (assignedTo) {
+            opportunityContext.defaultAssignedTo = assignedTo;
+        }
+        if (nextStep) {
+            opportunityContext.defaultNextStep = nextStep;
+        }
+        if (description) {
+            opportunityContext.defaultDescription = description;
+        }
+    }
+
+    return { opportunityContext };
 }
 
 async function editLead(id) {
@@ -7294,8 +8652,24 @@ async function deleteLead(id) {
 
 // Additional module forms
 
-async function showOpportunityForm(oppId = null) {
+async function showOpportunityForm(oppId = null, context = {}) {
     const isEdit = Boolean(oppId);
+    const {
+        defaultCompanyId = '',
+        defaultCompanyName = '',
+        defaultLeadId = '',
+        defaultLeadName = '',
+        defaultContactId = '',
+        defaultContactName = '',
+        defaultOpportunityName = '',
+        defaultOpportunityValue = '',
+        defaultStage = '',
+        defaultProbability = '',
+        defaultExpectedCloseDate = '',
+        defaultAssignedTo = '',
+        defaultNextStep = '',
+        defaultDescription = ''
+    } = context || {};
     let opportunity = {};
 
     if (isEdit) {
@@ -7313,6 +8687,58 @@ async function showOpportunityForm(oppId = null) {
             return;
         }
         hideLoading();
+    }
+
+    if (!isEdit) {
+        if (defaultCompanyId) {
+            opportunity.company_id = defaultCompanyId;
+        }
+        if (defaultCompanyName) {
+            opportunity.company_name = defaultCompanyName;
+        }
+        if (defaultLeadId) {
+            opportunity.lead_id = defaultLeadId;
+            opportunity.lead = {
+                id: defaultLeadId,
+                title: defaultLeadName || ''
+            };
+        }
+        if (defaultContactId) {
+            opportunity.primary_contact_id = defaultContactId;
+        }
+        if (defaultContactName) {
+            opportunity.primary_contact_name = defaultContactName;
+        }
+        if (defaultOpportunityName) {
+            opportunity.name = defaultOpportunityName;
+        }
+        if (defaultStage) {
+            opportunity.stage = defaultStage;
+        }
+        if (defaultOpportunityValue !== undefined && defaultOpportunityValue !== null && defaultOpportunityValue !== '') {
+            const numericValue = Number(defaultOpportunityValue);
+            if (!Number.isNaN(numericValue)) {
+                opportunity.value = numericValue;
+            }
+        }
+        if (defaultProbability !== undefined && defaultProbability !== null && defaultProbability !== '') {
+            const numericProbability = Number(defaultProbability);
+            if (!Number.isNaN(numericProbability)) {
+                opportunity.probability = numericProbability;
+            }
+        }
+        if (defaultExpectedCloseDate) {
+            opportunity.expected_close_date = defaultExpectedCloseDate;
+        }
+        if (defaultAssignedTo) {
+            opportunity.assigned_to = defaultAssignedTo;
+        }
+        if (defaultNextStep) {
+            opportunity.next_step = defaultNextStep;
+        }
+        if (defaultDescription) {
+            opportunity.description = defaultDescription;
+        }
     }
 
     let companies = [];
