@@ -2923,6 +2923,205 @@ function ensureCompetitorHubStyles() {
             padding: 0.75rem 0.85rem;
         }
 
+        .cih-research-board {
+            margin-top: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .cih-research-toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .cih-research-tabs {
+            display: inline-flex;
+            background: rgba(15, 23, 42, 0.5);
+            border: 1px solid rgba(148, 163, 184, 0.16);
+            border-radius: 9999px;
+            padding: 0.25rem;
+            gap: 0.25rem;
+        }
+
+        .cih-research-tab {
+            border: none;
+            background: transparent;
+            color: #cbd5f5;
+            font-size: 0.875rem;
+            font-weight: 500;
+            padding: 0.45rem 0.9rem;
+            border-radius: 9999px;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            cursor: pointer;
+            transition: background-color 0.2s ease, color 0.2s ease;
+        }
+
+        .cih-research-tab[data-active="true"] {
+            background: rgba(56, 189, 248, 0.25);
+            color: #0ea5e9;
+            box-shadow: inset 0 0 0 1px rgba(14, 165, 233, 0.45);
+        }
+
+        .cih-research-tab[data-drop-active="true"] {
+            background: rgba(14, 165, 233, 0.25);
+            color: #38bdf8;
+        }
+
+        .cih-research-add {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            border-radius: 9999px;
+            padding: 0.55rem 1rem;
+            font-size: 0.875rem;
+            font-weight: 600;
+            background: linear-gradient(135deg, rgba(14, 165, 233, 0.9), rgba(59, 130, 246, 0.9));
+            color: #0b1120;
+            border: none;
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .cih-research-add:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 12px 30px rgba(56, 189, 248, 0.35);
+        }
+
+        .cih-research-add .cih-add-icon {
+            font-size: 1rem;
+        }
+
+        .cih-research-panels {
+            display: grid;
+            gap: 1.25rem;
+        }
+
+        .cih-research-note-list {
+            display: grid;
+            gap: 0.75rem;
+        }
+
+        .cih-research-note {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            background: rgba(2, 6, 23, 0.7);
+            border: 1px solid rgba(148, 163, 184, 0.16);
+            border-radius: 0.75rem;
+            padding: 0.85rem 1rem;
+            cursor: grab;
+            transition: border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .cih-research-note:active {
+            cursor: grabbing;
+        }
+
+        .cih-research-note[data-dragging="true"] {
+            opacity: 0.6;
+            transform: scale(0.99);
+            box-shadow: 0 10px 25px rgba(14, 116, 144, 0.35);
+        }
+
+        .cih-research-note h5 {
+            font-size: 0.95rem;
+            color: #e2e8f0;
+            margin-bottom: 0.35rem;
+        }
+
+        .cih-research-note p {
+            font-size: 0.8rem;
+            color: #94a3b8;
+            margin: 0;
+        }
+
+        .cih-research-note-meta {
+            min-width: 8rem;
+            text-align: right;
+            font-size: 0.75rem;
+            color: #7dd3fc;
+        }
+
+        .cih-research-folders {
+            display: grid;
+            gap: 0.85rem;
+        }
+
+        .cih-research-folder {
+            background: rgba(2, 6, 23, 0.65);
+            border: 1px solid rgba(148, 163, 184, 0.14);
+            border-radius: 0.9rem;
+            padding: 0.85rem 1rem;
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .cih-research-folder[data-drop-active="true"] {
+            border-color: rgba(56, 189, 248, 0.75);
+            box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.25);
+        }
+
+        .cih-research-folder-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .cih-research-folder-header span {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            color: #cbd5f5;
+            font-size: 0.85rem;
+        }
+
+        .cih-research-folder-count {
+            font-size: 0.75rem;
+            color: #38bdf8;
+            background: rgba(56, 189, 248, 0.15);
+            padding: 0.1rem 0.55rem;
+            border-radius: 9999px;
+        }
+
+        .cih-research-file-list {
+            margin-top: 0.75rem;
+            display: grid;
+            gap: 0.6rem;
+        }
+
+        .cih-research-file {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 0.75rem;
+            background: rgba(15, 23, 42, 0.45);
+            border-radius: 0.65rem;
+            padding: 0.65rem 0.75rem;
+            font-size: 0.8rem;
+            color: #cbd5f5;
+        }
+
+        .cih-research-file span {
+            color: #94a3b8;
+        }
+
+        .cih-research-empty {
+            font-size: 0.8rem;
+            color: #64748b;
+            font-style: italic;
+        }
+
+        .cih-research-guidance {
+            font-size: 0.75rem;
+            color: #7dd3fc;
+        }
+
         .cih-swot-grid {
             display: grid;
             gap: 1.1rem;
@@ -4383,6 +4582,457 @@ async function showCompetitorIntel() {
         const logCompetitorUpdateButton = document.getElementById('cihLogCompetitorUpdateButton');
         let selectedCompetitorId = null;
 
+        const researchWorkspaceStore = new Map();
+        let researchWorkspaceIdCounter = 0;
+        let researchDragContext = null;
+
+        const ensureResearchWorkspaceState = (competitor, updates = [], documents = []) => {
+            if (!competitor) {
+                return null;
+            }
+            let state = researchWorkspaceStore.get(competitor.id);
+            if (!state) {
+                const baseFolders = [
+                    {
+                        id: `folder-${competitor.id}-inbox`,
+                        name: 'Research Inbox',
+                        icon: 'fas fa-inbox',
+                        description: 'Review new insights before filing them.',
+                        isInbox: true
+                    },
+                    {
+                        id: `folder-${competitor.id}-library`,
+                        name: 'Files Library',
+                        icon: 'fas fa-folder-open',
+                        description: 'Structured archive for vetted documents.',
+                        isDefault: true
+                    },
+                    {
+                        id: `folder-${competitor.id}-shared`,
+                        name: 'Shared with Sales',
+                        icon: 'fas fa-people-group',
+                        description: 'Approved material for revenue teams.'
+                    }
+                ];
+                state = {
+                    competitorId: competitor.id,
+                    activeTab: 'notes',
+                    folders: baseFolders.slice(),
+                    notes: [],
+                    files: []
+                };
+                const folderMap = new Map(state.folders.map(folder => [folder.id, folder]));
+                const ensureFolderForType = type => {
+                    if (!type) {
+                        const defaultFolder = state.folders.find(folder => folder.isDefault) || state.folders[0];
+                        return defaultFolder ? defaultFolder.id : '';
+                    }
+                    const normalized = type.trim();
+                    const slug = normalized.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+                    const folderId = `folder-${competitor.id}-${slug || 'library'}`;
+                    if (!folderMap.has(folderId)) {
+                        const folder = {
+                            id: folderId,
+                            name: normalized,
+                            icon: 'fas fa-folder',
+                            description: 'Auto-created from competitor documents.'
+                        };
+                        state.folders.push(folder);
+                        folderMap.set(folderId, folder);
+                    }
+                    return folderId;
+                };
+                (documents || []).forEach(doc => {
+                    const folderId = ensureFolderForType(doc?.type);
+                    researchWorkspaceIdCounter += 1;
+                    state.files.push({
+                        id: `file-${competitor.id}-${researchWorkspaceIdCounter}`,
+                        name: doc?.title || 'Untitled document',
+                        type: doc?.type || 'Document',
+                        owner: doc?.owner || 'Research Guild',
+                        folderId,
+                        updatedAt: doc?.updated || doc?.date || null
+                    });
+                });
+                (updates || []).slice(0, 4).forEach(update => {
+                    researchWorkspaceIdCounter += 1;
+                    state.notes.push({
+                        id: `note-${competitor.id}-${researchWorkspaceIdCounter}`,
+                        title: update?.subject || update?.title || 'Research note',
+                        summary: update?.description || update?.summary || '—',
+                        owner: update?.assigned_to || update?.owner || 'Competitive Research Guild',
+                        updatedAt: update?.date || update?.updated_at || new Date().toISOString(),
+                        category: update?.type || update?.category || 'Insight'
+                    });
+                });
+                researchWorkspaceStore.set(competitor.id, state);
+            }
+            return state;
+        };
+
+        const renderResearchNotes = state => {
+            if (!state.notes.length) {
+                return '<div class="cih-empty-state">Research notes will appear here once captured. Use “Add Note” to get started.</div>';
+            }
+            return `
+                <div class="cih-research-note-list">
+                    ${state.notes.map(note => `
+                        <article class="cih-research-note" draggable="true" data-research-note-id="${note.id}">
+                            <div>
+                                <h5>${sanitizeText(note.title)}</h5>
+                                <p>${sanitizeText(note.summary)}</p>
+                            </div>
+                            <div class="cih-research-note-meta">
+                                <div>${sanitizeText(note.owner || 'Research')}</div>
+                                <div>${sanitizeText(competitorHubFormatRelative(note.updatedAt))}</div>
+                            </div>
+                        </article>
+                    `).join('')}
+                </div>
+            `;
+        };
+
+        const renderResearchFolders = state => {
+            return state.folders.map(folder => {
+                const folderFiles = state.files.filter(file => file.folderId === folder.id);
+                const description = folder.description
+                    ? `<p class="cih-research-guidance mt-1">${sanitizeText(folder.description)}</p>`
+                    : '';
+                const fileList = folderFiles.length
+                    ? folderFiles.map(file => `
+                        <div class="cih-research-file">
+                            <div class="flex items-center gap-2">
+                                <i class="fas fa-file-alt text-sky-300"></i>
+                                <span>${sanitizeText(file.name)}</span>
+                            </div>
+                            <span>${sanitizeText(file.owner || '')}</span>
+                        </div>
+                    `).join('')
+                    : '<p class="cih-research-empty">Drop notes here to build this folder.</p>';
+                return `
+                    <section class="cih-research-folder" data-research-folder-id="${folder.id}">
+                        <div class="cih-research-folder-header">
+                            <span><i class="${folder.icon || 'fas fa-folder'}"></i>${sanitizeText(folder.name)}</span>
+                            <span class="cih-research-folder-count">${folderFiles.length}</span>
+                        </div>
+                        ${description}
+                        <div class="cih-research-file-list">
+                            ${fileList}
+                        </div>
+                    </section>
+                `;
+            }).join('');
+        };
+
+        const renderResearchWorkspaceView = competitorId => {
+            if (!competitorDetailContent) {
+                return;
+            }
+            const container = competitorDetailContent.querySelector('#cihResearchWorkspace');
+            if (!container) {
+                return;
+            }
+            const state = researchWorkspaceStore.get(competitorId);
+            if (!state) {
+                container.innerHTML = '<div class="cih-empty-state">Research workspace is loading…</div>';
+                return;
+            }
+            container.dataset.competitorId = competitorId;
+            const activeTab = state.activeTab || 'notes';
+            const addLabel = activeTab === 'files' ? 'Add File' : 'Add Note';
+            container.innerHTML = `
+                <div class="cih-research-toolbar">
+                    <div class="cih-research-tabs">
+                        <button type="button" class="cih-research-tab" data-research-tab="notes" data-active="${activeTab === 'notes'}">📝<span>Research Notes</span></button>
+                        <button type="button" class="cih-research-tab" data-research-tab="files" data-active="${activeTab === 'files'}">📁<span>Files</span></button>
+                    </div>
+                    <button type="button" class="cih-research-add" data-research-add>
+                        <span class="cih-add-icon">➕</span>
+                        <span>${sanitizeText(addLabel)}</span>
+                    </button>
+                </div>
+                <div class="cih-research-panels">
+                    <div data-research-panel="notes" class="${activeTab === 'notes' ? '' : 'hidden'}">
+                        ${renderResearchNotes(state)}
+                    </div>
+                    <div data-research-panel="files" class="${activeTab === 'files' ? '' : 'hidden'}">
+                        <p class="cih-research-guidance mb-2">Drag any note onto a folder or the Files tab to archive it safely.</p>
+                        <div class="cih-research-folders">
+                            ${renderResearchFolders(state)}
+                        </div>
+                    </div>
+                </div>
+            `;
+            if (!container.dataset.researchHandlersBound) {
+                bindResearchWorkspaceEvents(container);
+                container.dataset.researchHandlersBound = 'true';
+            }
+        };
+
+        const getResearchState = event => {
+            const container = event.currentTarget;
+            const competitorId = container.dataset.competitorId;
+            const state = researchWorkspaceStore.get(competitorId);
+            return { container, competitorId, state };
+        };
+
+        const clearResearchFolderHighlights = container => {
+            container.querySelectorAll('[data-research-folder-id]').forEach(folder => {
+                folder.dataset.dropActive = 'false';
+            });
+            container.querySelectorAll('[data-research-tab]').forEach(tab => {
+                tab.dataset.dropActive = 'false';
+            });
+        };
+
+        const handleResearchAddNew = competitorId => {
+            const state = researchWorkspaceStore.get(competitorId);
+            if (!state) {
+                return;
+            }
+            const now = new Date().toISOString();
+            if (state.activeTab === 'files') {
+                const defaultFolder = state.folders.find(folder => folder.isDefault) || state.folders[0];
+                const name = window.prompt('File name');
+                if (!name) {
+                    return;
+                }
+                const trimmedName = name.trim();
+                if (!trimmedName) {
+                    return;
+                }
+                researchWorkspaceIdCounter += 1;
+                const file = {
+                    id: `file-${competitorId}-${researchWorkspaceIdCounter}`,
+                    name: trimmedName,
+                    type: 'Uploaded file',
+                    owner: 'You',
+                    folderId: defaultFolder ? defaultFolder.id : '',
+                    updatedAt: now
+                };
+                state.files.unshift(file);
+                renderResearchWorkspaceView(competitorId);
+                const actionId = `toast-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+                showToast(`File “${file.name}” added.`, 'success', {
+                    duration: 8000,
+                    action: {
+                        id: actionId,
+                        label: 'Undo',
+                        handler: () => {
+                            const index = state.files.findIndex(item => item.id === file.id);
+                            if (index !== -1) {
+                                state.files.splice(index, 1);
+                                renderResearchWorkspaceView(competitorId);
+                            }
+                        }
+                    }
+                });
+            } else {
+                const title = window.prompt('Research note title');
+                if (!title) {
+                    return;
+                }
+                const trimmedTitle = title.trim();
+                if (!trimmedTitle) {
+                    return;
+                }
+                researchWorkspaceIdCounter += 1;
+                const note = {
+                    id: `note-${competitorId}-${researchWorkspaceIdCounter}`,
+                    title: trimmedTitle,
+                    summary: 'Draft research note created from workspace.',
+                    owner: 'You',
+                    updatedAt: now,
+                    category: 'Draft'
+                };
+                state.notes.unshift(note);
+                renderResearchWorkspaceView(competitorId);
+                const actionId = `toast-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+                showToast(`Research note “${note.title}” added.`, 'success', {
+                    duration: 8000,
+                    action: {
+                        id: actionId,
+                        label: 'Undo',
+                        handler: () => {
+                            const index = state.notes.findIndex(item => item.id === note.id);
+                            if (index !== -1) {
+                                state.notes.splice(index, 1);
+                                renderResearchWorkspaceView(competitorId);
+                            }
+                        }
+                    }
+                });
+            }
+        };
+
+        const moveResearchNoteToFolder = (competitorId, noteId, folderId) => {
+            const state = researchWorkspaceStore.get(competitorId);
+            if (!state) {
+                return;
+            }
+            const noteIndex = state.notes.findIndex(note => note.id === noteId);
+            if (noteIndex === -1) {
+                return;
+            }
+            const folder = state.folders.find(item => item.id === folderId) || state.folders.find(item => item.isDefault) || state.folders[0];
+            if (!folder) {
+                return;
+            }
+            const [note] = state.notes.splice(noteIndex, 1);
+            researchWorkspaceIdCounter += 1;
+            const file = {
+                id: `file-${competitorId}-${researchWorkspaceIdCounter}`,
+                name: note.title,
+                type: note.category || 'Research Note',
+                owner: note.owner,
+                folderId: folder.id,
+                updatedAt: note.updatedAt
+            };
+            state.files.unshift(file);
+            renderResearchWorkspaceView(competitorId);
+            const actionId = `toast-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+            showToast(`Moved “${note.title}” to ${folder.name}.`, 'success', {
+                duration: 8000,
+                action: {
+                    id: actionId,
+                    label: 'Undo',
+                    handler: () => {
+                        const fileIndex = state.files.findIndex(item => item.id === file.id);
+                        if (fileIndex !== -1) {
+                            state.files.splice(fileIndex, 1);
+                        }
+                        state.notes.splice(noteIndex, 0, note);
+                        renderResearchWorkspaceView(competitorId);
+                    }
+                }
+            });
+        };
+
+        const handleResearchClick = event => {
+            const target = event.target.closest('[data-research-tab], [data-research-add]');
+            if (!target) {
+                return;
+            }
+            const { container, competitorId, state } = getResearchState(event);
+            if (!state) {
+                return;
+            }
+            if (target.hasAttribute('data-research-tab')) {
+                const tab = target.getAttribute('data-research-tab');
+                if (tab && tab !== state.activeTab) {
+                    state.activeTab = tab;
+                    renderResearchWorkspaceView(competitorId);
+                }
+            } else if (target.hasAttribute('data-research-add')) {
+                handleResearchAddNew(competitorId);
+            }
+            clearResearchFolderHighlights(container);
+        };
+
+        const handleResearchDragStart = event => {
+            const noteEl = event.target.closest('[data-research-note-id]');
+            if (!noteEl) {
+                return;
+            }
+            const { container, competitorId } = getResearchState(event);
+            if (!competitorId) {
+                return;
+            }
+            const noteId = noteEl.getAttribute('data-research-note-id');
+            researchDragContext = { competitorId, noteId, type: 'note' };
+            noteEl.dataset.dragging = 'true';
+            if (event.dataTransfer) {
+                event.dataTransfer.effectAllowed = 'move';
+                event.dataTransfer.setData('text/plain', noteId);
+            }
+            clearResearchFolderHighlights(container);
+        };
+
+        const handleResearchDragEnd = event => {
+            const { container } = getResearchState(event);
+            const noteEl = event.target.closest('[data-research-note-id]');
+            if (noteEl) {
+                delete noteEl.dataset.dragging;
+            }
+            researchDragContext = null;
+            clearResearchFolderHighlights(container);
+        };
+
+        const handleResearchDragEnter = event => {
+            const { container, competitorId } = getResearchState(event);
+            if (!researchDragContext || researchDragContext.competitorId !== competitorId) {
+                return;
+            }
+            const folderEl = event.target.closest('[data-research-folder-id]');
+            if (folderEl) {
+                folderEl.dataset.dropActive = 'true';
+                event.preventDefault();
+            }
+            const tabEl = event.target.closest('[data-research-tab="files"]');
+            if (tabEl) {
+                tabEl.dataset.dropActive = 'true';
+                event.preventDefault();
+            }
+        };
+
+        const handleResearchDragOver = event => {
+            const { competitorId } = getResearchState(event);
+            if (!researchDragContext || researchDragContext.competitorId !== competitorId) {
+                return;
+            }
+            if (event.target.closest('[data-research-folder-id]') || event.target.closest('[data-research-tab="files"]')) {
+                event.preventDefault();
+            }
+        };
+
+        const handleResearchDragLeave = event => {
+            const { container } = getResearchState(event);
+            const folderEl = event.target.closest('[data-research-folder-id]');
+            if (folderEl) {
+                folderEl.dataset.dropActive = 'false';
+            }
+            const tabEl = event.target.closest('[data-research-tab]');
+            if (tabEl) {
+                tabEl.dataset.dropActive = 'false';
+            }
+            if (!event.relatedTarget || !container.contains(event.relatedTarget)) {
+                clearResearchFolderHighlights(container);
+            }
+        };
+
+        const handleResearchDrop = event => {
+            const { container, competitorId, state } = getResearchState(event);
+            if (!researchDragContext || researchDragContext.competitorId !== competitorId || !state) {
+                return;
+            }
+            const folderEl = event.target.closest('[data-research-folder-id]');
+            const tabEl = event.target.closest('[data-research-tab="files"]');
+            if (folderEl) {
+                event.preventDefault();
+                const folderId = folderEl.getAttribute('data-research-folder-id');
+                moveResearchNoteToFolder(competitorId, researchDragContext.noteId, folderId);
+            } else if (tabEl) {
+                event.preventDefault();
+                const defaultFolder = state.folders.find(folder => folder.isDefault) || state.folders[0];
+                if (defaultFolder) {
+                    state.activeTab = 'files';
+                    moveResearchNoteToFolder(competitorId, researchDragContext.noteId, defaultFolder.id);
+                }
+            }
+            researchDragContext = null;
+            clearResearchFolderHighlights(container);
+        };
+
+        const bindResearchWorkspaceEvents = container => {
+            container.addEventListener('click', handleResearchClick);
+            container.addEventListener('dragstart', handleResearchDragStart);
+            container.addEventListener('dragend', handleResearchDragEnd);
+            container.addEventListener('dragenter', handleResearchDragEnter);
+            container.addEventListener('dragover', handleResearchDragOver);
+            container.addEventListener('dragleave', handleResearchDragLeave);
+            container.addEventListener('drop', handleResearchDrop);
+        };
+
         const updateCardSelection = competitorId => {
             if (!competitorCardsContainer) {
                 return;
@@ -4619,8 +5269,19 @@ async function showCompetitorIntel() {
                             ${updatesHtml}
                         </div>
                     </div>
+                    <div class="cih-detail-panel cih-research-board">
+                        <h4 class="text-slate-200 font-semibold">Research Workspace</h4>
+                        <p class="cih-research-guidance">Use the universal ➕ button to capture new notes or files and drag items between tabs to stay organized.</p>
+                        <div id="cihResearchWorkspace"></div>
+                    </div>
                 </div>
             `;
+
+            const documents = Array.isArray(competitor?.enhancement?.documents)
+                ? competitor.enhancement.documents
+                : (Array.isArray(competitor.documents) ? competitor.documents : []);
+            ensureResearchWorkspaceState(competitor, updates, documents);
+            renderResearchWorkspaceView(competitor.id);
         };
 
         competitorCardsContainer?.addEventListener('click', event => {
