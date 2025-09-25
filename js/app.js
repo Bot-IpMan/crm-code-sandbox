@@ -1317,8 +1317,12 @@ function setupContactFilters() {
     sourceFilter.addEventListener('change', applyFilters);
 }
 
-async function showContactForm(contactId = null) {
+async function showContactForm(contactId = null, options = {}) {
     const isEdit = contactId !== null;
+    const {
+        defaultCompanyId = '',
+        defaultCompanyName = ''
+    } = options || {};
     let contact = {};
 
     if (isEdit) {
@@ -1332,6 +1336,15 @@ async function showContactForm(contactId = null) {
             console.error('Error loading contact details:', error);
             showToast('Failed to load contact', 'error');
             return;
+        }
+    }
+
+    if (!isEdit) {
+        if (defaultCompanyId) {
+            contact.company_id = defaultCompanyId;
+        }
+        if (defaultCompanyName) {
+            contact.company_name = defaultCompanyName;
         }
     }
 
