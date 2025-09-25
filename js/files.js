@@ -300,10 +300,12 @@ let fileManagerCurrentPath = [];
 let fileManagerInitialized = false;
 let fileManagerExpandedNodes = new Set();
 let fileManagerDragData = null;
+let fileManagerSearchQuery = '';
 
 function showFiles() {
     showView('files');
     setPageHeader('files');
+    fileManagerSearchQuery = '';
     initializeFileManager();
 }
 
@@ -329,13 +331,26 @@ function buildFileManagerLayout() {
 
     filesView.innerHTML = `
         <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-            <div class="flex items-center justify-between">
+            <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
                 <div>
                     <h3 class="text-lg font-semibold text-gray-800">Vault Explorer</h3>
                     <p class="text-sm text-gray-500" id="filesCurrentFolder"></p>
                     <p class="text-xs text-gray-400 mt-1" id="filesFolderSummary"></p>
                 </div>
-                <div class="flex items-center space-x-3">
+                <div class="flex items-center flex-wrap gap-3 justify-end">
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-3 flex items-center text-gray-400">
+                            <i class="fas fa-magnifying-glass text-sm"></i>
+                        </span>
+                        <input id="filesSearchInput" type="search" placeholder="Search files or folders"
+                               class="pl-9 pr-10 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white min-w-[220px]"
+                               autocomplete="off">
+                        <button id="filesClearSearchBtn" type="button"
+                                class="hidden absolute inset-y-0 right-2 flex items-center text-gray-400 hover:text-gray-600">
+                            <span class="sr-only">Clear search</span>
+                            <i class="fas fa-circle-xmark"></i>
+                        </button>
+                    </div>
                     <button id="filesCreateFolderBtn" class="px-4 py-2 border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50">
                         <i class="fas fa-folder-plus mr-2"></i>New Folder
                     </button>
@@ -352,8 +367,11 @@ function buildFileManagerLayout() {
                     <div id="filesTree" class="max-h-[420px] overflow-y-auto px-2 py-3 space-y-1 text-sm"></div>
                 </div>
                 <div class="flex-1 w-full">
-                    <div id="filesBreadcrumbs" class="flex items-center flex-wrap gap-2 text-sm text-gray-600"></div>
-                    <div id="filesList" class="mt-4 border border-gray-100 rounded-lg divide-y divide-gray-100 overflow-hidden"></div>
+                    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                        <div id="filesBreadcrumbs" class="flex items-center flex-wrap gap-2 text-sm text-gray-600"></div>
+                        <p id="filesSearchStatus" class="text-xs text-gray-400 hidden"></p>
+                    </div>
+                    <div id="filesList" class="mt-4 border border-gray-100 rounded-lg overflow-hidden bg-white"></div>
                 </div>
             </div>
         </div>
@@ -376,6 +394,15 @@ function buildFileManagerLayout() {
     treeContainer.addEventListener('dragover', handleDropTargetDragOver);
     treeContainer.addEventListener('dragleave', handleDropTargetDragLeave);
     treeContainer.addEventListener('drop', handleDropOnTarget);
+
+    const searchInput = filesView.querySelector('#filesSearchInput');
+    const clearButton = filesView.querySelector('#filesClearSearchBtn');
+    if (searchInput) {
+        searchInput.addEventListener('input', handleFileSearchInput);
+    }
+    if (clearButton) {
+        clearButton.addEventListener('click', clearFileSearchQuery);
+    }
 }
 
 function renderFileManager() {
@@ -395,6 +422,19 @@ function renderFileManager() {
     const currentFolderLabel = document.getElementById('filesCurrentFolder');
     if (currentFolderLabel) {
         currentFolderLabel.textContent = pathLabel;
+    }
+
+    const searchInput = document.getElementById('filesSearchInput');
+    if (searchInput && searchInput.value !== fileManagerSearchQuery) {
+        searchInput.value = fileManagerSearchQuery;
+    }
+    const clearButton = document.getElementById('filesClearSearchBtn');
+    if (clearButton) {
+        if (fileManagerSearchQuery && fileManagerSearchQuery.trim().length > 0) {
+            clearButton.classList.remove('hidden');
+        } else {
+            clearButton.classList.add('hidden');
+        }
     }
 
     renderFolderTree();
@@ -446,6 +486,29 @@ function renderFileList(folderNode) {
         summaryLabel.textContent = `${folderCount} folder${folderCount === 1 ? '' : 's'} • ${fileCount} file${fileCount === 1 ? '' : 's'}`;
     }
 
+    const searchStatus = document.getElementById('filesSearchStatus');
+    if (searchStatus) {
+        searchStatus.classList.add('hidden');
+        searchStatus.textContent = '';
+    }
+
+    const query = (fileManagerSearchQuery || '').trim().toLowerCase();
+    if (query) {
+        listContainer.removeAttribute('data-drop-path');
+        const matches = searchFileSystem(fileSystemState, query, []);
+        if (summaryLabel) {
+            summaryLabel.textContent = `${matches.length} match${matches.length === 1 ? '' : 'es'} for "${fileManagerSearchQuery.trim()}"`;
+        }
+        if (searchStatus) {
+            searchStatus.classList.remove('hidden');
+            searchStatus.textContent = matches.length > 0
+                ? `Filtering across the vault for "${fileManagerSearchQuery.trim()}"`
+                : `No results for "${fileManagerSearchQuery.trim()}"`;
+        }
+        listContainer.innerHTML = renderSearchResults(matches, query);
+        return;
+    }
+
     listContainer.setAttribute('data-drop-path', createPathKey(fileManagerCurrentPath));
 
     if (children.length === 0) {
@@ -459,38 +522,265 @@ function renderFileList(folderNode) {
         return;
     }
 
-    listContainer.innerHTML = children.map(child => {
-        const encodedName = encodeURIComponent(child.name);
-        const safeName = escapeHtml(child.name);
-        const isFolder = child.type === 'folder';
-        const icon = isFolder ? 'fa-folder' : 'fa-file-lines';
-        const iconStyles = isFolder ? 'bg-yellow-100 text-yellow-600' : 'bg-blue-100 text-blue-600';
-        const itemCount = Array.isArray(child.children) ? child.children.length : 0;
-        const description = isFolder ? `${itemCount} item${itemCount === 1 ? '' : 's'}` : 'Markdown file';
-        const actionLabel = isFolder ? 'Open' : 'Preview';
-        const itemPathSegments = [...fileManagerCurrentPath, child.name];
-        const itemPathKey = createPathKey(itemPathSegments);
-        const dropPathAttribute = isFolder ? `data-drop-path="${itemPathKey}"` : '';
+    const folderChildren = children.filter(child => child.type === 'folder');
+    const fileChildren = children.filter(child => child.type === 'file');
 
-        return `
-            <button type="button" class="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-blue-50 focus:outline-none focus:bg-blue-100 transition"
-                    data-name="${encodedName}" data-type="${child.type}" data-item-path="${itemPathKey}" data-item-type="${child.type}" ${dropPathAttribute} draggable="true">
-                <div class="flex items-center space-x-3 pointer-events-none">
-                    <div class="w-10 h-10 rounded-lg flex items-center justify-center ${iconStyles}">
-                        <i class="fas ${icon}"></i>
-                    </div>
+    const folderSection = folderChildren.length > 0
+        ? `
+            <div class="space-y-4 p-4">
+                <p class="text-xs font-semibold uppercase tracking-wide text-gray-400">Folders</p>
+                <div class="space-y-4">
+                    ${folderChildren.map(child => renderFolderPreview(child, [...fileManagerCurrentPath, child.name])).join('')}
+                </div>
+            </div>
+        `
+        : '';
+
+    const filesSection = fileChildren.length > 0
+        ? `
+            <div class="border-t border-gray-100 bg-gray-50 p-4">
+                <p class="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-3">Files</p>
+                <div class="grid gap-2">
+                    ${fileChildren.map(child => renderNestedItem(child, fileManagerCurrentPath)).join('')}
+                </div>
+            </div>
+        `
+        : '';
+
+    listContainer.innerHTML = folderSection + filesSection;
+}
+
+function renderFolderPreview(folderNode, pathSegments) {
+    const safeName = escapeHtml(folderNode.name);
+    const encodedName = encodeURIComponent(folderNode.name);
+    const folderPathKey = createPathKey(pathSegments);
+    const nestedChildren = Array.isArray(folderNode.children) ? [...folderNode.children] : [];
+    sortChildren(nestedChildren);
+    const nestedHtml = nestedChildren.length > 0
+        ? nestedChildren.map(child => renderNestedItem(child, pathSegments)).join('')
+        : `<p class="text-xs text-gray-400 bg-white border border-dashed border-gray-200 rounded-md px-3 py-2">No items inside this folder yet.</p>`;
+    const totalCount = nestedChildren.length;
+
+    return `
+        <div class="border border-gray-200 rounded-lg shadow-sm hover:border-blue-300 transition bg-white" data-drop-path="${folderPathKey}">
+            <div class="flex items-start justify-between gap-3 p-3 pb-0">
+                <div class="flex items-center gap-3">
+                    <span class="w-10 h-10 rounded-lg flex items-center justify-center bg-yellow-100 text-yellow-600">
+                        <i class="fas fa-folder-tree"></i>
+                    </span>
                     <div>
-                        <p class="text-sm font-medium text-gray-800">${safeName}</p>
-                        <p class="text-xs text-gray-500">${description}</p>
+                        <p class="text-sm font-semibold text-gray-800">${safeName}</p>
+                        <p class="text-xs text-gray-500">${totalCount} item${totalCount === 1 ? '' : 's'} inside</p>
                     </div>
                 </div>
-                <div class="flex items-center space-x-2 text-gray-400 pointer-events-none">
-                    <span class="text-xs font-medium uppercase tracking-wide">${actionLabel}</span>
-                    <i class="fas fa-chevron-right"></i>
+                <button type="button" class="px-3 py-1.5 text-xs font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-md flex items-center gap-1"
+                        data-name="${encodedName}" data-type="folder" data-item-path="${folderPathKey}" data-item-type="folder" draggable="true">
+                    <i class="fas fa-folder-open text-xs"></i>
+                    Open
+                </button>
+            </div>
+            <div class="p-3 pt-4 bg-gray-50 border-t border-gray-100 rounded-b-lg space-y-3">
+                ${nestedHtml}
+            </div>
+        </div>
+    `;
+}
+
+function renderNestedItem(node, parentPathSegments) {
+    const itemPathSegments = [...parentPathSegments, node.name];
+    const itemPathKey = createPathKey(itemPathSegments);
+    const encodedName = encodeURIComponent(node.name);
+    const safeName = escapeHtml(node.name);
+    const isFolder = node.type === 'folder';
+    const icon = isFolder ? 'fa-folder' : 'fa-file-lines';
+    const accent = isFolder ? 'bg-yellow-100 text-yellow-600' : 'bg-blue-100 text-blue-600';
+    const dropAttribute = isFolder ? `data-drop-path="${itemPathKey}"` : '';
+    const childCount = Array.isArray(node.children) ? node.children.length : 0;
+    const detailLabel = isFolder ? `${childCount} item${childCount === 1 ? '' : 's'}` : 'Markdown file';
+    const grandchildrenPreview = isFolder ? renderGrandchildrenPreview(node, itemPathSegments) : '';
+
+    return `
+        <div class="space-y-2">
+            <button type="button" class="w-full flex items-center justify-between gap-3 px-3 py-2 bg-white rounded-md border border-gray-200 hover:border-blue-300 hover:bg-blue-50 transition text-left"
+                    data-name="${encodedName}" data-type="${node.type}" data-item-path="${itemPathKey}" data-item-type="${node.type}" ${dropAttribute} draggable="true">
+                <div class="flex items-center gap-3">
+                    <span class="w-8 h-8 rounded-md flex items-center justify-center ${accent}">
+                        <i class="fas ${icon} text-sm"></i>
+                    </span>
+                    <div>
+                        <p class="text-sm font-medium text-gray-700">${safeName}</p>
+                        <p class="text-xs text-gray-500">${detailLabel}</p>
+                    </div>
                 </div>
+                <i class="fas fa-angle-right text-gray-300"></i>
             </button>
+            ${grandchildrenPreview}
+        </div>
+    `;
+}
+
+function renderGrandchildrenPreview(folderNode, pathSegments) {
+    const grandchildren = Array.isArray(folderNode.children) ? [...folderNode.children] : [];
+    if (grandchildren.length === 0) {
+        return `<p class="text-xs text-gray-400 pl-11">No child items</p>`;
+    }
+
+    sortChildren(grandchildren);
+    const previewItems = grandchildren.slice(0, 4);
+    const previewButtons = previewItems.map(child => renderGrandchildChip(child, pathSegments)).join('');
+    const remainder = grandchildren.length - previewItems.length;
+    const remainderBadge = remainder > 0
+        ? `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full bg-gray-100 text-xs text-gray-500">+${remainder} more</span>`
+        : '';
+
+    return `
+        <div class="pl-11 flex flex-wrap gap-2">
+            ${previewButtons}
+            ${remainderBadge}
+        </div>
+    `;
+}
+
+function renderGrandchildChip(node, pathSegments) {
+    const childPathSegments = [...pathSegments, node.name];
+    const childPathKey = createPathKey(childPathSegments);
+    const encodedName = encodeURIComponent(node.name);
+    const safeName = escapeHtml(node.name);
+    const isFolder = node.type === 'folder';
+    const icon = isFolder ? 'fa-folder' : 'fa-file-lines';
+    const chipClasses = isFolder
+        ? 'bg-yellow-50 text-yellow-700 border border-yellow-100'
+        : 'bg-blue-50 text-blue-700 border border-blue-100';
+    const childCount = Array.isArray(node.children) ? node.children.length : 0;
+    const detailLabel = isFolder
+        ? `${childCount} item${childCount === 1 ? '' : 's'}`
+        : 'Markdown file';
+    const dropAttribute = isFolder ? `data-drop-path="${childPathKey}"` : '';
+
+    return `
+        <button type="button" class="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium ${chipClasses} hover:bg-blue-100 hover:text-blue-700 transition"
+                data-name="${encodedName}" data-type="${node.type}" data-item-path="${childPathKey}" data-item-type="${node.type}" ${dropAttribute} draggable="true">
+            <i class="fas ${icon}"></i>
+            <span class="truncate max-w-[160px]">${safeName}</span>
+            <span class="text-[10px] uppercase tracking-wide text-gray-400">${detailLabel}</span>
+        </button>
+    `;
+}
+
+function handleFileSearchInput(event) {
+    fileManagerSearchQuery = event.target.value || '';
+    renderFileManager();
+}
+
+function clearFileSearchQuery() {
+    fileManagerSearchQuery = '';
+    const searchInput = document.getElementById('filesSearchInput');
+    if (searchInput) {
+        searchInput.value = '';
+        searchInput.focus();
+    }
+    renderFileManager();
+}
+
+function renderSearchResults(results, query) {
+    if (!Array.isArray(results) || results.length === 0) {
+        return `
+            <div class="p-10 text-center text-gray-500 text-sm">
+                <i class="fas fa-search text-3xl text-gray-300 mb-3"></i>
+                <p>No items matched your search.</p>
+                <p class="mt-2 text-xs text-gray-400">Try a different keyword or clear the filter to browse the hierarchy.</p>
+            </div>
         `;
-    }).join('');
+    }
+
+    return `
+        <div class="divide-y divide-gray-100">
+            ${results.map(result => renderSearchResultRow(result, query)).join('')}
+        </div>
+    `;
+}
+
+function renderSearchResultRow(result, query) {
+    const { node, path } = result;
+    const isFolder = node.type === 'folder';
+    const icon = isFolder ? 'fa-folder' : 'fa-file-lines';
+    const accent = isFolder ? 'bg-yellow-100 text-yellow-600' : 'bg-blue-100 text-blue-600';
+    const encodedName = encodeURIComponent(node.name);
+    const highlightedName = highlightQuery(node.name, query);
+    const itemPathKey = createPathKey(path);
+    const dropAttribute = isFolder ? `data-drop-path="${itemPathKey}"` : '';
+    const childCount = Array.isArray(node.children) ? node.children.length : 0;
+    const detailLabel = isFolder ? `${childCount} item${childCount === 1 ? '' : 's'}` : 'Markdown file';
+    const rootName = fileSystemState.name || DEFAULT_FILE_SYSTEM.name;
+    const breadcrumbPath = '/' + [rootName, ...path].join('/');
+    const safePath = escapeHtml(breadcrumbPath);
+
+    return `
+        <button type="button" class="w-full flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 px-4 py-3 hover:bg-blue-50 focus:outline-none focus:bg-blue-100 transition text-left"
+                data-name="${encodedName}" data-type="${node.type}" data-item-path="${itemPathKey}" data-item-type="${node.type}" ${dropAttribute} draggable="true">
+            <div class="flex items-start gap-3">
+                <span class="w-9 h-9 rounded-md flex items-center justify-center ${accent}">
+                    <i class="fas ${icon} text-sm"></i>
+                </span>
+                <div>
+                    <p class="text-sm font-medium text-gray-800 leading-5">${highlightedName}</p>
+                    <p class="text-xs text-gray-500 mt-1">${detailLabel}</p>
+                    <p class="text-xs text-gray-400 mt-1 font-mono">${safePath}</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-2 text-gray-300">
+                <i class="fas fa-arrow-turn-up -rotate-90 lg:rotate-0"></i>
+                <span class="text-[11px] uppercase tracking-wide text-gray-400">Jump</span>
+            </div>
+        </button>
+    `;
+}
+
+function searchFileSystem(node, query, pathSegments) {
+    if (!node) {
+        return [];
+    }
+
+    const results = [];
+    const nodeName = (node.name || '').toLowerCase();
+    if (pathSegments.length > 0 && nodeName.includes(query)) {
+        results.push({ node, path: [...pathSegments] });
+    }
+
+    if (node.type === 'folder' && Array.isArray(node.children)) {
+        for (const child of node.children) {
+            const childPath = [...pathSegments, child.name];
+            results.push(...searchFileSystem(child, query, childPath));
+        }
+    }
+
+    return results;
+}
+
+function expandTreeForPath(pathSegments) {
+    for (let depth = 0; depth <= pathSegments.length; depth += 1) {
+        const partialPath = pathSegments.slice(0, depth);
+        const key = createPathKey(partialPath);
+        fileManagerExpandedNodes.add(key);
+    }
+}
+
+function highlightQuery(text, query) {
+    if (!query) {
+        return escapeHtml(text);
+    }
+
+    const safeText = escapeHtml(text);
+    try {
+        const regex = new RegExp(`(${escapeRegExp(query)})`, 'gi');
+        return safeText.replace(regex, '<mark class="file-search-highlight">$1</mark>');
+    } catch (error) {
+        return safeText;
+    }
+}
+
+function escapeRegExp(value) {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 function buildFolderTreeNode(node, pathSegments) {
@@ -583,6 +873,8 @@ function handleTreeClick(event) {
     const segments = parsePathKey(pathKey);
     fileManagerCurrentPath = segments;
     fileManagerExpandedNodes.add(pathKey);
+    expandTreeForPath(segments);
+    fileManagerSearchQuery = '';
     renderFileManager();
 }
 
@@ -845,12 +1137,22 @@ function handleFileListClick(event) {
 
     const itemName = decodeURIComponent(button.dataset.name || '');
     const itemType = button.dataset.type;
+    const itemPathKey = button.getAttribute('data-item-path') || '';
+    const itemPathSegments = parsePathKey(itemPathKey);
 
     if (itemType === 'folder') {
-        fileManagerCurrentPath.push(itemName);
+        fileManagerCurrentPath = itemPathSegments;
+        expandTreeForPath(itemPathSegments);
+        fileManagerSearchQuery = '';
         renderFileManager();
     } else if (itemType === 'file') {
+        const previousPath = [...fileManagerCurrentPath];
+        if (itemPathSegments.length > 0) {
+            const parentSegments = itemPathSegments.slice(0, -1);
+            fileManagerCurrentPath = parentSegments;
+        }
         openFilePreviewModal(itemName);
+        fileManagerCurrentPath = previousPath;
     }
 }
 
@@ -866,6 +1168,7 @@ function handleBreadcrumbClick(event) {
     }
 
     fileManagerCurrentPath = fileManagerCurrentPath.slice(0, index);
+    fileManagerSearchQuery = '';
     renderFileManager();
 }
 
