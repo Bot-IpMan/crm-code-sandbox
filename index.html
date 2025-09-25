@@ -253,8 +253,8 @@
         <header class="bg-white shadow-sm border-b border-gray-200 p-6">
             <div class="flex items-center justify-between">
                 <div>
-                    <h2 id="pageTitle" class="text-2xl font-bold text-gray-800">Dashboard</h2>
-                    <p id="pageSubtitle" class="text-gray-600 mt-1">Welcome to your CRM dashboard</p>
+                    <h2 id="pageTitle" class="text-2xl font-bold text-gray-800" data-i18n="page.dashboard.title">Dashboard</h2>
+                    <p id="pageSubtitle" class="text-gray-600 mt-1" data-i18n="page.dashboard.subtitle">Welcome to your CRM dashboard</p>
                 </div>
                 <div class="flex items-center space-x-4">
                     <!-- Search bar -->
@@ -281,7 +281,7 @@
                     <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 card-hover transition-all">
                         <div class="flex items-center justify-between">
                             <div>
-                                <p class="text-sm font-medium text-gray-600">Total Contacts</p>
+                                <p class="text-sm font-medium text-gray-600" data-i18n="dashboard.totalContacts">Total Contacts</p>
                                 <p class="text-3xl font-bold text-gray-800" id="totalContacts">0</p>
                             </div>
                             <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
@@ -290,14 +290,14 @@
                         </div>
                         <div class="mt-4 flex items-center text-sm">
                             <span class="text-green-600 font-medium">↗ 12%</span>
-                            <span class="text-gray-600 ml-1">vs last month</span>
+                            <span class="text-gray-600 ml-1" data-i18n="dashboard.vsLastMonth">vs last month</span>
                         </div>
                     </div>
 
                     <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 card-hover transition-all">
                         <div class="flex items-center justify-between">
                             <div>
-                                <p class="text-sm font-medium text-gray-600">Active Leads</p>
+                                <p class="text-sm font-medium text-gray-600" data-i18n="dashboard.activeLeads">Active Leads</p>
                                 <p class="text-3xl font-bold text-gray-800" id="activeLeads">0</p>
                             </div>
                             <div class="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center">
@@ -306,14 +306,14 @@
                         </div>
                         <div class="mt-4 flex items-center text-sm">
                             <span class="text-green-600 font-medium">↗ 8%</span>
-                            <span class="text-gray-600 ml-1">vs last month</span>
+                            <span class="text-gray-600 ml-1" data-i18n="dashboard.vsLastMonth">vs last month</span>
                         </div>
                     </div>
 
                     <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 card-hover transition-all">
                         <div class="flex items-center justify-between">
                             <div>
-                                <p class="text-sm font-medium text-gray-600">Opportunities</p>
+                                <p class="text-sm font-medium text-gray-600" data-i18n="dashboard.opportunities">Opportunities</p>
                                 <p class="text-3xl font-bold text-gray-800" id="totalOpportunities">0</p>
                             </div>
                             <div class="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
@@ -322,14 +322,14 @@
                         </div>
                         <div class="mt-4 flex items-center text-sm">
                             <span class="text-green-600 font-medium">↗ 15%</span>
-                            <span class="text-gray-600 ml-1">vs last month</span>
+                            <span class="text-gray-600 ml-1" data-i18n="dashboard.vsLastMonth">vs last month</span>
                         </div>
                     </div>
 
                     <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 card-hover transition-all">
                         <div class="flex items-center justify-between">
                             <div>
-                                <p class="text-sm font-medium text-gray-600">Revenue</p>
+                                <p class="text-sm font-medium text-gray-600" data-i18n="dashboard.revenue">Revenue</p>
                                 <p class="text-3xl font-bold text-gray-800" id="totalRevenue">$0</p>
                             </div>
                             <div class="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
@@ -338,7 +338,7 @@
                         </div>
                         <div class="mt-4 flex items-center text-sm">
                             <span class="text-green-600 font-medium">↗ 23%</span>
-                            <span class="text-gray-600 ml-1">vs last month</span>
+                            <span class="text-gray-600 ml-1" data-i18n="dashboard.vsLastMonth">vs last month</span>
                         </div>
                     </div>
                 </div>
@@ -346,13 +346,13 @@
                 <!-- Charts section -->
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
                     <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                        <h3 class="text-lg font-semibold text-gray-800 mb-4">Sales Pipeline</h3>
+                        <h3 class="text-lg font-semibold text-gray-800 mb-4" data-i18n="dashboard.salesPipeline">Sales Pipeline</h3>
                         <div style="height: 300px;">
                             <canvas id="pipelineChart"></canvas>
                         </div>
                     </div>
                     <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                        <h3 class="text-lg font-semibold text-gray-800 mb-4">Lead Sources</h3>
+                        <h3 class="text-lg font-semibold text-gray-800 mb-4" data-i18n="dashboard.leadSources">Lead Sources</h3>
                         <div style="height: 300px;">
                             <canvas id="leadSourceChart"></canvas>
                         </div>
@@ -362,8 +362,8 @@
                 <!-- Recent activities -->
                 <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
                     <div class="flex items-center justify-between mb-4">
-                        <h3 class="text-lg font-semibold text-gray-800">Recent Activities</h3>
-                        <a href="#" onclick="showActivities()" class="text-blue-600 hover:text-blue-700 font-medium">View all</a>
+                        <h3 class="text-lg font-semibold text-gray-800" data-i18n="dashboard.recentActivities">Recent Activities</h3>
+                        <a href="#" onclick="showActivities()" class="text-blue-600 hover:text-blue-700 font-medium" data-i18n="common.viewAll">View all</a>
                     </div>
                     <div id="recentActivities" class="space-y-4">
                         <!-- Activities will be loaded here -->

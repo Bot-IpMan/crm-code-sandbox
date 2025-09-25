@@ -13,63 +13,65 @@ async function showCompanies() {
         <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
             <div class="flex items-center justify-between mb-6">
                 <div class="flex items-center space-x-4">
-                    <h3 class="text-lg font-semibold text-gray-800">All Companies</h3>
+                    <h3 class="text-lg font-semibold text-gray-800" data-i18n="companies.heading">All Companies</h3>
                     <div class="relative">
-                        <input type="text" id="companySearch" placeholder="Search companies..." 
+                        <input type="text" id="companySearch" placeholder="Search companies..." data-i18n="companies.searchPlaceholder" data-i18n-attr="placeholder"
                                class="pl-10 pr-4 py-2 w-64 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                         <i class="fas fa-search absolute left-3 top-3 text-gray-400"></i>
                     </div>
                 </div>
                 <div class="flex items-center space-x-3">
                     <button onclick="exportCompanies()" class="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50">
-                        <i class="fas fa-download mr-2"></i>Export
+                        <i class="fas fa-download mr-2"></i><span data-i18n="companies.export">Export</span>
                     </button>
                     <button onclick="showCompanyForm()" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-                        <i class="fas fa-plus mr-2"></i>Add Company
+                        <i class="fas fa-plus mr-2"></i><span data-i18n="companies.addCompany">Add Company</span>
                     </button>
                 </div>
             </div>
-            
+
             <div class="flex items-center space-x-4 mb-6">
                 <select id="companyStatusFilter" class="border border-gray-300 rounded-lg px-3 py-2">
-                    <option value="">All Statuses</option>
-                    <option value="Active">Active</option>
-                    <option value="Customer">Customer</option>
-                    <option value="Prospect">Prospect</option>
-                    <option value="Partner">Partner</option>
+                    <option value="" data-i18n="companies.filter.status.all">All Statuses</option>
+                    <option value="Active" data-i18n="companies.filter.status.active">Active</option>
+                    <option value="Customer" data-i18n="companies.filter.status.customer">Customer</option>
+                    <option value="Prospect" data-i18n="companies.filter.status.prospect">Prospect</option>
+                    <option value="Partner" data-i18n="companies.filter.status.partner">Partner</option>
                 </select>
                 <select id="companySizeFilter" class="border border-gray-300 rounded-lg px-3 py-2">
-                    <option value="">All Sizes</option>
-                    <option value="Startup">Startup</option>
-                    <option value="Small (1-50)">Small (1-50)</option>
-                    <option value="Medium (51-200)">Medium (51-200)</option>
-                    <option value="Large (201-1000)">Large (201-1000)</option>
-                    <option value="Enterprise (1000+)">Enterprise (1000+)</option>
+                    <option value="" data-i18n="companies.filter.size.all">All Sizes</option>
+                    <option value="Startup" data-i18n="companies.filter.size.startup">Startup</option>
+                    <option value="Small (1-50)" data-i18n="companies.filter.size.small">Small (1-50)</option>
+                    <option value="Medium (51-200)" data-i18n="companies.filter.size.medium">Medium (51-200)</option>
+                    <option value="Large (201-1000)" data-i18n="companies.filter.size.large">Large (201-1000)</option>
+                    <option value="Enterprise (1000+)" data-i18n="companies.filter.size.enterprise">Enterprise (1000+)</option>
                 </select>
             </div>
-            
+
             <div class="overflow-x-auto">
                 <table class="w-full">
                     <thead class="bg-gray-50">
                         <tr>
-                            <th class="text-left p-3 font-medium text-gray-600">Company</th>
-                            <th class="text-left p-3 font-medium text-gray-600">Industry</th>
-                            <th class="text-left p-3 font-medium text-gray-600">Size</th>
-                            <th class="text-left p-3 font-medium text-gray-600">Revenue</th>
-                            <th class="text-left p-3 font-medium text-gray-600">Status</th>
-                            <th class="text-left p-3 font-medium text-gray-600">Actions</th>
+                            <th class="text-left p-3 font-medium text-gray-600" data-i18n="companies.table.company">Company</th>
+                            <th class="text-left p-3 font-medium text-gray-600" data-i18n="companies.table.industry">Industry</th>
+                            <th class="text-left p-3 font-medium text-gray-600" data-i18n="companies.table.size">Size</th>
+                            <th class="text-left p-3 font-medium text-gray-600" data-i18n="companies.table.revenue">Revenue</th>
+                            <th class="text-left p-3 font-medium text-gray-600" data-i18n="companies.table.status">Status</th>
+                            <th class="text-left p-3 font-medium text-gray-600" data-i18n="companies.table.actions">Actions</th>
                         </tr>
                     </thead>
                     <tbody id="companiesTableBody">
                     </tbody>
                 </table>
             </div>
-            
+
             <div id="companiesPagination" class="mt-6 flex items-center justify-between">
             </div>
         </div>
     `;
-    
+
+    applyTranslations();
+
     await loadCompanies();
     setupCompanyFilters();
 }
@@ -102,7 +104,7 @@ async function loadCompanies(page = 1, search, status, size) {
         
     } catch (error) {
         console.error('Error loading companies:', error);
-        showToast('Failed to load companies', 'error');
+        showToast(translate('companies.loadError'), 'error');
     } finally {
         hideLoading();
     }
@@ -116,14 +118,15 @@ function displayCompanies(companies) {
             <tr>
                 <td colspan="6" class="text-center py-8 text-gray-500">
                     <i class="fas fa-building text-4xl mb-4"></i>
-                    <p>No companies found</p>
-                    <button onclick="showCompanyForm()" class="mt-2 text-blue-600 hover:text-blue-700">Add your first company</button>
+                    <p data-i18n="companies.empty">No companies found</p>
+                    <button onclick="showCompanyForm()" class="mt-2 text-blue-600 hover:text-blue-700" data-i18n="companies.emptyCta">Add your first company</button>
                 </td>
             </tr>
         `;
+        applyTranslations();
         return;
     }
-    
+
     tbody.innerHTML = companies.map(company => `
         <tr class="border-b border-gray-100 hover:bg-gray-50">
             <td class="p-3">
@@ -133,15 +136,15 @@ function displayCompanies(companies) {
                     </div>
                     <div>
                         <p class="font-medium text-gray-800">${company.name}</p>
-                        <p class="text-sm text-gray-600">${company.website || 'No website'}</p>
+                        <p class="text-sm text-gray-600">${company.website || `<span data-i18n="companies.noWebsite">${translate('companies.noWebsite')}</span>`}</p>
                     </div>
                 </div>
             </td>
-            <td class="p-3 text-gray-600">${company.industry || 'N/A'}</td>
-            <td class="p-3 text-gray-600">${company.size || 'N/A'}</td>
+            <td class="p-3 text-gray-600">${company.industry || `<span data-i18n="common.notAvailable">${translate('common.notAvailable')}</span>`}</td>
+            <td class="p-3 text-gray-600">${company.size || `<span data-i18n="common.notAvailable">${translate('common.notAvailable')}</span>`}</td>
             <td class="p-3 text-gray-600">${formatCurrency(company.annual_revenue)}</td>
             <td class="p-3">
-                <span class="px-2 py-1 text-xs rounded-full ${getStatusClass(company.status)}">${company.status || 'Active'}</span>
+                <span class="px-2 py-1 text-xs rounded-full ${getStatusClass(company.status)}" ${getCompanyStatusI18nAttribute(company.status)}>${translate(getCompanyStatusTranslationKey(company.status))}</span>
             </td>
             <td class="p-3">
                 <div class="flex items-center space-x-2">
@@ -158,6 +161,29 @@ function displayCompanies(companies) {
             </td>
         </tr>
     `).join('');
+
+    applyTranslations();
+}
+
+function getCompanyStatusTranslationKey(status) {
+    const normalized = (status || 'Active').toLowerCase();
+    switch (normalized) {
+        case 'active':
+            return 'companies.filter.status.active';
+        case 'customer':
+            return 'companies.filter.status.customer';
+        case 'prospect':
+            return 'companies.filter.status.prospect';
+        case 'partner':
+            return 'companies.filter.status.partner';
+        default:
+            return 'companies.filter.status.active';
+    }
+}
+
+function getCompanyStatusI18nAttribute(status) {
+    const key = getCompanyStatusTranslationKey(status);
+    return `data-i18n="${key}"`;
 }
 
 function setupCompanyFilters() {
