@@ -269,7 +269,8 @@
                 created_by: 'Admin User',
                 created_at: '2024-01-10T09:30:00Z',
                 updated_at: '2024-05-01T11:15:00Z',
-                notes: 'Interested in enterprise analytics package.'
+                notes: 'Interested in enterprise analytics package.',
+                obsidian_note: 'Contacts/Emily Johnson – TechCorp Solutions.md'
             },
             {
                 id: 'contact-2',
@@ -291,7 +292,8 @@
                 created_by: 'Admin User',
                 created_at: '2024-02-18T13:00:00Z',
                 updated_at: '2024-04-21T16:30:00Z',
-                notes: 'Awaiting follow-up on security requirements.'
+                notes: 'Awaiting follow-up on security requirements.',
+                obsidian_note: 'Contacts/Michael Chen – Global Manufacturing Inc.md'
             },
             {
                 id: 'contact-3',
@@ -313,7 +315,8 @@
                 created_by: 'Admin User',
                 created_at: '2023-11-05T09:00:00Z',
                 updated_at: '2024-05-04T15:45:00Z',
-                notes: 'Upsell opportunity for premium analytics add-on.'
+                notes: 'Upsell opportunity for premium analytics add-on.',
+                obsidian_note: 'Contacts/Sofia Martinez – StartupXYZ.md'
             },
             {
                 id: 'contact-4',
@@ -335,7 +338,8 @@
                 created_by: 'Admin User',
                 created_at: '2024-03-01T10:45:00Z',
                 updated_at: '2024-04-28T08:20:00Z',
-                notes: 'Considering pilot program starting next quarter.'
+                notes: 'Considering pilot program starting next quarter.',
+                obsidian_note: 'Contacts/Daniel Iverson – Northwind Logistics.md'
             }
         ],
         leads: [

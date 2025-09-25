@@ -1438,6 +1438,9 @@ async function showContactForm(contactId = null, options = {}) {
         : '';
 
     const hiddenCompanyName = sanitizeText(contact.company_name || '');
+    const normalizedContactNote = normalizeVaultPath(contact.obsidian_note || '');
+    const contactNoteHref = normalizedContactNote ? `vault/${encodeURI(normalizedContactNote)}` : '';
+    const contactNoteValue = sanitizeText(contact.obsidian_note || '');
 
     showModal(isEdit ? 'Edit Contact' : 'Add New Contact', `
         <form id="contactForm" class="space-y-6">
@@ -1587,6 +1590,26 @@ async function showContactForm(contactId = null, options = {}) {
             </div>
 
             <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Obsidian Note Path</label>
+                <div class="flex flex-col sm:flex-row sm:items-center gap-3">
+                    <input type="text" name="obsidian_note" value="${contactNoteValue}" placeholder="Contacts/Name – Company.md"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    <div class="flex items-center gap-2">
+                        <button type="button" class="px-3 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100"
+                                data-contact-note-trigger>
+                            <i class="fas fa-link mr-1"></i>Open Obsidian
+                        </button>
+                        <a ${contactNoteHref ? `href="${contactNoteHref}"` : ''}
+                           class="text-sm text-blue-600 hover:text-blue-700 ${contactNoteHref ? '' : 'hidden'}"
+                           target="_blank" rel="noopener" data-contact-note-link>
+                            <i class="fas fa-file-lines mr-1"></i>View Markdown
+                        </a>
+                    </div>
+                </div>
+                <p class="text-xs text-gray-500 mt-1">Store the relative path to this contact's note inside the Obsidian vault.</p>
+            </div>
+
+            <div>
                 <label class="block text-sm font-medium text-gray-700 mb-2">Notes</label>
                 <textarea name="notes" rows="4" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">${contact.notes || ''}</textarea>
             </div>
@@ -1657,6 +1680,53 @@ async function showContactForm(contactId = null, options = {}) {
                 companyNameInput.value = '';
             }
             newCompanyNameInput?.focus();
+        }
+    });
+
+    const noteInput = form.querySelector('input[name="obsidian_note"]');
+    const noteButton = form.querySelector('[data-contact-note-trigger]');
+    const noteLink = form.querySelector('[data-contact-note-link]');
+
+    const updateNoteLink = () => {
+        if (!noteLink || !noteInput) {
+            return;
+        }
+        const normalized = normalizeVaultPath(noteInput.value || '');
+        if (normalized) {
+            noteLink.classList.remove('hidden');
+            noteLink.setAttribute('href', `vault/${encodeURI(normalized)}`);
+        } else {
+            noteLink.classList.add('hidden');
+            noteLink.removeAttribute('href');
+        }
+    };
+
+    updateNoteLink();
+
+    noteInput?.addEventListener('input', () => {
+        updateNoteLink();
+    });
+
+    noteButton?.addEventListener('click', event => {
+        event.preventDefault();
+        if (!noteInput) {
+            return;
+        }
+        const value = noteInput.value?.trim();
+        if (!value) {
+            showToast('Add a note path before opening Obsidian', 'warning');
+            return;
+        }
+        if (typeof openObsidianNote === 'function') {
+            openObsidianNote(value);
+        } else {
+            const normalized = normalizeVaultPath(value);
+            if (!normalized) {
+                showToast('Unable to resolve the note path', 'warning');
+                return;
+            }
+            const url = `vault/${encodeURI(normalized)}`;
+            window.open(url, '_blank');
         }
     });
 
@@ -1910,6 +1980,17 @@ function formatDate(timestamp) {
     return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
 }
 
+function normalizeVaultPath(path) {
+    if (!path) {
+        return '';
+    }
+    const trimmed = String(path).trim();
+    if (!trimmed) {
+        return '';
+    }
+    return trimmed.replace(/^\/+/, '').replace(/^vault\//i, '');
+}
+
 function formatCurrency(amount) {
     return new Intl.NumberFormat('en-US', {
         style: 'currency',
@@ -2075,9 +2156,585 @@ function downloadCSV(csv, filename) {
 
 // View/Edit/Delete functions
 async function viewContact(contactId) {
-    // Implementation for viewing contact details
-    showToast('View contact functionality - to be implemented', 'info');
+    if (!contactId) {
+        return;
+    }
+
+    showLoading();
+    try {
+        const response = await fetch(`tables/contacts/${contactId}`);
+        if (!response.ok) {
+            throw new Error('Not found');
+        }
+        const contact = await response.json();
+
+        const parseList = payload => {
+            if (Array.isArray(payload?.data)) {
+                return payload.data;
+            }
+            if (Array.isArray(payload)) {
+                return payload;
+            }
+            return [];
+        };
+
+        const companyPromise = contact.company_id
+            ? fetch(`tables/companies/${encodeURIComponent(contact.company_id)}`)
+                .then(res => (res.ok ? res.json() : null))
+                .catch(() => null)
+            : Promise.resolve(null);
+
+        const [company, leadsPayload, dealsPayload, tasksPayload, activitiesPayload, notesPayload, relatedDataset] = await Promise.all([
+            companyPromise,
+            fetch(`tables/leads?contact_id=${encodeURIComponent(contact.id)}&limit=1000`).then(res => res.json()).catch(() => ({ data: [] })),
+            fetch(`tables/opportunities?primary_contact_id=${encodeURIComponent(contact.id)}&limit=1000`).then(res => res.json()).catch(() => ({ data: [] })),
+            fetch('tables/tasks?limit=1000').then(res => res.json()).catch(() => ({ data: [] })),
+            fetch('tables/activities?limit=1000').then(res => res.json()).catch(() => ({ data: [] })),
+            fetch(`tables/notes?entity_type=contacts&entity_id=${encodeURIComponent(contact.id)}&limit=1000`).then(res => res.json()).catch(() => ({ data: [] })),
+            typeof fetchRelatedRecordsForLinking === 'function'
+                ? fetchRelatedRecordsForLinking()
+                : Promise.resolve({ leads: [], opportunities: [], companies: [], contacts: [], competitors: [] })
+        ]);
+
+        const leads = parseList(leadsPayload);
+        const deals = parseList(dealsPayload);
+        const tasksAll = parseList(tasksPayload);
+        const activitiesAll = parseList(activitiesPayload);
+        const notes = parseList(notesPayload);
+
+        const normalizeRelatedValue = value => {
+            if (typeof normalizeRelatedFieldValue === 'function') {
+                return normalizeRelatedFieldValue(value) || '';
+            }
+            if (value === undefined || value === null) {
+                return '';
+            }
+            if (typeof value === 'string') {
+                return value;
+            }
+            if (typeof value === 'object') {
+                return value.id || value.value || value.path || '';
+            }
+            return String(value);
+        };
+
+        const normalizedContactId = normalizeRelatedValue(contact.id);
+        const matchesContactRelation = value => {
+            const normalized = normalizeRelatedValue(value);
+            if (!normalized) {
+                return false;
+            }
+            return normalized.toLowerCase() === normalizedContactId.toLowerCase();
+        };
+
+        const tasks = tasksAll
+            .filter(task => matchesContactRelation(task?.related_to) || (task?.contact_id && String(task.contact_id) === contact.id))
+            .sort((a, b) => {
+                const dateA = new Date(a.due_date || a.updated_at || 0).getTime();
+                const dateB = new Date(b.due_date || b.updated_at || 0).getTime();
+                return dateA - dateB;
+            });
+
+        const activities = activitiesAll
+            .filter(activity => matchesContactRelation(activity?.related_to) || (activity?.contact_id && String(activity.contact_id) === contact.id))
+            .sort((a, b) => {
+                const dateA = new Date(a.date || a.updated_at || 0).getTime();
+                const dateB = new Date(b.date || b.updated_at || 0).getTime();
+                return dateB - dateA;
+            });
+
+        const sortedNotes = notes
+            .slice()
+            .sort((a, b) => new Date(b.updated_at || b.created_at || 0) - new Date(a.updated_at || a.created_at || 0));
+
+        const mergeRecords = (base = [], extras = []) => {
+            const map = new Map();
+            base.forEach(item => {
+                if (item?.id) {
+                    map.set(String(item.id), item);
+                }
+            });
+            extras.forEach(item => {
+                if (item?.id) {
+                    map.set(String(item.id), item);
+                }
+            });
+            return Array.from(map.values());
+        };
+
+        const relationDataset = {
+            opportunities: mergeRecords(Array.isArray(relatedDataset?.opportunities) ? relatedDataset.opportunities : [], deals),
+            leads: mergeRecords(Array.isArray(relatedDataset?.leads) ? relatedDataset.leads : [], leads),
+            companies: mergeRecords(Array.isArray(relatedDataset?.companies) ? relatedDataset.companies : [], company ? [company] : []),
+            contacts: mergeRecords(Array.isArray(relatedDataset?.contacts) ? relatedDataset.contacts : [], [contact]),
+            competitors: Array.isArray(relatedDataset?.competitors) ? relatedDataset.competitors : []
+        };
+
+        const nameParts = [contact.first_name, contact.last_name].filter(Boolean);
+        const contactName = nameParts.length ? nameParts.join(' ') : (contact.email || contact.phone || contact.id);
+        const safeContactName = sanitizeText(contactName);
+        const companyName = company?.name ? company.name : '';
+        const companyNameSafe = companyName ? sanitizeText(companyName) : '';
+
+        const locationParts = [contact.city, contact.state, contact.country].filter(Boolean);
+        const locationText = locationParts.join(', ');
+
+        const obsidianNormalized = normalizeVaultPath(contact.obsidian_note || '');
+        const obsidianLinks = obsidianNormalized
+            ? `<div class="mt-3 flex flex-wrap items-center gap-2">
+                    <button type="button" class="px-3 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100" data-open-obsidian-note="${encodeURIComponent(contact.obsidian_note)}">
+                        <i class="fas fa-link mr-1"></i>Open in Obsidian
+                    </button>
+                    <a href="vault/${encodeURI(obsidianNormalized)}" target="_blank" rel="noopener" class="text-sm text-blue-600 hover:text-blue-700">
+                        <i class="fas fa-file-lines mr-1"></i>View Markdown
+                    </a>
+                    <span class="text-xs text-gray-500">${sanitizeText(contact.obsidian_note)}</span>
+               </div>`
+            : `<p class="mt-3 text-xs text-gray-500">Add an Obsidian note path to jump into your vault from this profile.</p>`;
+
+        const infoItems = [
+            {
+                label: 'Title',
+                icon: 'id-badge',
+                value: contact.title ? sanitizeText(contact.title) : '—'
+            },
+            {
+                label: 'Company',
+                icon: 'building',
+                value: company
+                    ? `<button type="button" class="text-sm text-blue-600 hover:text-blue-700" data-contact-action="open-company" data-company-id="${sanitizeText(company.id)}">${companyNameSafe}</button>`
+                    : '<span class="text-sm text-gray-500">Not linked</span>'
+            },
+            {
+                label: 'Email',
+                icon: 'envelope',
+                value: contact.email
+                    ? `<a href="mailto:${sanitizeText(contact.email)}" class="text-blue-600 hover:text-blue-700">${sanitizeText(contact.email)}</a>`
+                    : '—'
+            },
+            {
+                label: 'Phone',
+                icon: 'phone',
+                value: contact.phone
+                    ? `<a href="tel:${sanitizeText(contact.phone)}" class="text-blue-600 hover:text-blue-700">${sanitizeText(contact.phone)}</a>`
+                    : '—'
+            },
+            {
+                label: 'Mobile',
+                icon: 'mobile-screen',
+                value: contact.mobile
+                    ? `<a href="tel:${sanitizeText(contact.mobile)}" class="text-blue-600 hover:text-blue-700">${sanitizeText(contact.mobile)}</a>`
+                    : '—'
+            },
+            {
+                label: 'Lead Source',
+                icon: 'bullhorn',
+                value: contact.lead_source ? sanitizeText(contact.lead_source) : '—'
+            },
+            {
+                label: 'Status',
+                icon: 'circle-dot',
+                value: contact.status ? `<span class="px-2 py-1 rounded-full ${getStatusClass(contact.status)}">${sanitizeText(contact.status)}</span>` : '—'
+            },
+            {
+                label: 'Location',
+                icon: 'location-dot',
+                value: locationText ? sanitizeText(locationText) : '—'
+            }
+        ];
+
+        const infoHtml = infoItems.map(item => `
+            <div class="p-4 bg-gray-50 rounded-lg">
+                <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide"><i class="fas fa-${item.icon} mr-2 text-gray-400"></i>${item.label}</p>
+                <p class="mt-2 text-sm text-gray-800">${item.value}</p>
+            </div>
+        `).join('');
+
+        const internalNotes = contact.notes
+            ? `<div class="mt-4 p-4 bg-gray-50 rounded-lg"><p class="text-sm text-gray-700 whitespace-pre-line">${sanitizeText(contact.notes).replace(/\n/g, '<br>')}</p></div>`
+            : '';
+
+        const formatExpectedDate = value => {
+            if (!value) {
+                return 'No close date';
+            }
+            const date = new Date(value);
+            return Number.isNaN(date.getTime()) ? 'No close date' : date.toLocaleDateString();
+        };
+
+        const leadsHtml = leads.length
+            ? leads.map(lead => {
+                const statusBadge = lead.status ? `<span class="px-2 py-1 text-xs rounded-full ${getStatusClass(lead.status)}">${sanitizeText(lead.status)}</span>` : '';
+                return `
+                    <div class="border border-gray-200 rounded-lg p-4 bg-white shadow-sm">
+                        <div class="flex items-start justify-between gap-4">
+                            <div>
+                                <p class="text-sm font-semibold text-gray-800">${sanitizeText(lead.title || 'Lead')}</p>
+                                <p class="text-xs text-gray-500">${sanitizeText(lead.company_name || companyName || 'No company')}</p>
+                            </div>
+                            ${statusBadge}
+                        </div>
+                        <div class="mt-3 text-sm text-gray-600 flex items-center justify-between">
+                            <span>${lead.value ? formatCurrency(lead.value) : 'Value not set'}</span>
+                            <span>${formatExpectedDate(lead.expected_close_date)}</span>
+                        </div>
+                        <div class="mt-3 flex gap-2">
+                            <button type="button" class="px-3 py-1 text-sm border border-gray-200 rounded-lg text-gray-700 hover:bg-gray-100" data-contact-action="open-lead" data-lead-id="${sanitizeText(lead.id)}">View</button>
+                            <button type="button" class="px-3 py-1 text-sm border border-gray-200 rounded-lg text-gray-700 hover:bg-gray-100" data-contact-action="edit-lead" data-lead-id="${sanitizeText(lead.id)}">Edit</button>
+                        </div>
+                    </div>
+                `;
+            }).join('')
+            : '<div class="border border-dashed border-gray-300 rounded-lg p-6 text-center text-gray-500">No leads associated with this contact yet.</div>';
+
+        const dealsHtml = deals.length
+            ? deals.map(deal => {
+                const stageBadge = deal.stage ? `<span class="px-2 py-1 text-xs rounded-full bg-purple-100 text-purple-700">${sanitizeText(deal.stage)}</span>` : '';
+                const probabilityText = deal.probability !== undefined ? `${deal.probability}%` : '—';
+                const competitorName = deal.competitor_name || deal.relationships?.competitor?.name || '';
+                const competitorLine = competitorName
+                    ? `<p class="mt-2 text-xs text-rose-600"><i class="fas fa-chess-knight mr-1"></i>${sanitizeText(competitorName)}</p>`
+                    : '';
+                return `
+                    <div class="border border-gray-200 rounded-lg p-4 bg-white shadow-sm">
+                        <div class="flex items-start justify-between gap-4">
+                            <div>
+                                <p class="text-sm font-semibold text-gray-800">${sanitizeText(deal.name || 'Opportunity')}</p>
+                                <p class="text-xs text-gray-500">${sanitizeText(deal.company_name || companyName || 'No company')}</p>
+                            </div>
+                            ${stageBadge}
+                        </div>
+                        <div class="mt-3 text-sm text-gray-600 flex items-center justify-between">
+                            <span>${deal.value ? formatCurrency(deal.value) : 'Value not set'}</span>
+                            <span>Probability: ${probabilityText}</span>
+                        </div>
+                        ${competitorLine}
+                        <div class="mt-3 flex gap-2">
+                            <button type="button" class="px-3 py-1 text-sm border border-gray-200 rounded-lg text-gray-700 hover:bg-gray-100" data-contact-action="edit-deal" data-deal-id="${sanitizeText(deal.id)}">Edit</button>
+                        </div>
+                    </div>
+                `;
+            }).join('')
+            : '<div class="border border-dashed border-gray-300 rounded-lg p-6 text-center text-gray-500">No opportunities linked to this contact yet.</div>';
+
+        const buildRelationLabel = value => {
+            if (typeof resolveRelatedRecordDisplay === 'function') {
+                const relation = resolveRelatedRecordDisplay(value, relationDataset);
+                if (relation) {
+                    return `<span class="text-xs text-blue-600"><i class="fas fa-link mr-1"></i>${sanitizeText(relation.typeLabel)}: ${sanitizeText(relation.label)}</span>`;
+                }
+            }
+            return '';
+        };
+
+        const tasksHtml = tasks.length
+            ? tasks.map(task => {
+                const statusClass = typeof getTaskStatusClass === 'function'
+                    ? getTaskStatusClass(task.status)
+                    : 'bg-blue-100 text-blue-800';
+                const relationInfo = buildRelationLabel(task.related_to);
+                const description = task.description
+                    ? sanitizeText(task.description.length > 80 ? `${task.description.substring(0, 80)}…` : task.description)
+                    : 'No description';
+                return `
+                    <div class="border border-gray-200 rounded-lg p-4 bg-white shadow-sm">
+                        <div class="flex items-start justify-between gap-4">
+                            <div>
+                                <p class="text-sm font-semibold text-gray-800">${sanitizeText(task.title || 'Task')}</p>
+                                <p class="text-xs text-gray-500">${description}</p>
+                                ${relationInfo ? `<p class="mt-2">${relationInfo}</p>` : ''}
+                            </div>
+                            <div class="text-right space-y-1 text-xs text-gray-500">
+                                <span class="inline-flex items-center px-2 py-1 rounded-full ${statusClass}">${sanitizeText(task.status || 'In Progress')}</span>
+                                <span class="block">${task.due_date ? new Date(task.due_date).toLocaleDateString() : 'No due date'}</span>
+                            </div>
+                        </div>
+                        <div class="mt-3 flex gap-2">
+                            <button type="button" class="px-3 py-1 text-sm border border-gray-200 rounded-lg text-gray-700 hover:bg-gray-100" data-contact-action="edit-task" data-task-id="${sanitizeText(task.id)}">Open</button>
+                        </div>
+                    </div>
+                `;
+            }).join('')
+            : '<div class="border border-dashed border-gray-300 rounded-lg p-6 text-center text-gray-500">No tasks scheduled for this contact.</div>';
+
+        const activitiesHtml = activities.length
+            ? activities.map(activity => {
+                const icon = typeof getActivityIcon === 'function' ? getActivityIcon(activity.type) : 'circle';
+                const relationInfo = buildRelationLabel(activity.related_to);
+                const description = activity.description
+                    ? sanitizeText(activity.description.length > 100 ? `${activity.description.substring(0, 100)}…` : activity.description)
+                    : '';
+                return `
+                    <div class="border border-gray-200 rounded-lg p-4 bg-white shadow-sm">
+                        <div class="flex items-start justify-between gap-4">
+                            <div>
+                                <p class="text-sm font-semibold text-gray-800"><i class="fas fa-${icon} mr-2 text-gray-400"></i>${sanitizeText(activity.subject || activity.type || 'Activity')}</p>
+                                ${description ? `<p class="text-xs text-gray-500 mt-1">${description}</p>` : ''}
+                                ${relationInfo ? `<p class="mt-2">${relationInfo}</p>` : ''}
+                            </div>
+                            <div class="text-right text-xs text-gray-500 space-y-1">
+                                <span>${activity.date ? new Date(activity.date).toLocaleString() : 'No date'}</span>
+                                ${activity.outcome ? `<span class="block">Outcome: ${sanitizeText(activity.outcome)}</span>` : ''}
+                            </div>
+                        </div>
+                        <div class="mt-3 flex gap-2">
+                            <button type="button" class="px-3 py-1 text-sm border border-gray-200 rounded-lg text-gray-700 hover:bg-gray-100" data-contact-action="edit-activity" data-activity-id="${sanitizeText(activity.id)}">Edit</button>
+                        </div>
+                    </div>
+                `;
+            }).join('')
+            : '<div class="border border-dashed border-gray-300 rounded-lg p-6 text-center text-gray-500">No activities logged for this contact.</div>';
+
+        const notesHtml = sortedNotes.length
+            ? sortedNotes.map(note => {
+                const vaultPath = normalizeVaultPath(note.vault_path || '');
+                const vaultLink = vaultPath
+                    ? `<a href="vault/${encodeURI(vaultPath)}" target="_blank" rel="noopener" class="text-xs text-blue-600 hover:text-blue-700">Open note</a>`
+                    : '';
+                const noteContent = note.content ? sanitizeText(note.content.length > 160 ? `${note.content.substring(0, 160)}…` : note.content) : '';
+                return `
+                    <div class="border border-gray-200 rounded-lg p-4 bg-white shadow-sm">
+                        <div class="flex items-start justify-between gap-4">
+                            <div>
+                                <p class="text-sm font-semibold text-gray-800">${sanitizeText(note.title || 'Note')}</p>
+                                ${noteContent ? `<p class="text-xs text-gray-500 mt-1">${noteContent}</p>` : ''}
+                            </div>
+                            <div class="text-right text-xs text-gray-500 space-y-1">
+                                ${note.author ? `<span>${sanitizeText(note.author)}</span>` : ''}
+                                <span>${note.updated_at ? new Date(note.updated_at).toLocaleString() : ''}</span>
+                                ${vaultLink}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('')
+            : '<div class="border border-dashed border-gray-300 rounded-lg p-6 text-center text-gray-500">No CRM notes attached to this contact yet.</div>';
+
+        const encodedContactName = encodeURIComponent(contactName);
+        const encodedCompanyName = companyName ? encodeURIComponent(companyName) : '';
+
+        const modalHtml = `
+            <div class="space-y-6">
+                <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
+                    <div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6">
+                        <div>
+                            <h4 class="text-2xl font-semibold text-gray-800">${safeContactName}</h4>
+                            ${contact.title ? `<p class="text-sm text-gray-500 mt-1">${sanitizeText(contact.title)}</p>` : ''}
+                            <div class="mt-2 flex flex-wrap gap-2 text-sm text-gray-600">
+                                ${contact.status ? `<span class="px-2 py-1 rounded-full ${getStatusClass(contact.status)}">${sanitizeText(contact.status)}</span>` : ''}
+                                ${contact.lead_source ? `<span class="px-2 py-1 rounded-full bg-sky-100 text-sky-700">${sanitizeText(contact.lead_source)}</span>` : ''}
+                                ${companyName ? `<span class="px-2 py-1 rounded-full bg-gray-100 text-gray-700"><i class="fas fa-building mr-1 text-gray-400"></i>${companyNameSafe}</span>` : ''}
+                            </div>
+                            ${obsidianLinks}
+                        </div>
+                        <div class="flex flex-col gap-3 items-stretch lg:items-end">
+                            <div class="flex flex-wrap gap-2 justify-end">
+                                <button type="button" class="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700" data-contact-action="add-lead" data-contact-id="${sanitizeText(contact.id)}" data-contact-name="${encodedContactName}" data-company-id="${company ? sanitizeText(company.id) : ''}" data-company-name="${encodedCompanyName}">
+                                    <i class="fas fa-bullseye mr-2"></i>New Lead
+                                </button>
+                                <button type="button" class="px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700" data-contact-action="add-deal" data-contact-id="${sanitizeText(contact.id)}" data-contact-name="${encodedContactName}" data-company-id="${company ? sanitizeText(company.id) : ''}" data-company-name="${encodedCompanyName}">
+                                    <i class="fas fa-briefcase mr-2"></i>New Opportunity
+                                </button>
+                                <button type="button" class="px-3 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100" data-contact-action="add-task" data-contact-id="${sanitizeText(contact.id)}">
+                                    <i class="fas fa-list-check mr-2"></i>New Task
+                                </button>
+                                <button type="button" class="px-3 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100" data-contact-action="add-activity" data-contact-id="${sanitizeText(contact.id)}">
+                                    <i class="fas fa-clock mr-2"></i>Log Activity
+                                </button>
+                            </div>
+                            <div class="flex flex-wrap gap-2 justify-end">
+                                <button type="button" class="px-3 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100" data-contact-action="edit" data-contact-id="${sanitizeText(contact.id)}">
+                                    <i class="fas fa-edit mr-1"></i>Edit Contact
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+                        ${infoHtml}
+                    </div>
+                    ${internalNotes}
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <h5 class="text-lg font-semibold text-gray-800">Leads (${leads.length})</h5>
+                            <button type="button" class="text-sm text-blue-600 hover:text-blue-700" data-contact-action="add-lead" data-contact-id="${sanitizeText(contact.id)}" data-contact-name="${encodedContactName}" data-company-id="${company ? sanitizeText(company.id) : ''}" data-company-name="${encodedCompanyName}"><i class="fas fa-plus mr-1"></i>Add Lead</button>
+                        </div>
+                        <div class="space-y-3">${leadsHtml}</div>
+                    </div>
+                    <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <h5 class="text-lg font-semibold text-gray-800">Opportunities (${deals.length})</h5>
+                            <button type="button" class="text-sm text-purple-600 hover:text-purple-700" data-contact-action="add-deal" data-contact-id="${sanitizeText(contact.id)}" data-contact-name="${encodedContactName}" data-company-id="${company ? sanitizeText(company.id) : ''}" data-company-name="${encodedCompanyName}"><i class="fas fa-plus mr-1"></i>Add Opportunity</button>
+                        </div>
+                        <div class="space-y-3">${dealsHtml}</div>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <h5 class="text-lg font-semibold text-gray-800">Tasks (${tasks.length})</h5>
+                            <button type="button" class="text-sm text-gray-700 hover:text-gray-900" data-contact-action="add-task" data-contact-id="${sanitizeText(contact.id)}"><i class="fas fa-plus mr-1"></i>Add Task</button>
+                        </div>
+                        <div class="space-y-3">${tasksHtml}</div>
+                    </div>
+                    <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <h5 class="text-lg font-semibold text-gray-800">Activities (${activities.length})</h5>
+                            <button type="button" class="text-sm text-gray-700 hover:text-gray-900" data-contact-action="add-activity" data-contact-id="${sanitizeText(contact.id)}"><i class="fas fa-plus mr-1"></i>Log Activity</button>
+                        </div>
+                        <div class="space-y-3">${activitiesHtml}</div>
+                    </div>
+                </div>
+                <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <h5 class="text-lg font-semibold text-gray-800">Notes (${sortedNotes.length})</h5>
+                    </div>
+                    <div class="space-y-3">${notesHtml}</div>
+                </div>
+            </div>
+        `;
+
+        showModal('Contact Details', modalHtml);
+    } catch (error) {
+        console.error('Error viewing contact:', error);
+        showToast('Failed to load contact details', 'error');
+    } finally {
+        hideLoading();
+    }
 }
+
+function initializeModalEventDelegates() {
+    const modalContent = document.getElementById('modalContent');
+    if (!modalContent || modalContent.dataset.modalDelegatesAttached === 'true') {
+        return;
+    }
+
+    modalContent.addEventListener('click', event => {
+        const noteTrigger = event.target.closest('[data-open-obsidian-note]');
+        if (noteTrigger) {
+            const encoded = noteTrigger.getAttribute('data-open-obsidian-note') || '';
+            const decoded = encoded ? decodeURIComponent(encoded) : '';
+            if (!decoded) {
+                showToast('Note path is missing', 'warning');
+                return;
+            }
+            if (typeof openObsidianNote === 'function') {
+                openObsidianNote(decoded);
+            } else {
+                const normalized = normalizeVaultPath(decoded);
+                if (!normalized) {
+                    showToast('Unable to resolve the note path', 'warning');
+                    return;
+                }
+                window.open(`vault/${encodeURI(normalized)}`, '_blank');
+            }
+            return;
+        }
+
+        const contactAction = event.target.closest('[data-contact-action]');
+        if (!contactAction) {
+            return;
+        }
+
+        const action = contactAction.getAttribute('data-contact-action');
+        const contactId = contactAction.getAttribute('data-contact-id') || '';
+
+        switch (action) {
+            case 'edit':
+                if (contactId) {
+                    showContactForm(contactId);
+                }
+                break;
+            case 'open-company': {
+                const companyId = contactAction.getAttribute('data-company-id');
+                if (companyId && typeof viewCompany === 'function') {
+                    viewCompany(companyId);
+                }
+                break;
+            }
+            case 'add-lead': {
+                const contactName = decodeURIComponent(contactAction.getAttribute('data-contact-name') || '');
+                const companyId = contactAction.getAttribute('data-company-id') || '';
+                const companyName = decodeURIComponent(contactAction.getAttribute('data-company-name') || '');
+                if (typeof showLeadForm === 'function') {
+                    showLeadForm(null, {
+                        defaultContactId: contactId,
+                        defaultContactName: contactName,
+                        defaultCompanyId: companyId,
+                        defaultCompanyName: companyName
+                    });
+                }
+                break;
+            }
+            case 'edit-lead': {
+                const leadId = contactAction.getAttribute('data-lead-id');
+                if (leadId && typeof showLeadForm === 'function') {
+                    showLeadForm(leadId);
+                }
+                break;
+            }
+            case 'open-lead': {
+                const leadId = contactAction.getAttribute('data-lead-id');
+                if (leadId && typeof viewLead === 'function') {
+                    viewLead(leadId);
+                }
+                break;
+            }
+            case 'add-deal': {
+                const contactName = decodeURIComponent(contactAction.getAttribute('data-contact-name') || '');
+                const companyId = contactAction.getAttribute('data-company-id') || '';
+                const companyName = decodeURIComponent(contactAction.getAttribute('data-company-name') || '');
+                if (typeof showOpportunityForm === 'function') {
+                    showOpportunityForm(null, {
+                        defaultContactId: contactId,
+                        defaultContactName: contactName,
+                        defaultCompanyId: companyId,
+                        defaultCompanyName: companyName
+                    });
+                }
+                break;
+            }
+            case 'edit-deal': {
+                const dealId = contactAction.getAttribute('data-deal-id');
+                if (dealId && typeof showOpportunityForm === 'function') {
+                    showOpportunityForm(dealId);
+                }
+                break;
+            }
+            case 'add-task':
+                if (typeof showTaskForm === 'function') {
+                    showTaskForm(null, { defaultRelatedType: 'contact', defaultRelatedId: contactId });
+                }
+                break;
+            case 'edit-task': {
+                const taskId = contactAction.getAttribute('data-task-id');
+                if (taskId && typeof showTaskForm === 'function') {
+                    showTaskForm(taskId);
+                }
+                break;
+            }
+            case 'add-activity':
+                if (typeof showActivityForm === 'function') {
+                    showActivityForm(null, { defaultRelatedType: 'contact', defaultRelatedId: contactId });
+                }
+                break;
+            case 'edit-activity': {
+                const activityId = contactAction.getAttribute('data-activity-id');
+                if (activityId && typeof showActivityForm === 'function') {
+                    showActivityForm(activityId);
+                }
+                break;
+            }
+            default:
+                break;
+        }
+    });
+
+    modalContent.dataset.modalDelegatesAttached = 'true';
+}
+
+initializeModalEventDelegates();
 
 async function editContact(contactId) {
     await showContactForm(contactId);
