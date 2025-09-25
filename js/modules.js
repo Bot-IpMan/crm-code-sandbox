@@ -57,7 +57,27 @@ function competitorTargetsCompany(competitor, company, companyLookup = new Map()
 async function showCompanies() {
     showView('companies');
     setPageHeader('companies');
-    
+
+    const companyStatusOptions = renderSelectOptions(
+        getDictionaryEntries('companies', 'statuses'),
+        '',
+        {
+            includeBlank: true,
+            blankLabel: translate('companies.filter.status.all'),
+            blankI18nKey: 'companies.filter.status.all'
+        }
+    );
+
+    const companySizeOptions = renderSelectOptions(
+        getDictionaryEntries('companies', 'sizes'),
+        '',
+        {
+            includeBlank: true,
+            blankLabel: translate('companies.filter.size.all'),
+            blankI18nKey: 'companies.filter.size.all'
+        }
+    );
+
     const companiesView = document.getElementById('companiesView');
     companiesView.innerHTML = `
         <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
@@ -82,19 +102,10 @@ async function showCompanies() {
 
             <div class="flex items-center space-x-4 mb-6">
                 <select id="companyStatusFilter" class="border border-gray-300 rounded-lg px-3 py-2">
-                    <option value="" data-i18n="companies.filter.status.all">All Statuses</option>
-                    <option value="Active" data-i18n="companies.filter.status.active">Active</option>
-                    <option value="Customer" data-i18n="companies.filter.status.customer">Customer</option>
-                    <option value="Prospect" data-i18n="companies.filter.status.prospect">Prospect</option>
-                    <option value="Partner" data-i18n="companies.filter.status.partner">Partner</option>
+                    ${companyStatusOptions}
                 </select>
                 <select id="companySizeFilter" class="border border-gray-300 rounded-lg px-3 py-2">
-                    <option value="" data-i18n="companies.filter.size.all">All Sizes</option>
-                    <option value="Startup" data-i18n="companies.filter.size.startup">Startup</option>
-                    <option value="Small (1-50)" data-i18n="companies.filter.size.small">Small (1-50)</option>
-                    <option value="Medium (51-200)" data-i18n="companies.filter.size.medium">Medium (51-200)</option>
-                    <option value="Large (201-1000)" data-i18n="companies.filter.size.large">Large (201-1000)</option>
-                    <option value="Enterprise (1000+)" data-i18n="companies.filter.size.enterprise">Enterprise (1000+)</option>
+                    ${companySizeOptions}
                 </select>
             </div>
 
@@ -220,10 +231,13 @@ function displayCompanies(companies) {
 }
 
 function getCompanyStatusTranslationKey(status) {
-    const normalized = (status || 'Active').toLowerCase();
+    const normalized = (status || '').toLowerCase();
+    const entries = getDictionaryEntries('companies', 'statuses');
+    const match = entries.find(entry => entry.value.toLowerCase() === normalized && entry.i18nKey);
+    if (match && match.i18nKey) {
+        return match.i18nKey;
+    }
     switch (normalized) {
-        case 'active':
-            return 'companies.filter.status.active';
         case 'customer':
             return 'companies.filter.status.customer';
         case 'prospect':
@@ -265,6 +279,26 @@ async function showLeads() {
     setPageHeader('leads');
     
     const leadsView = document.getElementById('leadsView');
+    const leadStatusOptions = renderSelectOptions(
+        getDictionaryEntries('leads', 'statuses'),
+        '',
+        {
+            includeBlank: true,
+            blankLabel: translate('leads.filter.status.all'),
+            blankI18nKey: 'leads.filter.status.all'
+        }
+    );
+
+    const leadPriorityOptions = renderSelectOptions(
+        getDictionaryEntries('leads', 'priorities'),
+        '',
+        {
+            includeBlank: true,
+            blankLabel: translate('leads.filter.priority.all'),
+            blankI18nKey: 'leads.filter.priority.all'
+        }
+    );
+
     leadsView.innerHTML = `
         <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
             <div class="flex items-center justify-between mb-6">
@@ -285,21 +319,10 @@ async function showLeads() {
 
             <div class="flex items-center space-x-4 mb-6">
                 <select id="leadStatusFilter" class="border border-gray-300 rounded-lg px-3 py-2">
-                    <option value="" data-i18n="leads.filter.status.all">All Statuses</option>
-                    <option value="New" data-i18n="leads.filter.status.new">New</option>
-                    <option value="Contacted" data-i18n="leads.filter.status.contacted">Contacted</option>
-                    <option value="Qualified" data-i18n="leads.filter.status.qualified">Qualified</option>
-                    <option value="Proposal" data-i18n="leads.filter.status.proposal">Proposal</option>
-                    <option value="Negotiation" data-i18n="leads.filter.status.negotiation">Negotiation</option>
-                    <option value="Won" data-i18n="leads.filter.status.won">Won</option>
-                    <option value="Lost" data-i18n="leads.filter.status.lost">Lost</option>
+                    ${leadStatusOptions}
                 </select>
                 <select id="leadPriorityFilter" class="border border-gray-300 rounded-lg px-3 py-2">
-                    <option value="" data-i18n="leads.filter.priority.all">All Priorities</option>
-                    <option value="Low" data-i18n="leads.filter.priority.low">Low</option>
-                    <option value="Medium" data-i18n="leads.filter.priority.medium">Medium</option>
-                    <option value="High" data-i18n="leads.filter.priority.high">High</option>
-                    <option value="Critical" data-i18n="leads.filter.priority.critical">Critical</option>
+                    ${leadPriorityOptions}
                 </select>
             </div>
 
@@ -967,16 +990,34 @@ function createOpportunityCard(opportunity) {
 }
 
 // Sales Module
-const SALES_STAGE_ORDER = ['Qualification', 'Needs Analysis', 'Proposal', 'Negotiation', 'Closed Won', 'Closed Lost'];
+const DEFAULT_SALES_STAGE_ORDER = ['Qualification', 'Needs Analysis', 'Proposal', 'Negotiation', 'Closed Won', 'Closed Lost'];
+const SALES_STAGE_ORDER = (typeof getDictionaryValues === 'function'
+    ? getDictionaryValues('opportunities', 'stages', DEFAULT_SALES_STAGE_ORDER)
+    : DEFAULT_SALES_STAGE_ORDER.slice());
 
-const STAGE_DEFAULT_PROBABILITY = {
-    'Qualification': 25,
+const DEFAULT_STAGE_PROBABILITY = {
+    Qualification: 25,
     'Needs Analysis': 35,
-    'Proposal': 55,
-    'Negotiation': 75,
+    Proposal: 55,
+    Negotiation: 75,
     'Closed Won': 100,
     'Closed Lost': 0
 };
+
+const STAGE_DEFAULT_PROBABILITY = (() => {
+    if (window.crmConfig && typeof window.crmConfig.getOpportunityProbabilityMap === 'function') {
+        const map = window.crmConfig.getOpportunityProbabilityMap();
+        if (map && Object.keys(map).length) {
+            return map;
+        }
+    }
+    const fallback = {};
+    SALES_STAGE_ORDER.forEach(stage => {
+        const key = stage;
+        fallback[key] = DEFAULT_STAGE_PROBABILITY[key] ?? 0;
+    });
+    return fallback;
+})();
 
 const SALES_STAGE_GRADIENTS = {
     'Qualification': 'linear-gradient(90deg, #3b82f6 0%, #60a5fa 100%)',
@@ -1453,10 +1494,10 @@ function renderSalesOpportunityTable() {
         return aDate - bDate;
     });
 
+    const opportunityStageEntries = getDictionaryEntries('opportunities', 'stages', SALES_STAGE_ORDER);
+
     tbody.innerHTML = sortedOpportunities.map(opportunity => {
-        const stageOptions = SALES_STAGE_ORDER.map(stage => `
-            <option value="${stage}" ${opportunity.stage === stage ? 'selected' : ''}>${stage}</option>
-        `).join('');
+        const stageOptions = renderSelectOptions(opportunityStageEntries, opportunity.stage || '');
 
         const probabilityValue = Math.min(Math.max(Number(opportunity.probability) || 0, 0), 100);
         const expected = opportunity.expected_close_date ? new Date(opportunity.expected_close_date).toLocaleDateString() : 'Not set';
@@ -5436,7 +5477,23 @@ async function showTasks() {
             </div>
         </div>
     `;
-    
+
+    applyDictionaryToSelect(document.getElementById('taskStatusFilter'), 'tasks', 'statuses', {
+        includeBlank: true,
+        blankLabel: 'All Statuses',
+        blankValue: ''
+    });
+    applyDictionaryToSelect(document.getElementById('taskPriorityFilter'), 'tasks', 'priorities', {
+        includeBlank: true,
+        blankLabel: 'All Priorities',
+        blankValue: ''
+    });
+    applyDictionaryToSelect(document.getElementById('taskTypeFilter'), 'tasks', 'types', {
+        includeBlank: true,
+        blankLabel: 'All Types',
+        blankValue: ''
+    });
+
     await loadTasks();
     setupTaskFilters();
 }
@@ -5676,6 +5733,12 @@ async function showActivities() {
             </div>
         </div>
     `;
+
+    applyDictionaryToSelect(document.getElementById('activityTypeFilter'), 'activities', 'types', {
+        includeBlank: true,
+        blankLabel: 'All types',
+        blankValue: ''
+    });
 
     await loadActivities();
     setupActivityFilters();
@@ -7428,17 +7491,19 @@ async function showCompanyForm(companyId = null) {
         }
     }
 
-    const statusOptions = ['Active', 'Customer', 'Prospect', 'Partner', 'Inactive'];
-    if (company.status && !statusOptions.includes(company.status)) {
-        statusOptions.unshift(company.status);
-    }
+    const statusSelectOptions = renderSelectOptions(
+        getDictionaryEntries('companies', 'statuses'),
+        company.status || 'Active'
+    );
 
-    const sizeOptions = ['Startup', 'Small (1-50)', 'Medium (51-200)', 'Large (201-1000)', 'Enterprise (1000+)'];
-    if (company.size && !sizeOptions.includes(company.size)) {
-        sizeOptions.unshift(company.size);
-    }
-
-    const selectedStatus = company.status || 'Active';
+    const sizeSelectOptions = renderSelectOptions(
+        getDictionaryEntries('companies', 'sizes'),
+        company.size || '',
+        {
+            includeBlank: true,
+            blankLabel: 'Select size...'
+        }
+    );
     const normalizedObsidianPath = company.obsidian_note
         ? String(company.obsidian_note).trim().replace(/^\\+/,'').replace(/^vault\\//i, '')
         : '';
@@ -7465,14 +7530,13 @@ async function showCompanyForm(companyId = null) {
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">Company Size</label>
                     <select name="size" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                        <option value="">Select size...</option>
-                        ${sizeOptions.map(size => `<option value="${size}" ${company.size === size ? 'selected' : ''}>${size}</option>`).join('')}
+                        ${sizeSelectOptions}
                     </select>
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">Status</label>
                     <select name="status" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                        ${statusOptions.map(status => `<option value="${status}" ${selectedStatus === status ? 'selected' : ''}>${status}</option>`).join('')}
+                        ${statusSelectOptions}
                     </select>
                 </div>
             </div>
@@ -7653,15 +7717,25 @@ async function showCompetitorForm(competitorId = null) {
         console.warn('Unable to load companies for competitor form:', error);
     }
 
-    const tierOptions = ['Tier 1', 'Tier 2', 'Tier 3', 'Tier 4'];
-    if (competitor.tier && !tierOptions.includes(competitor.tier)) {
-        tierOptions.unshift(competitor.tier);
-    }
+    const tierEntries = getDictionaryEntries('competitors', 'tiers', ['Tier 1', 'Tier 2', 'Tier 3', 'Tier 4']);
+    const normalizedTierEntries = tierEntries
+        .map(entry => normalizeDictionaryEntry(entry))
+        .filter(Boolean);
+    const defaultTierValue = competitor.tier || (normalizedTierEntries[0]?.value || '');
+    const tierSelectOptions = renderSelectOptions(
+        tierEntries,
+        defaultTierValue
+    );
 
-    const statusOptions = ['Active Watch', 'Monitoring', 'Watchlist', 'Dormant', 'Review'];
-    if (competitor.status && !statusOptions.includes(competitor.status)) {
-        statusOptions.unshift(competitor.status);
-    }
+    const statusEntries = getDictionaryEntries('competitors', 'statuses', ['Active', 'Monitoring', 'Dormant', 'Watchlist']);
+    const normalizedStatusEntries = statusEntries
+        .map(entry => normalizeDictionaryEntry(entry))
+        .filter(Boolean);
+    const defaultStatusValue = competitor.status || (normalizedStatusEntries[0]?.value || '');
+    const statusSelectOptions = renderSelectOptions(
+        statusEntries,
+        defaultStatusValue
+    );
 
     const selectedCompanyIds = new Set(
         Array.isArray(competitor.linked_company_ids)
@@ -7737,13 +7811,13 @@ async function showCompetitorForm(competitorId = null) {
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">Tier</label>
                     <select name="tier" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                        ${tierOptions.map(option => `<option value="${option}" ${competitor.tier === option ? 'selected' : ''}>${option}</option>`).join('')}
+                        ${tierSelectOptions}
                     </select>
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">Статус</label>
                     <select name="status" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                        ${statusOptions.map(option => `<option value="${option}" ${competitor.status === option ? 'selected' : ''}>${option}</option>`).join('')}
+                        ${statusSelectOptions}
                     </select>
                 </div>
                 <div>
@@ -8879,24 +8953,29 @@ async function showLeadForm(leadId = null, context = {}) {
         updateContactDirectory(contacts, { merge: true });
     }
 
-    const statusOptions = ['New', 'Contacted', 'Qualified', 'Proposal', 'Negotiation', 'Won', 'Lost'];
-    if (lead.status && !statusOptions.includes(lead.status)) {
-        statusOptions.unshift(lead.status);
-    }
+    const statusSelectOptions = renderSelectOptions(
+        getDictionaryEntries('leads', 'statuses'),
+        lead.status || 'New'
+    );
 
-    const priorityOptions = ['Low', 'Medium', 'High', 'Critical'];
-    if (lead.priority && !priorityOptions.includes(lead.priority)) {
-        priorityOptions.unshift(lead.priority);
-    }
+    const prioritySelectOptions = renderSelectOptions(
+        getDictionaryEntries('leads', 'priorities'),
+        lead.priority || 'Medium'
+    );
 
-    const sourceOptions = ['Website', 'Referral', 'Email Campaign', 'Conference', 'Cold Call', 'Social Media', 'Partner', 'Advertisement', 'Event', 'Other'];
-    if (lead.source && !sourceOptions.includes(lead.source)) {
-        sourceOptions.unshift(lead.source);
-    }
+    const sourceSelectOptions = renderSelectOptions(
+        getDictionaryEntries('leads', 'sources'),
+        lead.source || '',
+        {
+            includeBlank: true,
+            blankLabel: 'Select source...'
+        }
+    );
 
-    const selectedStatus = lead.status || 'New';
-    const selectedPriority = lead.priority || 'Medium';
-    const selectedSource = lead.source || '';
+    const newCompanyStatusOptions = renderSelectOptions(
+        getDictionaryEntries('companies', 'statuses'),
+        'Prospect'
+    );
     const expectedCloseDate = lead.expected_close_date
         ? new Date(lead.expected_close_date).toISOString().split('T')[0]
         : '';
@@ -8952,7 +9031,7 @@ async function showLeadForm(leadId = null, context = {}) {
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">Status</label>
                     <select name="status" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                        ${statusOptions.map(status => `<option value="${status}" ${selectedStatus === status ? 'selected' : ''}>${status}</option>`).join('')}
+                        ${statusSelectOptions}
                     </select>
                 </div>
             </div>
@@ -8966,7 +9045,7 @@ async function showLeadForm(leadId = null, context = {}) {
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">Priority</label>
                     <select name="priority" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                        ${priorityOptions.map(priority => `<option value="${priority}" ${selectedPriority === priority ? 'selected' : ''}>${priority}</option>`).join('')}
+                        ${prioritySelectOptions}
                     </select>
                 </div>
             </div>
@@ -8993,8 +9072,7 @@ async function showLeadForm(leadId = null, context = {}) {
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">Lead Source</label>
                     <select name="source" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                        <option value="">Select source...</option>
-                        ${sourceOptions.map(source => `<option value="${source}" ${selectedSource === source ? 'selected' : ''}>${source}</option>`).join('')}
+                        ${sourceSelectOptions}
                     </select>
                 </div>
             </div>
@@ -9032,10 +9110,7 @@ async function showLeadForm(leadId = null, context = {}) {
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-2">Status</label>
                             <select name="new_company_status" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                                <option value="Prospect">Prospect</option>
-                                <option value="Customer">Customer</option>
-                                <option value="Partner">Partner</option>
-                                <option value="Vendor">Vendor</option>
+                                ${newCompanyStatusOptions}
                             </select>
                         </div>
                     </div>
@@ -9541,14 +9616,26 @@ async function showLeadConversionWizard(leadId, context = {}) {
         ? `<option value="${sanitizeText(selectedContactId)}" selected>${sanitizeText(contactFallbackLabel)}</option>`
         : '';
 
-    const statusOptions = ['New', 'Contacted', 'Qualified', 'Proposal', 'Negotiation', 'Won', 'Lost'];
-    if (lead.status && !statusOptions.includes(lead.status)) {
-        statusOptions.unshift(lead.status);
+    const leadStatusEntries = getDictionaryEntries(
+        'leads',
+        'statuses',
+        ['New', 'Contacted', 'Qualified', 'Proposal', 'Negotiation', 'Won', 'Lost']
+    );
+    const normalizedLeadStatusEntries = leadStatusEntries
+        .map(entry => normalizeDictionaryEntry(entry))
+        .filter(Boolean);
+    const leadStatusValues = normalizedLeadStatusEntries.map(entry => entry.value);
+    const leadStatusSet = new Set(leadStatusValues);
+    const defaultLeadStatus = normalizedLeadStatusEntries.find(entry => entry.value === 'Qualified')?.value
+        || normalizedLeadStatusEntries[0]?.value
+        || 'Qualified';
+    let selectedLeadStatus = defaultLeadStatus;
+    if (lead.status && leadStatusSet.has(lead.status)) {
+        selectedLeadStatus = ['New', 'Contacted'].includes(lead.status) && leadStatusSet.has('Qualified')
+            ? 'Qualified'
+            : lead.status;
     }
-    let selectedLeadStatus = 'Qualified';
-    if (lead.status && statusOptions.includes(lead.status)) {
-        selectedLeadStatus = ['New', 'Contacted'].includes(lead.status) ? 'Qualified' : lead.status;
-    }
+    const leadStatusOptions = renderSelectOptions(leadStatusEntries, selectedLeadStatus);
 
     const statusToStageMap = {
         Qualified: 'Qualification',
@@ -9557,24 +9644,21 @@ async function showLeadConversionWizard(leadId, context = {}) {
         Won: 'Closed Won',
         Lost: 'Closed Lost'
     };
-    const stageOptions = ['Qualification', 'Needs Analysis', 'Proposal', 'Negotiation', 'Closed Won', 'Closed Lost'];
-    const mappedStage = statusToStageMap[lead.status] || statusToStageMap[selectedLeadStatus] || 'Qualification';
-    if (mappedStage && !stageOptions.includes(mappedStage)) {
-        stageOptions.unshift(mappedStage);
-    }
-
-    const stageProbabilityDefaults = {
-        'Qualification': 20,
-        'Needs Analysis': 35,
-        'Proposal': 55,
-        'Negotiation': 75,
-        'Closed Won': 100,
-        'Closed Lost': 0
-    };
+    const stageEntries = getDictionaryEntries('opportunities', 'stages', SALES_STAGE_ORDER);
+    const normalizedStageEntries = stageEntries
+        .map(entry => normalizeDictionaryEntry(entry))
+        .filter(Boolean);
+    const stageValues = normalizedStageEntries.map(entry => entry.value);
+    const fallbackStageValue = normalizedStageEntries[0]?.value || 'Qualification';
+    const mappedStage = statusToStageMap[lead.status]
+        || statusToStageMap[selectedLeadStatus]
+        || fallbackStageValue;
+    const selectedStageValue = stageValues.includes(mappedStage) ? mappedStage : fallbackStageValue;
+    const stageOptions = renderSelectOptions(stageEntries, selectedStageValue);
 
     const probabilityDefault = typeof lead.probability === 'number'
         ? lead.probability
-        : stageProbabilityDefaults[mappedStage];
+        : STAGE_DEFAULT_PROBABILITY[selectedStageValue];
     const probabilityValue = probabilityDefault !== undefined && probabilityDefault !== null
         ? String(probabilityDefault)
         : '';
@@ -9695,7 +9779,7 @@ async function showLeadConversionWizard(leadId, context = {}) {
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">Lead Status After Conversion</label>
                     <select name="lead_status" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                        ${statusOptions.map(status => `<option value="${status}" ${selectedLeadStatus === status ? 'selected' : ''}>${status}</option>`).join('')}
+                        ${leadStatusOptions}
                     </select>
                 </div>
                 <div class="flex items-center mt-6 md:mt-0">
@@ -9713,7 +9797,7 @@ async function showLeadConversionWizard(leadId, context = {}) {
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-2">Stage</label>
                         <select id="leadConversionOpportunityStage" name="opportunity_stage" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                            ${stageOptions.map(stage => `<option value="${stage}" ${mappedStage === stage ? 'selected' : ''}>${stage}</option>`).join('')}
+                            ${stageOptions}
                         </select>
                     </div>
                 </div>
@@ -9856,19 +9940,17 @@ async function showLeadConversionWizard(leadId, context = {}) {
             return;
         }
         const stage = stageSelect.value;
-        if (stage === 'Closed Won') {
-            probabilityInput.value = '100';
+        const defaultValue = STAGE_DEFAULT_PROBABILITY[stage];
+        if (defaultValue === 0 || defaultValue === 100) {
+            probabilityInput.value = String(defaultValue ?? '');
             probabilityInput.setAttribute('readonly', 'readonly');
-        } else if (stage === 'Closed Lost') {
-            probabilityInput.value = '0';
-            probabilityInput.setAttribute('readonly', 'readonly');
-        } else {
-            probabilityInput.removeAttribute('readonly');
-            if (!probabilityInput.value || probabilityInput.value === '0' || probabilityInput.value === '100') {
-                const defaultValue = stageProbabilityDefaults[stage];
-                if (defaultValue !== undefined) {
-                    probabilityInput.value = String(defaultValue);
-                }
+            return;
+        }
+
+        probabilityInput.removeAttribute('readonly');
+        if (!probabilityInput.value || probabilityInput.value === '0' || probabilityInput.value === '100') {
+            if (defaultValue !== undefined && defaultValue !== null) {
+                probabilityInput.value = String(defaultValue);
             }
         }
     };
@@ -10276,31 +10358,43 @@ async function showOpportunityForm(oppId = null, context = {}) {
         updateContactDirectory(contacts, { merge: true });
     }
 
-    const stageOptions = ['Qualification', 'Needs Analysis', 'Proposal', 'Negotiation', 'Closed Won', 'Closed Lost'];
-    if (opportunity.stage && !stageOptions.includes(opportunity.stage)) {
-        stageOptions.unshift(opportunity.stage);
-    }
+    const opportunityStageEntries = getDictionaryEntries('opportunities', 'stages', SALES_STAGE_ORDER);
+    const normalizedOpportunityStageEntries = opportunityStageEntries
+        .map(entry => normalizeDictionaryEntry(entry))
+        .filter(Boolean);
+    const fallbackStage = normalizedOpportunityStageEntries[0]?.value || (SALES_STAGE_ORDER[0] || 'Qualification');
+    const initialStageSelection = opportunity.stage || fallbackStage;
+    const stageSelectOptions = renderSelectOptions(
+        opportunityStageEntries,
+        initialStageSelection
+    );
 
-    const stageProbabilityDefaults = {
-        'Qualification': 20,
-        'Needs Analysis': 35,
-        'Proposal': 55,
-        'Negotiation': 75,
-        'Closed Won': 100,
-        'Closed Lost': 0
-    };
-
-    const selectedStage = opportunity.stage || 'Qualification';
+    const selectedStage = initialStageSelection;
     const expectedCloseDate = opportunity.expected_close_date
         ? new Date(opportunity.expected_close_date).toISOString().split('T')[0]
         : '';
-    const probabilityValue = opportunity.probability ?? (stageProbabilityDefaults[selectedStage] ?? '');
+    const probabilityDefault = STAGE_DEFAULT_PROBABILITY[selectedStage];
+    const probabilityValue = opportunity.probability
+        ?? (probabilityDefault !== undefined
+            ? probabilityDefault
+            : (STAGE_DEFAULT_PROBABILITY[fallbackStage] ?? ''));
 
-    const priorityOptions = ['Low', 'Medium', 'High', 'Critical'];
-    if (opportunity.priority && !priorityOptions.includes(opportunity.priority)) {
-        priorityOptions.unshift(opportunity.priority);
-    }
-    const selectedPriority = opportunity.priority || 'Medium';
+    const prioritySelectOptions = renderSelectOptions(
+        getDictionaryEntries('opportunities', 'priorities'),
+        opportunity.priority || 'Medium'
+    );
+
+    const companyStatusEntries = getDictionaryEntries('companies', 'statuses');
+    const normalizedCompanyStatusEntries = companyStatusEntries
+        .map(entry => normalizeDictionaryEntry(entry))
+        .filter(Boolean);
+    const defaultCompanyStatus = normalizedCompanyStatusEntries.find(entry => entry.value === 'Prospect')?.value
+        || normalizedCompanyStatusEntries[0]?.value
+        || 'Prospect';
+    const newCompanyStatusOptions = renderSelectOptions(
+        companyStatusEntries,
+        defaultCompanyStatus
+    );
 
     const selectedCompanyId = opportunity.company_id ? String(opportunity.company_id) : '';
     let hasCurrentCompany = false;
@@ -10390,7 +10484,17 @@ async function showOpportunityForm(oppId = null, context = {}) {
     const hiddenCompetitorName = sanitizeText(opportunity.competitor_name || '');
     const originalStageValue = sanitizeText(opportunity.stage || '');
     const obsidianNoteValue = sanitizeText(opportunity.obsidian_note || '');
-    const newContactStatusOptions = ['Active', 'Qualified', 'Customer', 'Prospect', 'Other'];
+    const contactStatusEntries = getDictionaryEntries('contacts', 'statuses', ['Active', 'Inactive', 'Qualified', 'Customer']);
+    const normalizedContactStatusEntries = contactStatusEntries
+        .map(entry => normalizeDictionaryEntry(entry))
+        .filter(Boolean);
+    const defaultContactStatus = normalizedContactStatusEntries.find(entry => entry.value === 'Active')?.value
+        || normalizedContactStatusEntries[0]?.value
+        || 'Active';
+    const newContactStatusOptions = renderSelectOptions(
+        contactStatusEntries,
+        defaultContactStatus
+    );
 
     showModal(isEdit ? 'Edit Opportunity' : 'Add New Opportunity', `
         <form id="opportunityForm" class="space-y-6">
@@ -10407,13 +10511,13 @@ async function showOpportunityForm(oppId = null, context = {}) {
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">Stage</label>
                     <select name="stage" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                        ${stageOptions.map(stage => `<option value="${stage}" ${selectedStage === stage ? 'selected' : ''}>${stage}</option>`).join('')}
+                        ${stageSelectOptions}
                     </select>
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">Priority</label>
                     <select name="priority" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                        ${priorityOptions.map(priority => `<option value="${priority}" ${selectedPriority === priority ? 'selected' : ''}>${priority}</option>`).join('')}
+                        ${prioritySelectOptions}
                     </select>
                 </div>
             </div>
@@ -10485,10 +10589,7 @@ async function showOpportunityForm(oppId = null, context = {}) {
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-2">Status</label>
                             <select name="new_company_status" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                                <option value="Prospect">Prospect</option>
-                                <option value="Customer">Customer</option>
-                                <option value="Partner">Partner</option>
-                                <option value="Vendor">Vendor</option>
+                                ${newCompanyStatusOptions}
                             </select>
                         </div>
                     </div>
@@ -10530,7 +10631,7 @@ async function showOpportunityForm(oppId = null, context = {}) {
                         <div class="md:col-span-2 lg:col-span-1">
                             <label class="block text-sm font-medium text-gray-700 mb-2">Status</label>
                             <select name="new_contact_status" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                                ${newContactStatusOptions.map(option => `<option value="${option}" ${option === 'Active' ? 'selected' : ''}>${option}</option>`).join('')}
+                                ${newContactStatusOptions}
                             </select>
                         </div>
                     </div>
@@ -10749,19 +10850,17 @@ async function showOpportunityForm(oppId = null, context = {}) {
         }
 
         const stage = stageSelect.value;
-        if (stage === 'Closed Won') {
-            probabilityInput.value = '100';
+        const defaultValue = STAGE_DEFAULT_PROBABILITY[stage];
+        if (defaultValue === 0 || defaultValue === 100) {
+            probabilityInput.value = String(defaultValue ?? '');
             probabilityInput.setAttribute('readonly', 'readonly');
-        } else if (stage === 'Closed Lost') {
-            probabilityInput.value = '0';
-            probabilityInput.setAttribute('readonly', 'readonly');
-        } else {
-            probabilityInput.removeAttribute('readonly');
-            if (!probabilityInput.value || probabilityInput.value === '0' || probabilityInput.value === '100') {
-                const defaultValue = stageProbabilityDefaults[stage];
-                if (defaultValue !== undefined) {
-                    probabilityInput.value = defaultValue;
-                }
+            return;
+        }
+
+        probabilityInput.removeAttribute('readonly');
+        if (!probabilityInput.value || probabilityInput.value === '0' || probabilityInput.value === '100') {
+            if (defaultValue !== undefined && defaultValue !== null) {
+                probabilityInput.value = String(defaultValue);
             }
         }
     };
@@ -10794,7 +10893,7 @@ async function saveOpportunity(oppId, formData) {
     }
 
     if (!formValues.stage) {
-        formValues.stage = 'Qualification';
+        formValues.stage = SALES_STAGE_ORDER[0] || 'Qualification';
     }
 
     const originalStage = formValues.original_stage || '';
@@ -11886,6 +11985,13 @@ async function showTaskForm(taskId = null, options = {}) {
         </form>
     `);
 
+    const form = document.getElementById('taskForm');
+    if (form) {
+        applyDictionaryToSelect(form.querySelector('select[name="status"]'), 'tasks', 'statuses', { selectedValue: selectedStatus });
+        applyDictionaryToSelect(form.querySelector('select[name="priority"]'), 'tasks', 'priorities', { selectedValue: selectedPriority });
+        applyDictionaryToSelect(form.querySelector('select[name="type"]'), 'tasks', 'types', { selectedValue: selectedType });
+    }
+
     const relatedTypeSelect = document.getElementById('taskRelatedType');
     const relatedRecordSelect = document.getElementById('taskRelatedRecord');
 
@@ -11905,7 +12011,6 @@ async function showTaskForm(taskId = null, options = {}) {
         });
     }
 
-    const form = document.getElementById('taskForm');
     form.addEventListener('submit', async event => {
         event.preventDefault();
         await saveTask(taskId, new FormData(form));
@@ -12135,6 +12240,17 @@ async function showActivityForm(activityId = null, options = {}) {
         </form>
     `);
 
+    const activityForm = document.getElementById('activityForm');
+    if (activityForm) {
+        applyDictionaryToSelect(activityForm.querySelector('select[name="type"]'), 'activities', 'types', { selectedValue: selectedType });
+        applyDictionaryToSelect(activityForm.querySelector('select[name="outcome"]'), 'activities', 'outcomes', {
+            includeBlank: true,
+            blankLabel: 'Not specified',
+            blankValue: '',
+            selectedValue: selectedOutcome
+        });
+    }
+
     const activityRelatedTypeSelect = document.getElementById('activityRelatedType');
     const activityRelatedRecordSelect = document.getElementById('activityRelatedRecord');
 
@@ -12154,10 +12270,9 @@ async function showActivityForm(activityId = null, options = {}) {
         });
     }
 
-    const form = document.getElementById('activityForm');
-    form.addEventListener('submit', async event => {
+    activityForm.addEventListener('submit', async event => {
         event.preventDefault();
-        await saveActivity(activityId, new FormData(form));
+        await saveActivity(activityId, new FormData(activityForm));
     });
 }
 
