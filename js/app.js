@@ -2523,56 +2523,106 @@ function hideLoading() {
     document.getElementById('loadingOverlay').classList.add('hidden');
 }
 
-function showToast(message, type = 'info') {
+const toastActionHandlers = new Map();
+
+function showToast(message, type = 'info', options = {}) {
     const toastContainer = document.getElementById('toastContainer');
+    if (!toastContainer) {
+        return;
+    }
+
     const toastId = 'toast-' + Date.now();
-    
+    const { action, duration = 5000 } = options || {};
+
     const colors = {
         success: 'bg-green-500',
         error: 'bg-red-500',
         warning: 'bg-yellow-500',
         info: 'bg-blue-500'
     };
-    
+
     const icons = {
         success: 'fa-check',
         error: 'fa-times',
         warning: 'fa-exclamation',
         info: 'fa-info'
     };
-    
+
     const toast = document.createElement('div');
     toast.id = toastId;
     toast.className = `${colors[type]} text-white px-4 py-3 rounded-lg shadow-lg flex items-center space-x-3 transform translate-x-full transition-transform duration-300`;
+
+    let actionHtml = '';
+    if (action && action.id && typeof action.handler === 'function') {
+        toast.dataset.actionId = action.id;
+        toastActionHandlers.set(action.id, action.handler);
+        const label = sanitizeText(action.label || 'Undo');
+        actionHtml = `<button type="button" class="ml-2 text-white underline decoration-dotted" data-toast-action="${action.id}">${label}</button>`;
+    }
+
     toast.innerHTML = `
         <i class="fas ${icons[type]}"></i>
-        <span>${message}</span>
-        <button onclick="removeToast('${toastId}')" class="ml-2 text-white hover:text-gray-200">
+        <span>${sanitizeText(message)}</span>
+        ${actionHtml}
+        <button type="button" class="ml-2 text-white hover:text-gray-200" data-toast-dismiss="${toastId}">
             <i class="fas fa-times"></i>
         </button>
     `;
-    
+
     toastContainer.appendChild(toast);
-    
+
     // Show toast
     setTimeout(() => {
         toast.classList.remove('translate-x-full');
     }, 100);
-    
-    // Auto hide after 5 seconds
+
+    // Auto hide after provided duration
     setTimeout(() => {
         removeToast(toastId);
-    }, 5000);
+    }, duration);
 }
 
 function removeToast(toastId) {
     const toast = document.getElementById(toastId);
     if (toast) {
+        const actionId = toast.dataset.actionId;
+        if (actionId) {
+            toastActionHandlers.delete(actionId);
+        }
         toast.classList.add('translate-x-full');
         setTimeout(() => {
             toast.remove();
         }, 300);
     }
+}
+
+if (!window.crmToastActionListenerRegistered) {
+    document.addEventListener('click', event => {
+        const actionButton = event.target.closest('[data-toast-action]');
+        if (actionButton) {
+            const actionId = actionButton.getAttribute('data-toast-action');
+            const handler = toastActionHandlers.get(actionId);
+            const toastEl = actionButton.closest('[id^="toast-"]');
+            if (toastEl && toastEl.id) {
+                removeToast(toastEl.id);
+            }
+            if (handler) {
+                toastActionHandlers.delete(actionId);
+                try {
+                    handler();
+                } catch (error) {
+                    console.error('Toast action handler failed', error);
+                }
+            }
+            return;
+        }
+        const dismissButton = event.target.closest('[data-toast-dismiss]');
+        if (dismissButton) {
+            const targetId = dismissButton.getAttribute('data-toast-dismiss');
+            removeToast(targetId);
+        }
+    });
+    window.crmToastActionListenerRegistered = true;
 }
 
 function formatDate(timestamp) {
