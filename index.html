@@ -90,9 +90,80 @@
         body.theme-dark ::placeholder {
             color: #9ca3af;
         }
+
+        .panel-spacing {
+            padding: 1.25rem 1.5rem;
+        }
+        body.density-compact .panel-spacing {
+            padding: 0.75rem 1.25rem;
+        }
+        body.density-comfortable .panel-spacing {
+            padding: 1.75rem 2rem;
+        }
+
+        .stack-spacing {
+            --tw-space-y-reverse: 0;
+        }
+
+        .stack-spacing > :not([hidden]) ~ :not([hidden]) {
+            --tw-space-y-reverse: 0;
+            margin-top: calc(1rem * calc(1 - var(--tw-space-y-reverse)));
+            margin-bottom: calc(1rem * var(--tw-space-y-reverse));
+        }
+        body.density-compact .stack-spacing > :not([hidden]) ~ :not([hidden]) {
+            margin-top: calc(0.75rem * calc(1 - var(--tw-space-y-reverse)));
+            margin-bottom: calc(0.75rem * var(--tw-space-y-reverse));
+        }
+        body.density-comfortable .stack-spacing > :not([hidden]) ~ :not([hidden]) {
+            margin-top: calc(1.5rem * calc(1 - var(--tw-space-y-reverse)));
+            margin-bottom: calc(1.5rem * var(--tw-space-y-reverse));
+        }
+
+        .density-grid {
+            gap: 1.25rem;
+        }
+        body.density-compact .density-grid {
+            gap: 1rem;
+        }
+        body.density-comfortable .density-grid {
+            gap: 1.5rem;
+        }
+
+        .card-surface {
+            padding: 1.25rem;
+            border-radius: 0.75rem;
+        }
+        body.density-compact .card-surface {
+            padding: 1rem;
+            border-radius: 0.625rem;
+        }
+        body.density-comfortable .card-surface {
+            padding: 1.5rem;
+            border-radius: 0.875rem;
+        }
+
+        .toolbar-section {
+            padding: 1rem 1.25rem;
+        }
+        body.density-compact .toolbar-section {
+            padding: 0.75rem 1rem;
+        }
+        body.density-comfortable .toolbar-section {
+            padding: 1.5rem 1.75rem;
+        }
+
+        .modal-body-padding {
+            padding: 1.25rem;
+        }
+        body.density-compact .modal-body-padding {
+            padding: 1rem;
+        }
+        body.density-comfortable .modal-body-padding {
+            padding: 1.75rem;
+        }
     </style>
 </head>
-<body class="bg-gray-100 font-inter theme-light">
+<body class="bg-gray-100 font-inter theme-light density-compact">
     <!-- Loading overlay -->
     <div id="loadingOverlay" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center hidden">
         <div class="bg-white p-6 rounded-lg shadow-xl">
@@ -106,7 +177,7 @@
     <!-- Sidebar -->
     <div id="sidebar" class="fixed left-0 top-0 h-full w-64 bg-white shadow-lg z-40 sidebar-transition">
         <!-- Logo and header -->
-        <div class="p-6 border-b border-gray-200">
+        <div class="toolbar-section border-b border-gray-200">
             <div class="flex items-center space-x-3">
                 <div class="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
                     <i class="fas fa-users text-white text-lg"></i>
@@ -119,7 +190,7 @@
         </div>
 
         <!-- Navigation -->
-        <nav class="p-4 space-y-6">
+        <nav class="px-3 py-4 stack-spacing">
             <div>
                 <p class="text-xs font-semibold uppercase tracking-wide text-gray-400">Overview</p>
                 <ul class="mt-2 space-y-1">
@@ -220,9 +291,9 @@
             </div>
         </nav>
 
-        <div class="p-4 border-t border-gray-200">
+        <div class="toolbar-section border-t border-gray-200">
             <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3" data-i18n="settings.title">Settings</h2>
-            <div class="space-y-4">
+            <div class="stack-spacing">
                 <div>
                     <label for="languageSelect" class="block text-xs font-medium text-gray-500 uppercase mb-1" data-i18n="settings.language">Language</label>
                     <select id="languageSelect" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
@@ -256,6 +327,13 @@
                         <option value="extraLarge">Extra Large</option>
                     </select>
                 </div>
+                <div>
+                    <label for="densitySelect" class="block text-xs font-medium text-gray-500 uppercase mb-1" data-i18n="settings.density">Density</label>
+                    <select id="densitySelect" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        <option value="compact" selected data-i18n="settings.densityCompact">Compact</option>
+                        <option value="comfortable" data-i18n="settings.densityComfortable">Comfortable</option>
+                    </select>
+                </div>
             </div>
         </div>
     </div>
@@ -269,13 +347,13 @@
     <div id="mainContent" class="flex flex-col min-h-screen transition-all lg:ml-64">
         <!-- Header -->
         <header class="bg-white border-b border-gray-200 shadow-sm">
-            <div class="max-w-7xl mx-auto px-6 py-6 space-y-6">
-                <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+            <div class="max-w-7xl mx-auto panel-spacing stack-spacing">
+                <div class="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
                     <div class="space-y-1">
                         <h2 id="pageTitle" class="text-3xl font-semibold text-gray-900" data-i18n="page.dashboard.title">Dashboard</h2>
                         <p id="pageSubtitle" class="text-sm text-gray-500" data-i18n="page.dashboard.subtitle">Welcome to your CRM dashboard</p>
                     </div>
-                    <div class="flex w-full flex-col gap-3 lg:w-auto lg:flex-row lg:items-center">
+                    <div class="flex w-full flex-col gap-2 lg:w-auto lg:flex-row lg:items-center">
                         <div class="w-full lg:w-72">
                             <label class="sr-only" for="globalSearch">Global search</label>
                             <div class="relative">
@@ -284,7 +362,7 @@
                                 <i class="fas fa-search absolute left-3 top-3 text-gray-400"></i>
                             </div>
                         </div>
-                        <div class="flex w-full flex-col gap-3 sm:flex-row sm:items-center sm:justify-end lg:w-auto">
+                        <div class="flex w-full flex-col gap-2 sm:flex-row sm:items-center sm:justify-end lg:w-auto">
                             <!-- Global quick actions -->
                             <div id="globalActionsWrapper" class="relative w-full sm:w-auto">
                                 <button id="globalActionsButton" type="button"
@@ -370,10 +448,10 @@
 
         <!-- Content area -->
         <main class="w-full flex-1">
-            <div class="mx-auto w-full max-w-7xl px-6 py-8 space-y-8">
+            <div class="mx-auto w-full max-w-7xl panel-spacing stack-spacing">
                 <!-- Dashboard View -->
-                <section id="dashboardView" class="view-content space-y-8">
-                    <div class="space-y-4">
+                <section id="dashboardView" class="view-content stack-spacing">
+                    <div class="stack-spacing">
                         <div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
                             <div>
                                 <h3 class="text-lg font-semibold text-gray-800">Key metrics</h3>
@@ -384,8 +462,8 @@
                                 <span>Updated continuously from live data</span>
                             </div>
                         </div>
-                        <div class="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-4">
-                            <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 card-hover transition-all">
+                        <div class="grid density-grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4">
+                            <div class="card-surface bg-white shadow-sm border border-gray-100 card-hover transition-all">
                                 <div class="flex items-center justify-between">
                                     <div>
                                         <p class="text-sm font-medium text-gray-600" data-i18n="dashboard.totalContacts">Total Contacts</p>
@@ -401,7 +479,7 @@
                                 </div>
                             </div>
 
-                            <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 card-hover transition-all">
+                            <div class="card-surface bg-white shadow-sm border border-gray-100 card-hover transition-all">
                                 <div class="flex items-center justify-between">
                                     <div>
                                         <p class="text-sm font-medium text-gray-600" data-i18n="dashboard.activeLeads">Active Leads</p>
@@ -417,7 +495,7 @@
                                 </div>
                             </div>
 
-                            <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 card-hover transition-all">
+                            <div class="card-surface bg-white shadow-sm border border-gray-100 card-hover transition-all">
                                 <div class="flex items-center justify-between">
                                     <div>
                                         <p class="text-sm font-medium text-gray-600" data-i18n="dashboard.opportunities">Opportunities</p>
@@ -433,7 +511,7 @@
                                 </div>
                             </div>
 
-                            <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 card-hover transition-all">
+                            <div class="card-surface bg-white shadow-sm border border-gray-100 card-hover transition-all">
                                 <div class="flex items-center justify-between">
                                     <div>
                                         <p class="text-sm font-medium text-gray-600" data-i18n="dashboard.revenue">Revenue</p>
@@ -451,7 +529,7 @@
                         </div>
                     </div>
 
-                    <div class="space-y-4">
+                    <div class="stack-spacing">
                         <div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
                             <div>
                                 <h3 class="text-lg font-semibold text-gray-800">Revenue insights</h3>
@@ -462,14 +540,14 @@
                                 <span>Pipeline health</span>
                             </div>
                         </div>
-                        <div class="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-                            <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                        <div class="grid density-grid grid-cols-1 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+                            <div class="card-surface bg-white shadow-sm border border-gray-100">
                                 <h3 class="text-lg font-semibold text-gray-800 mb-4" data-i18n="dashboard.salesPipeline">Sales Pipeline</h3>
                                 <div style="height: 300px;">
                                     <canvas id="pipelineChart"></canvas>
                                 </div>
                             </div>
-                            <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                            <div class="card-surface bg-white shadow-sm border border-gray-100">
                                 <h3 class="text-lg font-semibold text-gray-800 mb-4" data-i18n="dashboard.leadSources">Lead Sources</h3>
                                 <div style="height: 300px;">
                                     <canvas id="leadSourceChart"></canvas>
@@ -478,18 +556,18 @@
                         </div>
                     </div>
 
-                    <div class="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-                        <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                    <div class="grid density-grid grid-cols-1 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+                        <div class="card-surface bg-white shadow-sm border border-gray-100">
                             <div class="mb-4 flex items-center justify-between">
                                 <h3 class="text-lg font-semibold text-gray-800" data-i18n="dashboard.recentActivities">Recent Activities</h3>
                                 <a href="#" onclick="showActivities()" class="text-sm font-medium text-blue-600 hover:text-blue-700" data-i18n="common.viewAll">View all</a>
                             </div>
-                            <div id="recentActivities" class="space-y-4">
+                            <div id="recentActivities" class="stack-spacing">
                                 <!-- Activities will be loaded here -->
                             </div>
                         </div>
-                        <div class="space-y-6">
-                            <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                        <div class="stack-spacing">
+                            <div class="card-surface bg-white shadow-sm border border-gray-100">
                                 <h3 class="text-base font-semibold text-gray-800">Priority shortcuts</h3>
                                 <p class="mt-2 text-sm text-gray-500">Get straight to the work that needs attention right now.</p>
                                 <div class="mt-4 space-y-3">
@@ -507,7 +585,7 @@
                                     </button>
                                 </div>
                             </div>
-                            <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                            <div class="card-surface bg-white shadow-sm border border-gray-100">
                                 <h3 class="text-base font-semibold text-gray-800">Workflow reminders</h3>
                                 <ul class="mt-4 space-y-3 text-sm text-gray-600">
                                     <li class="flex items-start gap-3">
@@ -548,13 +626,13 @@
     <!-- Modal for forms -->
     <div id="modalOverlay" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center hidden">
         <div class="bg-white rounded-xl shadow-xl max-w-4xl w-full mx-4 max-h-screen overflow-y-auto">
-            <div class="p-6 border-b border-gray-200 flex items-center justify-between">
+            <div class="toolbar-section border-b border-gray-200 flex items-center justify-between">
                 <h3 id="modalTitle" class="text-lg font-semibold text-gray-800"></h3>
                 <button onclick="closeModal()" class="text-gray-400 hover:text-gray-600">
                     <i class="fas fa-times text-xl"></i>
                 </button>
             </div>
-            <div id="modalContent" class="p-6">
+            <div id="modalContent" class="modal-body-padding">
                 <!-- Modal content will be loaded here -->
             </div>
         </div>

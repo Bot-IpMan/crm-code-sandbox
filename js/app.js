@@ -34,6 +34,11 @@ const SUPPORTED_THEMES = {
     dark: 'dark'
 };
 
+const SUPPORTED_DENSITIES = {
+    compact: 'compact',
+    comfortable: 'comfortable'
+};
+
 const entityDirectories = {
     companies: {
         list: [],
@@ -522,6 +527,9 @@ const TRANSLATIONS = {
         'settings.themeDark': 'Dark',
         'settings.font': 'Font',
         'settings.fontSize': 'Font Size',
+        'settings.density': 'Density',
+        'settings.densityCompact': 'Compact',
+        'settings.densityComfortable': 'Comfortable',
         'header.searchPlaceholder': 'Search anything...',
         'header.quickActionsButton': 'Quick actions',
         'header.quickCreateSection': 'Quick create',
@@ -697,6 +705,9 @@ const TRANSLATIONS = {
         'settings.themeDark': 'Темна',
         'settings.font': 'Шрифт',
         'settings.fontSize': 'Розмір шрифту',
+        'settings.density': 'Щільність',
+        'settings.densityCompact': 'Компактний',
+        'settings.densityComfortable': 'Комфортний',
         'header.searchPlaceholder': 'Пошук...',
         'header.quickActionsButton': 'Швидкі дії',
         'header.quickCreateSection': 'Швидке створення',
@@ -867,13 +878,16 @@ const PAGE_HEADERS = {
 
 const DEFAULT_LANGUAGE = 'en';
 const DEFAULT_THEME = 'light';
+const DEFAULT_DENSITY = 'compact';
 const FONT_FAMILY_STORAGE_KEY = 'appFontFamily';
 const FONT_SIZE_STORAGE_KEY = 'appFontSize';
 const LANGUAGE_STORAGE_KEY = 'appLanguage';
 const THEME_STORAGE_KEY = 'appTheme';
+const DENSITY_STORAGE_KEY = 'appDensity';
 
 let currentLanguage = DEFAULT_LANGUAGE;
 let currentTheme = DEFAULT_THEME;
+let currentDensity = DEFAULT_DENSITY;
 let currentView = 'dashboard';
 let currentUser = 'Admin User';
 let charts = {};
@@ -965,6 +979,26 @@ function applyTheme(theme) {
 
     if (previousTheme !== normalizedTheme) {
         setStoredPreference(THEME_STORAGE_KEY, normalizedTheme);
+    }
+}
+
+function applyDensity(density) {
+    const normalizedDensity = SUPPORTED_DENSITIES[density] ? density : DEFAULT_DENSITY;
+    const previousDensity = currentDensity;
+    currentDensity = normalizedDensity;
+
+    if (document.body) {
+        document.body.classList.remove('density-compact', 'density-comfortable');
+        document.body.classList.add(`density-${normalizedDensity}`);
+    }
+
+    const densitySelect = document.getElementById('densitySelect');
+    if (densitySelect && densitySelect.value !== normalizedDensity) {
+        densitySelect.value = normalizedDensity;
+    }
+
+    if (previousDensity !== normalizedDensity) {
+        setStoredPreference(DENSITY_STORAGE_KEY, normalizedDensity);
     }
 }
 
@@ -1397,6 +1431,7 @@ function initializeSettingsPanel() {
     const fontSizeSelect = document.getElementById('fontSizeSelect');
     const languageSelect = document.getElementById('languageSelect');
     const themeSelect = document.getElementById('themeSelect');
+    const densitySelect = document.getElementById('densitySelect');
 
     const savedLanguage = getStoredPreference(LANGUAGE_STORAGE_KEY);
     const initialLanguage = SUPPORTED_LANGUAGES[savedLanguage] ? savedLanguage : DEFAULT_LANGUAGE;
@@ -1415,6 +1450,16 @@ function initializeSettingsPanel() {
         themeSelect.value = initialTheme;
         themeSelect.addEventListener('change', event => {
             applyTheme(event.target.value);
+        });
+    }
+
+    const savedDensity = getStoredPreference(DENSITY_STORAGE_KEY);
+    const initialDensity = SUPPORTED_DENSITIES[savedDensity] ? savedDensity : DEFAULT_DENSITY;
+    applyDensity(initialDensity);
+    if (densitySelect) {
+        densitySelect.value = initialDensity;
+        densitySelect.addEventListener('change', event => {
+            applyDensity(event.target.value);
         });
     }
 
