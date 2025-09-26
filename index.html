@@ -36,6 +36,20 @@
         
         /* Sidebar transition */
         .sidebar-transition { transition: transform 0.3s ease-in-out; }
+
+        /* Responsive shell */
+        .layout-container {
+            width: 100%;
+            margin-left: auto;
+            margin-right: auto;
+            max-width: min(100%, 110rem);
+        }
+
+        @media (min-width: 1536px) {
+            .layout-container {
+                max-width: min(100%, 120rem);
+            }
+        }
         
         /* Loading animation */
         .loading { opacity: 0.5; pointer-events: none; }
@@ -115,13 +129,13 @@
         }
 
         .panel-spacing {
-            padding: 1.25rem 1.5rem;
+            padding: clamp(1rem, 1.25vw, 1.5rem) clamp(1.5rem, 2.5vw, 3rem);
         }
         body.density-compact .panel-spacing {
-            padding: 0.75rem 1.25rem;
+            padding: clamp(0.75rem, 1vw, 1rem) clamp(1rem, 1.75vw, 2.25rem);
         }
         body.density-comfortable .panel-spacing {
-            padding: 1.75rem 2rem;
+            padding: clamp(1.5rem, 2vw, 2.25rem) clamp(2rem, 3vw, 3.5rem);
         }
 
         .stack-spacing {
@@ -198,7 +212,7 @@
     </div>
 
     <!-- Sidebar -->
-    <div id="sidebar" class="fixed left-0 top-0 h-full w-64 bg-white shadow-lg z-40 sidebar-transition">
+    <div id="sidebar" class="fixed left-0 top-0 h-full w-64 bg-white shadow-lg z-40 sidebar-transition overflow-y-auto">
         <!-- Logo and header -->
         <div class="toolbar-section border-b border-gray-200">
             <div class="flex items-center space-x-3">
@@ -370,7 +384,7 @@
     <div id="mainContent" class="flex flex-col min-h-screen transition-all lg:ml-64">
         <!-- Header -->
         <header class="bg-white border-b border-gray-200 shadow-sm">
-            <div class="max-w-7xl mx-auto panel-spacing stack-spacing">
+            <div class="layout-container panel-spacing stack-spacing">
                 <div class="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
                     <div class="space-y-1">
                         <h2 id="pageTitle" class="text-3xl font-semibold text-gray-900" data-i18n="page.dashboard.title">Dashboard</h2>
@@ -471,7 +485,7 @@
 
         <!-- Content area -->
         <main class="w-full flex-1">
-            <div class="mx-auto w-full max-w-7xl panel-spacing stack-spacing">
+            <div class="layout-container panel-spacing stack-spacing">
                 <!-- Dashboard View -->
                 <section id="dashboardView" class="view-content stack-spacing">
                     <div class="stack-spacing">
