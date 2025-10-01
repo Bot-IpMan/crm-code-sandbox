@@ -6956,6 +6956,36 @@ const ANALYTICS_WIDGET_LIBRARY = {
     }
 };
 
+const ANALYTICS_KNOWLEDGE_BASE = [
+    {
+        title: 'Огляд головної панелі CRM',
+        description: 'Орієнтири для побудови головного дашборду: ключові метрики, блоки та сценарії контролю бізнесу.',
+        href: 'docs/crm-dashboard-overview.md',
+        icon: 'fa-gauge-high',
+        tag: 'Дашборд',
+        tagClass: 'bg-emerald-50 text-emerald-600',
+        estimated: '≈12 хв читання'
+    },
+    {
+        title: 'Покрокова інструкція зі створення CRM-системи в Obsidian',
+        description: 'Налаштування робочого сховища в Obsidian як CRM: структури папок, шаблони та автоматизації.',
+        href: 'docs/obsidian-crm-guide.md',
+        icon: 'fa-cube',
+        tag: 'Obsidian',
+        tagClass: 'bg-violet-50 text-violet-600',
+        estimated: '≈20 хв читання'
+    },
+    {
+        title: 'Competitor Intelligence Hub — Масштабована архітектура',
+        description: 'Архітектура модульної системи конкурентної розвідки з аналітикою корпоративного рівня.',
+        href: 'docs/competitor-intelligence-hub.md',
+        icon: 'fa-sitemap',
+        tag: 'Модулі',
+        tagClass: 'bg-amber-50 text-amber-600',
+        estimated: '≈15 хв читання'
+    }
+];
+
 async function renderAnalyticsAndBI() {
     showView('reports');
     setPageHeader('reports');
@@ -7042,6 +7072,17 @@ async function renderAnalyticsAndBI() {
                     <div id="aiRecommendations" class="mt-4 space-y-4"></div>
                 </div>
             </section>
+
+            <section class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                    <div>
+                        <h3 class="text-lg font-semibold text-gray-800">Документація та гіди</h3>
+                        <p class="text-sm text-gray-500">Добірка матеріалів про впровадження CRM, роботу з даними та побудову дашбордів.</p>
+                    </div>
+                    <span class="inline-flex items-center px-3 py-1 text-xs font-semibold uppercase rounded-full bg-blue-50 text-blue-600">Оновлено</span>
+                </div>
+                <div id="analyticsKnowledgeBase" class="mt-6 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4"></div>
+            </section>
         </div>
     `;
 
@@ -7056,6 +7097,7 @@ async function renderAnalyticsAndBI() {
         renderCampaignAnalytics(context);
         renderForecastAnalytics(context);
         renderAIInsights(context);
+        renderAnalyticsKnowledgeBase();
     } catch (error) {
         console.error('Error loading analytics module:', error);
         showToast('Не вдалося завантажити модуль аналітики', 'error');
@@ -7982,6 +8024,47 @@ function renderAIInsights(context) {
             ${rec.action ? `<p class="mt-3 text-sm text-blue-600"><i class="fas fa-lightbulb mr-2"></i>${rec.action}</p>` : ''}
         </div>
     `).join('');
+}
+
+function renderAnalyticsKnowledgeBase() {
+    const container = document.getElementById('analyticsKnowledgeBase');
+    if (!container) {
+        return;
+    }
+
+    const sanitize = value => (typeof sanitizeText === 'function' ? sanitizeText(value) : String(value));
+
+    container.innerHTML = ANALYTICS_KNOWLEDGE_BASE.map(article => {
+        const badge = article.tag
+            ? `<span class="inline-flex items-center px-3 py-1 text-xs font-semibold uppercase rounded-full ${article.tagClass || 'bg-slate-100 text-slate-600'}">${sanitize(article.tag)}</span>`
+            : '';
+        const estimate = article.estimated
+            ? `<span class="text-xs text-gray-400">${sanitize(article.estimated)}</span>`
+            : '';
+
+        return `
+            <article class="border border-gray-100 rounded-xl bg-white p-5 shadow-sm hover:border-blue-200 transition-colors">
+                <div class="flex items-start justify-between gap-4">
+                    <div class="flex items-start gap-4">
+                        <span class="w-10 h-10 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
+                            <i class="fas ${article.icon}"></i>
+                        </span>
+                        <div>
+                            <h4 class="text-base font-semibold text-gray-800 leading-snug">${sanitize(article.title)}</h4>
+                            <p class="mt-2 text-sm text-gray-500 leading-relaxed">${sanitize(article.description)}</p>
+                        </div>
+                    </div>
+                    ${badge}
+                </div>
+                <div class="mt-4 flex items-center justify-between text-sm">
+                    <a href="${article.href}" target="_blank" rel="noopener" class="inline-flex items-center text-blue-600 hover:text-blue-700 font-medium">
+                        <i class="fas fa-arrow-up-right-from-square mr-2"></i>Відкрити гайд
+                    </a>
+                    ${estimate}
+                </div>
+            </article>
+        `;
+    }).join('');
 }
 
 function generateAIRecommendations(context) {
