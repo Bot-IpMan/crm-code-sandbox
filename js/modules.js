@@ -6199,103 +6199,265 @@ async function showCompetitorIntel() {
 }
 
 // Tasks Management
+const taskUIState = {
+    currentView: 'list',
+    currentSchedulePeriod: 'week',
+    quickFilter: null,
+    selectedTaskId: null,
+    allTasks: [],
+    dataset: [],
+    relatedDataset: null
+};
+
 async function showTasks() {
     showView('tasks');
     setPageHeader('tasks');
-    
+
     const tasksView = document.getElementById('tasksView');
     tasksView.innerHTML = `
-        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-            <div class="flex items-center justify-between mb-6">
-                <div class="flex items-center space-x-4">
-                    <h3 class="text-lg font-semibold text-gray-800">All Tasks</h3>
-                    <div class="relative">
-                        <input type="text" id="taskSearch" placeholder="Search tasks..." 
-                               class="pl-10 pr-4 py-2 w-64 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                        <i class="fas fa-search absolute left-3 top-3 text-gray-400"></i>
-                    </div>
+        <div class="space-y-6">
+            <section id="taskSummaryCards" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4"></section>
+
+            <div class="grid grid-cols-1 xl:grid-cols-4 gap-6">
+                <aside class="space-y-6 xl:col-span-1">
+                    <section class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+                        <div class="flex items-center justify-between">
+                            <h4 class="text-base font-semibold text-gray-800">Швидкі фільтри</h4>
+                            <button id="resetTaskQuickFilters" class="text-sm text-blue-600 hover:text-blue-700">Скинути</button>
+                        </div>
+                        <p class="mt-2 text-sm text-gray-500">Знайдіть потрібні завдання за один клік.</p>
+                        <div class="flex flex-wrap gap-2 mt-4">
+                            <button class="task-quick-filter" data-task-filter="active">
+                                <span class="inline-flex items-center px-3 py-1 text-xs font-medium rounded-full bg-blue-50 text-blue-600"><i class="fas fa-bolt mr-2"></i>Активні</span>
+                            </button>
+                            <button class="task-quick-filter" data-task-filter="completed">
+                                <span class="inline-flex items-center px-3 py-1 text-xs font-medium rounded-full bg-emerald-50 text-emerald-600"><i class="fas fa-circle-check mr-2"></i>Виконані</span>
+                            </button>
+                            <button class="task-quick-filter" data-task-filter="overdue">
+                                <span class="inline-flex items-center px-3 py-1 text-xs font-medium rounded-full bg-rose-50 text-rose-600"><i class="fas fa-triangle-exclamation mr-2"></i>Прострочені</span>
+                            </button>
+                            <button class="task-quick-filter" data-task-filter="highPriority">
+                                <span class="inline-flex items-center px-3 py-1 text-xs font-medium rounded-full bg-orange-50 text-orange-600"><i class="fas fa-fire mr-2"></i>Високий пріоритет</span>
+                            </button>
+                        </div>
+                    </section>
+
+                    <section class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+                        <h4 class="text-base font-semibold text-gray-800">Нагадування та сповіщення</h4>
+                        <p class="mt-2 text-sm text-gray-500">Плануйте автоматичні нагадування про дедлайни та оновлення.</p>
+                        <ul class="mt-4 space-y-3 text-sm text-gray-600">
+                            <li class="flex items-start gap-3">
+                                <i class="fas fa-bell text-indigo-500 mt-0.5"></i>
+                                <span>Автоматичні сповіщення за день та годину до дедлайну.</span>
+                            </li>
+                            <li class="flex items-start gap-3">
+                                <i class="fas fa-calendar-check text-emerald-500 mt-0.5"></i>
+                                <span>Синхронізація з Google Calendar та Outlook.</span>
+                            </li>
+                            <li class="flex items-start gap-3">
+                                <i class="fas fa-user-group text-blue-500 mt-0.5"></i>
+                                <span>Командні сповіщення про зміни статусу або коментарі.</span>
+                            </li>
+                        </ul>
+                    </section>
+
+                    <section class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+                        <h4 class="text-base font-semibold text-gray-800">Автоматизація та інтеграції</h4>
+                        <p class="mt-2 text-sm text-gray-500">Запускайте сценарії та інтегруйте задачі з іншими каналами.</p>
+                        <ul class="mt-4 space-y-3 text-sm text-gray-600">
+                            <li class="flex items-start gap-3">
+                                <i class="fas fa-robot text-purple-500 mt-0.5"></i>
+                                <span>Автоматичне створення завдань після надходження нового ліда.</span>
+                            </li>
+                            <li class="flex items-start gap-3">
+                                <i class="fas fa-envelope-open-text text-sky-500 mt-0.5"></i>
+                                <span>Створюйте задачі з email-листів та закріплюйте вкладення.</span>
+                            </li>
+                            <li class="flex items-start gap-3">
+                                <i class="fab fa-slack text-pink-500 mt-0.5"></i>
+                                <span>Отримуйте сповіщення в Slack чи Telegram при оновленнях.</span>
+                            </li>
+                        </ul>
+                    </section>
+
+                    <section class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+                        <h4 class="text-base font-semibold text-gray-800">Безпека та доступ</h4>
+                        <p class="mt-2 text-sm text-gray-500">Контролюйте рівні доступу до завдань і відстежуйте активність.</p>
+                        <ul class="mt-4 space-y-2 text-sm text-gray-600">
+                            <li><i class="fas fa-shield-halved text-gray-400 mr-2"></i>Ролі для створення, редагування та видалення.</li>
+                            <li><i class="fas fa-scroll text-gray-400 mr-2"></i>Повний лог дій та зміни статусів.</li>
+                            <li><i class="fas fa-lock text-gray-400 mr-2"></i>Обмеження доступу до чутливих задач.</li>
+                        </ul>
+                    </section>
+                </aside>
+
+                <div class="space-y-6 xl:col-span-3">
+                    <section class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                        <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                            <div>
+                                <h3 class="text-lg font-semibold text-gray-800">Керування завданнями</h3>
+                                <p class="text-sm text-gray-500">Плануйте, розподіляйте та контролюйте прогрес команди.</p>
+                            </div>
+                            <div class="flex flex-wrap items-center gap-2">
+                                <button onclick="showTaskForm()" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                                    <i class="fas fa-plus mr-2"></i>Нове завдання
+                                </button>
+                                <button onclick="generateReport('activities')" class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50">
+                                    <i class="fas fa-arrow-down mr-2"></i>Експорт активностей
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="mt-6 grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-3">
+                            <div class="xl:col-span-2 relative">
+                                <input type="text" id="taskSearch" placeholder="Пошук завдань..." class="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                <i class="fas fa-search absolute left-3 top-3 text-gray-400"></i>
+                            </div>
+                            <select id="taskStatusFilter" class="border border-gray-300 rounded-lg px-3 py-2">
+                                <option value="">Усі статуси</option>
+                                <option value="Not Started">Не розпочато</option>
+                                <option value="In Progress">В роботі</option>
+                                <option value="Completed">Виконано</option>
+                                <option value="Cancelled">Скасовано</option>
+                            </select>
+                            <select id="taskPriorityFilter" class="border border-gray-300 rounded-lg px-3 py-2">
+                                <option value="">Усі пріоритети</option>
+                                <option value="Low">Низький</option>
+                                <option value="Medium">Середній</option>
+                                <option value="High">Високий</option>
+                                <option value="Critical">Критичний</option>
+                            </select>
+                            <select id="taskTypeFilter" class="border border-gray-300 rounded-lg px-3 py-2">
+                                <option value="">Усі типи</option>
+                                <option value="Call">Дзвінок</option>
+                                <option value="Email">Email</option>
+                                <option value="Meeting">Зустріч</option>
+                                <option value="Follow-up">Follow-up</option>
+                                <option value="Proposal">Пропозиція</option>
+                                <option value="Planning">Планування</option>
+                                <option value="Research">Дослідження</option>
+                            </select>
+                            <select id="taskRelationTypeFilter" class="border border-gray-300 rounded-lg px-3 py-2">
+                                <option value="">Усі пов’язання</option>
+                                <option value="unlinked">Лише без зв’язків</option>
+                                <option value="deal">Угоди</option>
+                                <option value="lead">Ліди</option>
+                                <option value="company">Компанії</option>
+                                <option value="contact">Контакти</option>
+                                <option value="competitor">Конкуренти</option>
+                            </select>
+                            <select id="taskRelationRecordFilter" class="border border-gray-300 rounded-lg px-3 py-2" disabled>
+                                <option value="">Усі записи</option>
+                            </select>
+                        </div>
+
+                        <div class="mt-6 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+                            <div id="taskViewSwitcher" class="inline-flex items-center bg-gray-100 rounded-lg p-1 text-sm">
+                                <button type="button" data-view="list" class="task-view-button px-3 py-1.5 rounded-md bg-white shadow">Список</button>
+                                <button type="button" data-view="kanban" class="task-view-button px-3 py-1.5 rounded-md text-gray-600">Канбан</button>
+                                <button type="button" data-view="calendar" class="task-view-button px-3 py-1.5 rounded-md text-gray-600">Календар</button>
+                            </div>
+                            <div id="taskBulkActions" class="flex flex-wrap items-center gap-2 text-sm">
+                                <span class="text-gray-500">Масові дії:</span>
+                                <button type="button" data-bulk-action="assign" class="px-3 py-1.5 border border-gray-300 rounded-lg hover:bg-gray-50">Призначити</button>
+                                <button type="button" data-bulk-action="status" class="px-3 py-1.5 border border-gray-300 rounded-lg hover:bg-gray-50">Змінити статус</button>
+                                <button type="button" data-bulk-action="export" class="px-3 py-1.5 border border-gray-300 rounded-lg hover:bg-gray-50">Експорт CSV</button>
+                            </div>
+                        </div>
+
+                        <div id="taskListContainer" class="mt-6">
+                            <div class="overflow-x-auto border border-gray-100 rounded-xl">
+                                <table class="w-full">
+                                    <thead class="bg-gray-50">
+                                        <tr>
+                                            <th class="p-3 w-12">
+                                                <input type="checkbox" id="selectAllTasks" class="rounded border-gray-300">
+                                            </th>
+                                            <th class="text-left p-3 font-medium text-gray-600">Завдання</th>
+                                            <th class="text-left p-3 font-medium text-gray-600">Тип</th>
+                                            <th class="text-left p-3 font-medium text-gray-600">Пріоритет</th>
+                                            <th class="text-left p-3 font-medium text-gray-600">Статус</th>
+                                            <th class="text-left p-3 font-medium text-gray-600">Термін</th>
+                                            <th class="text-left p-3 font-medium text-gray-600">Виконавець</th>
+                                            <th class="text-left p-3 font-medium text-gray-600">Створено</th>
+                                            <th class="text-left p-3 font-medium text-gray-600">Дії</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="tasksTableBody"></tbody>
+                                </table>
+                            </div>
+                            <div id="tasksPagination" class="mt-6 flex items-center justify-between"></div>
+                        </div>
+
+                        <div id="taskKanbanContainer" class="mt-6 hidden">
+                            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4" id="taskKanbanColumns"></div>
+                        </div>
+
+                        <div id="taskCalendarContainer" class="mt-6 hidden">
+                            <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+                                <div>
+                                    <h4 class="text-base font-semibold text-gray-800">Календарний розклад</h4>
+                                    <p class="text-sm text-gray-500">Переглядайте дедлайни на день, тиждень або місяць.</p>
+                                </div>
+                                <div id="taskSchedulePeriod" class="inline-flex items-center bg-gray-100 rounded-lg p-1 text-sm">
+                                    <button type="button" data-period="day" class="task-period-button px-3 py-1.5 rounded-md">День</button>
+                                    <button type="button" data-period="week" class="task-period-button px-3 py-1.5 rounded-md bg-white shadow">Тиждень</button>
+                                    <button type="button" data-period="month" class="task-period-button px-3 py-1.5 rounded-md">Місяць</button>
+                                </div>
+                            </div>
+                            <div id="taskCalendarContent" class="mt-4 space-y-4"></div>
+                        </div>
+                    </section>
+
+                    <section class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        <div id="taskDetailPanel" class="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                            <div class="text-center text-sm text-gray-500">
+                                <p><i class="fas fa-info-circle mr-2"></i>Оберіть завдання у списку, щоб побачити деталі.</p>
+                            </div>
+                        </div>
+                        <div class="space-y-6">
+                            <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                                <h4 class="text-base font-semibold text-gray-800">Аналітика завдань</h4>
+                                <p class="mt-2 text-sm text-gray-500">Відстежуйте прогрес команди та баланс завдань.</p>
+                                <div id="taskAnalyticsContainer" class="mt-4 space-y-3"></div>
+                            </div>
+                            <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                                <h4 class="text-base font-semibold text-gray-800">Командна активність</h4>
+                                <p class="mt-2 text-sm text-gray-500">Останні оновлення та зміни по завданнях.</p>
+                                <div id="taskHistorySnapshot" class="mt-4 space-y-3"></div>
+                            </div>
+                        </div>
+                    </section>
                 </div>
-                <div class="flex items-center space-x-3">
-                    <button onclick="showTaskForm()" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-                        <i class="fas fa-plus mr-2"></i>Add Task
-                    </button>
-                </div>
-            </div>
-            
-            <div class="flex items-center space-x-4 mb-6">
-                <select id="taskStatusFilter" class="border border-gray-300 rounded-lg px-3 py-2">
-                    <option value="">All Statuses</option>
-                    <option value="Not Started">Not Started</option>
-                    <option value="In Progress">In Progress</option>
-                    <option value="Completed">Completed</option>
-                    <option value="Cancelled">Cancelled</option>
-                </select>
-                <select id="taskPriorityFilter" class="border border-gray-300 rounded-lg px-3 py-2">
-                    <option value="">All Priorities</option>
-                    <option value="Low">Low</option>
-                    <option value="Medium">Medium</option>
-                    <option value="High">High</option>
-                    <option value="Critical">Critical</option>
-                </select>
-                <select id="taskTypeFilter" class="border border-gray-300 rounded-lg px-3 py-2">
-                    <option value="">All Types</option>
-                    <option value="Call">Call</option>
-                    <option value="Email">Email</option>
-                    <option value="Meeting">Meeting</option>
-                    <option value="Follow-up">Follow-up</option>
-                    <option value="Proposal">Proposal</option>
-                    <option value="Demo">Demo</option>
-                </select>
-                <select id="taskRelationTypeFilter" class="border border-gray-300 rounded-lg px-3 py-2">
-                    <option value="">All linked records</option>
-                    <option value="unlinked">Unlinked only</option>
-                    <option value="deal">Deals</option>
-                    <option value="lead">Leads</option>
-                    <option value="company">Companies</option>
-                    <option value="contact">Contacts</option>
-                    <option value="competitor">Competitors</option>
-                </select>
-                <select id="taskRelationRecordFilter" class="border border-gray-300 rounded-lg px-3 py-2" disabled>
-                    <option value="">All records</option>
-                </select>
-            </div>
-            
-            <div class="overflow-x-auto">
-                <table class="w-full">
-                    <thead class="bg-gray-50">
-                        <tr>
-                            <th class="text-left p-3 font-medium text-gray-600">Task</th>
-                            <th class="text-left p-3 font-medium text-gray-600">Type</th>
-                            <th class="text-left p-3 font-medium text-gray-600">Priority</th>
-                            <th class="text-left p-3 font-medium text-gray-600">Status</th>
-                            <th class="text-left p-3 font-medium text-gray-600">Due Date</th>
-                            <th class="text-left p-3 font-medium text-gray-600">Assigned To</th>
-                            <th class="text-left p-3 font-medium text-gray-600">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody id="tasksTableBody">
-                    </tbody>
-                </table>
-            </div>
-            
-            <div id="tasksPagination" class="mt-6 flex items-center justify-between">
             </div>
         </div>
     `;
 
+    taskUIState.currentView = 'list';
+    taskUIState.currentSchedulePeriod = 'week';
+    taskUIState.quickFilter = null;
+    taskUIState.selectedTaskId = null;
+    taskUIState.allTasks = [];
+    taskUIState.dataset = [];
+    taskUIState.relatedDataset = null;
+
+    setupTaskViewControls();
+    setupTaskQuickFilters();
+    setupTaskBulkActions();
+
     applyDictionaryToSelect(document.getElementById('taskStatusFilter'), 'tasks', 'statuses', {
         includeBlank: true,
-        blankLabel: 'All Statuses',
+        blankLabel: 'Усі статуси',
         blankValue: ''
     });
     applyDictionaryToSelect(document.getElementById('taskPriorityFilter'), 'tasks', 'priorities', {
         includeBlank: true,
-        blankLabel: 'All Priorities',
+        blankLabel: 'Усі пріоритети',
         blankValue: ''
     });
     applyDictionaryToSelect(document.getElementById('taskTypeFilter'), 'tasks', 'types', {
         includeBlank: true,
-        blankLabel: 'All Types',
+        blankLabel: 'Усі типи',
         blankValue: ''
     });
 
@@ -6369,66 +6531,939 @@ async function loadTasks(page = 1, search, status, priority, type, relationType,
 
 function displayTasks(tasks, relatedDataset = null) {
     const tbody = document.getElementById('tasksTableBody');
+    if (!tbody) {
+        return;
+    }
 
-    if (tasks.length === 0) {
+    const allTasks = Array.isArray(tasks) ? tasks.slice() : [];
+    taskUIState.allTasks = allTasks;
+    taskUIState.relatedDataset = relatedDataset;
+
+    const visibleTasks = applyTaskQuickFilter(allTasks);
+    taskUIState.dataset = visibleTasks;
+
+    const selectAllCheckbox = document.getElementById('selectAllTasks');
+    if (selectAllCheckbox) {
+        selectAllCheckbox.checked = false;
+        selectAllCheckbox.indeterminate = false;
+    }
+
+    if (!visibleTasks.length) {
         tbody.innerHTML = `
             <tr>
-                <td colspan="7" class="text-center py-8 text-gray-500">
+                <td colspan="9" class="text-center py-8 text-gray-500">
                     <i class="fas fa-tasks text-4xl mb-4"></i>
-                    <p>No tasks found</p>
-                    <button onclick="showTaskForm()" class="mt-2 text-blue-600 hover:text-blue-700">Add your first task</button>
+                    <p>Завдань не знайдено за вибраними умовами.</p>
+                    <button onclick="showTaskForm()" class="mt-2 text-blue-600 hover:text-blue-700">Створити перше завдання</button>
                 </td>
             </tr>
         `;
-        return;
+    } else {
+        tbody.innerHTML = visibleTasks.map(task => renderTaskTableRow(task, relatedDataset)).join('');
     }
-    
-    tbody.innerHTML = tasks.map(task => {
-        const relation = resolveRelatedRecordDisplay(task.related_to, relatedDataset);
-        const relationHtml = relation
-            ? `<p class="mt-1 text-xs text-blue-600 flex items-center gap-2"><i class="fas fa-link"></i><span>${safeText(relation.typeLabel)}: ${safeText(relation.label)}</span></p>`
-            : '';
-        const rawDescription = task.description || '';
-        const description = rawDescription
-            ? safeText(rawDescription.length > 50 ? `${rawDescription.substring(0, 50)}...` : rawDescription)
-            : 'No description';
 
-        return `
-        <tr class="border-b border-gray-100 hover:bg-gray-50">
-            <td class="p-3">
-                <div>
-                    <p class="font-medium text-gray-800">${task.title}</p>
+    updateTaskSummaryCards(visibleTasks, allTasks.length);
+    renderTaskKanban(visibleTasks, relatedDataset);
+    renderTaskSchedule(visibleTasks);
+    renderTaskAnalytics(allTasks, visibleTasks);
+    renderTaskHistorySnapshot(allTasks);
+
+    if (taskUIState.selectedTaskId) {
+        const selectedTask = allTasks.find(task => String(task.id) === String(taskUIState.selectedTaskId));
+        updateTaskDetailPanel(selectedTask || null, relatedDataset);
+    } else {
+        updateTaskDetailPanel(null, relatedDataset);
+    }
+
+    highlightSelectedTask();
+    updateQuickFilterChips();
+}
+
+function renderTaskTableRow(task, relatedDataset = null) {
+    const taskId = task?.id ? sanitizeText(task.id) : '';
+    const title = task?.title ? safeText(task.title) : 'Без назви';
+    const descriptionText = task?.description ? truncateText(String(task.description), 140) : 'Без опису';
+    const description = safeText(descriptionText);
+    const relationBadge = buildTaskRelationBadge(task, relatedDataset);
+    const expectedResult = task?.expected_result ? safeText(String(task.expected_result)) : '';
+    const recurrenceLabel = formatTaskRecurrence(task);
+    const tagsHtml = buildTaskTags(task);
+    const categoryBadge = task?.category ? `<span class="inline-flex items-center px-2 py-1 text-xs rounded-full bg-slate-100 text-slate-600">${safeText(task.category)}</span>` : '';
+    const dueDate = formatTaskDate(task?.due_date);
+    const dueTime = formatTaskTime(task?.due_date);
+    const isOverdue = isTaskOverdue(task);
+    const assigned = task?.assigned_to ? safeText(task.assigned_to) : 'Не призначено';
+    const author = task?.author || task?.created_by ? safeText(task.author || task.created_by) : '';
+    const createdAt = formatTaskDateTime(task?.created_at);
+    const metaBadges = [
+        relationBadge,
+        expectedResult ? `<span class="inline-flex items-center gap-1 px-2 py-1 text-xs rounded-full bg-emerald-50 text-emerald-600"><i class="fas fa-flag-checkered"></i>${expectedResult}</span>` : '',
+        recurrenceLabel ? `<span class="inline-flex items-center gap-1 px-2 py-1 text-xs rounded-full bg-indigo-50 text-indigo-600"><i class="fas fa-arrows-rotate"></i>${safeText(recurrenceLabel)}</span>` : ''
+    ].filter(Boolean).join('');
+
+    return `
+        <tr class="task-row border-b border-gray-100 hover:bg-blue-50/40" data-task-id="${taskId}" onclick="handleTaskRowClick(event, '${taskId}')">
+            <td class="p-3 align-top">
+                <input type="checkbox" class="task-bulk-checkbox rounded border-gray-300" value="${taskId}" onclick="event.stopPropagation();">
+            </td>
+            <td class="p-3 align-top">
+                <div class="flex flex-col gap-2">
+                    <div class="flex flex-wrap items-center gap-2">
+                        <p class="font-semibold text-gray-800">${title}</p>
+                        ${categoryBadge}
+                    </div>
                     <p class="text-sm text-gray-600">${description}</p>
-                    ${relationHtml}
+                    ${metaBadges ? `<div class="flex flex-wrap gap-2 text-xs text-gray-500">${metaBadges}</div>` : ''}
+                    ${tagsHtml}
                 </div>
             </td>
-            <td class="p-3">
-                <span class="px-2 py-1 text-xs bg-gray-100 text-gray-700 rounded-full">${task.type}</span>
+            <td class="p-3 align-top">
+                <span class="px-2 py-1 text-xs bg-gray-100 text-gray-700 rounded-full">${safeText(task?.type || '—')}</span>
             </td>
-            <td class="p-3">
-                <span class="px-2 py-1 text-xs rounded-full ${getPriorityClass(task.priority)}">${task.priority}</span>
+            <td class="p-3 align-top">
+                <span class="px-2 py-1 text-xs rounded-full ${getPriorityClass(task?.priority)}">${safeText(task?.priority || '—')}</span>
             </td>
-            <td class="p-3">
-                <span class="px-2 py-1 text-xs rounded-full ${getTaskStatusClass(task.status)}">${task.status}</span>
+            <td class="p-3 align-top">
+                <span class="px-2 py-1 text-xs rounded-full ${getTaskStatusClass(task?.status)}">${safeText(task?.status || '—')}</span>
             </td>
-            <td class="p-3 text-gray-600">${task.due_date ? new Date(task.due_date).toLocaleDateString() : 'Not set'}</td>
-            <td class="p-3 text-gray-600">${task.assigned_to || 'Unassigned'}</td>
-            <td class="p-3">
-                <div class="flex items-center space-x-2">
-                    <button onclick="completeTask('${task.id}')" class="p-2 text-green-600 hover:bg-green-50 rounded" title="Mark Complete">
+            <td class="p-3 align-top ${isOverdue ? 'text-rose-600 font-medium' : 'text-gray-600'}">
+                ${safeText(dueDate)}
+                ${dueTime ? `<div class="text-xs ${isOverdue ? 'text-rose-500' : 'text-gray-400'}">${safeText(dueTime)}</div>` : ''}
+            </td>
+            <td class="p-3 align-top text-gray-600">
+                <div class="flex flex-col gap-1">
+                    <span>${assigned}</span>
+                    ${author ? `<span class="text-xs text-gray-400">Автор: ${author}</span>` : ''}
+                </div>
+            </td>
+            <td class="p-3 align-top text-gray-600">
+                ${safeText(createdAt)}
+            </td>
+            <td class="p-3 align-top">
+                <div class="flex items-center space-x-2 text-gray-500">
+                    <button onclick="event.stopPropagation(); completeTask('${taskId}');" class="p-2 text-green-600 hover:bg-green-50 rounded" title="Позначити виконаним">
                         <i class="fas fa-check"></i>
                     </button>
-                    <button onclick="editTask('${task.id}')" class="p-2 text-blue-600 hover:bg-blue-50 rounded">
+                    <button onclick="event.stopPropagation(); editTask('${taskId}');" class="p-2 text-blue-600 hover:bg-blue-50 rounded" title="Редагувати">
                         <i class="fas fa-edit"></i>
                     </button>
-                    <button onclick="deleteTask('${task.id}')" class="p-2 text-red-600 hover:bg-red-50 rounded">
+                    <button onclick="event.stopPropagation(); deleteTask('${taskId}');" class="p-2 text-red-600 hover:bg-red-50 rounded" title="Видалити">
                         <i class="fas fa-trash"></i>
                     </button>
                 </div>
             </td>
         </tr>
     `;
+}
+
+function buildTaskRelationBadge(task, relatedDataset = null) {
+    const relationInfo = resolveRelatedRecordDisplay(task?.related_to, relatedDataset);
+    if (relationInfo) {
+        return `<span class="inline-flex items-center gap-1 px-2 py-1 text-xs rounded-full bg-blue-50 text-blue-600"><i class="fas fa-link"></i>${safeText(relationInfo.typeLabel)}: ${safeText(relationInfo.label)}</span>`;
+    }
+    if (task?.contact_name) {
+        return `<span class="inline-flex items-center gap-1 px-2 py-1 text-xs rounded-full bg-blue-50 text-blue-600"><i class="fas fa-user"></i>${safeText(task.contact_name)}</span>`;
+    }
+    if (task?.company_name) {
+        return `<span class="inline-flex items-center gap-1 px-2 py-1 text-xs rounded-full bg-blue-50 text-blue-600"><i class="fas fa-building"></i>${safeText(task.company_name)}</span>`;
+    }
+    return '';
+}
+
+function buildTaskTags(task) {
+    const tags = Array.isArray(task?.tags) ? task.tags : [];
+    if (!tags.length) {
+        return '';
+    }
+    const items = tags.map(tag => `<span class="inline-flex items-center px-2 py-0.5 text-xs rounded-full bg-gray-100 text-gray-600">${safeText(String(tag))}</span>`).join('');
+    return `<div class="flex flex-wrap gap-2 text-xs">${items}</div>`;
+}
+
+function truncateText(value, maxLength = 120) {
+    if (typeof value !== 'string') {
+        return '';
+    }
+    const trimmed = value.trim();
+    if (trimmed.length <= maxLength) {
+        return trimmed;
+    }
+    return `${trimmed.slice(0, maxLength)}…`;
+}
+
+function formatTaskRecurrence(task) {
+    const raw = task?.recurrence || task?.repeat || task?.repeat_type || task?.frequency;
+    if (!raw) {
+        return '';
+    }
+    const normalized = String(raw).toLowerCase();
+    const map = {
+        'one-time': 'Одноразове',
+        'once': 'Одноразове',
+        'daily': 'Щоденне',
+        'weekly': 'Щотижневе',
+        'biweekly': 'Раз на два тижні',
+        'monthly': 'Щомісячне',
+        'quarterly': 'Щоквартальне',
+        'yearly': 'Щорічне',
+        'annual': 'Щорічне'
+    };
+    if (map[normalized]) {
+        return map[normalized];
+    }
+    return String(raw);
+}
+
+function formatTaskDateTime(value, options = {}) {
+    const { withTime = true } = options;
+    if (!value) {
+        return '—';
+    }
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+        return '—';
+    }
+    const showTime = withTime && typeof value === 'string' && value.includes('T');
+    const formatter = new Intl.DateTimeFormat(undefined, showTime ? { dateStyle: 'medium', timeStyle: 'short' } : { dateStyle: 'medium' });
+    return formatter.format(date);
+}
+
+function formatTaskDate(value) {
+    if (!value) {
+        return 'Не вказано';
+    }
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+        return 'Не вказано';
+    }
+    return new Intl.DateTimeFormat(undefined, { day: 'numeric', month: 'short', year: 'numeric' }).format(date);
+}
+
+function formatTaskTime(value) {
+    if (!value || (typeof value === 'string' && !value.includes('T'))) {
+        return '';
+    }
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+        return '';
+    }
+    return new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit' }).format(date);
+}
+
+function isTaskCompleted(task) {
+    const status = String(task?.status || '').toLowerCase();
+    return status === 'completed' || status === 'done';
+}
+
+function isTaskCancelled(task) {
+    const status = String(task?.status || '').toLowerCase();
+    return status === 'cancelled' || status === 'canceled';
+}
+
+function isTaskOverdue(task) {
+    if (!task || !task.due_date || isTaskCompleted(task) || isTaskCancelled(task)) {
+        return false;
+    }
+    const due = new Date(task.due_date);
+    if (Number.isNaN(due.getTime())) {
+        return false;
+    }
+    const now = new Date();
+    return due.getTime() < now.getTime();
+}
+
+function applyTaskQuickFilter(tasks = []) {
+    if (!Array.isArray(tasks)) {
+        return [];
+    }
+    const activeFilter = taskUIState.quickFilter;
+    switch (activeFilter) {
+        case 'active':
+            return tasks.filter(task => !isTaskCompleted(task) && !isTaskCancelled(task));
+        case 'completed':
+            return tasks.filter(task => isTaskCompleted(task));
+        case 'overdue':
+            return tasks.filter(task => isTaskOverdue(task));
+        case 'highPriority':
+            return tasks.filter(task => {
+                const priority = String(task?.priority || '').toLowerCase();
+                return priority === 'high' || priority === 'critical';
+            });
+        default:
+            return tasks;
+    }
+}
+
+function setTaskQuickFilter(filter) {
+    const nextFilter = filter === taskUIState.quickFilter ? null : filter;
+    taskUIState.quickFilter = nextFilter;
+    if (taskUIState.allTasks.length) {
+        displayTasks(taskUIState.allTasks.slice(), taskUIState.relatedDataset);
+    } else {
+        updateQuickFilterChips();
+    }
+}
+
+function updateQuickFilterChips() {
+    const chips = document.querySelectorAll('.task-quick-filter');
+    chips.forEach(chip => {
+        const span = chip.querySelector('span');
+        if (!span) {
+            return;
+        }
+        const isActive = chip.getAttribute('data-task-filter') === taskUIState.quickFilter;
+        span.classList.toggle('ring-2', isActive);
+        span.classList.toggle('ring-offset-1', isActive);
+        span.classList.toggle('ring-blue-400', isActive);
+        span.classList.toggle('shadow-sm', isActive);
+    });
+}
+
+function setupTaskQuickFilters() {
+    const chips = document.querySelectorAll('.task-quick-filter');
+    chips.forEach(chip => {
+        chip.addEventListener('click', event => {
+            event.preventDefault();
+            const filter = chip.getAttribute('data-task-filter');
+            setTaskQuickFilter(filter);
+        });
+    });
+    const reset = document.getElementById('resetTaskQuickFilters');
+    reset?.addEventListener('click', event => {
+        event.preventDefault();
+        setTaskQuickFilter(null);
+    });
+}
+
+function setupTaskViewControls() {
+    const switcher = document.getElementById('taskViewSwitcher');
+    if (switcher) {
+        switcher.addEventListener('click', event => {
+            const button = event.target.closest('button[data-view]');
+            if (!button) {
+                return;
+            }
+            event.preventDefault();
+            setTaskView(button.getAttribute('data-view'));
+        });
+    }
+
+    const periodContainer = document.getElementById('taskSchedulePeriod');
+    if (periodContainer) {
+        periodContainer.addEventListener('click', event => {
+            const button = event.target.closest('button[data-period]');
+            if (!button) {
+                return;
+            }
+            event.preventDefault();
+            setTaskSchedulePeriod(button.getAttribute('data-period'));
+        });
+    }
+
+    setTaskView(taskUIState.currentView || 'list');
+    setTaskSchedulePeriod(taskUIState.currentSchedulePeriod || 'week');
+}
+
+function setTaskView(view) {
+    const resolved = view || 'list';
+    taskUIState.currentView = resolved;
+
+    const containers = {
+        list: document.getElementById('taskListContainer'),
+        kanban: document.getElementById('taskKanbanContainer'),
+        calendar: document.getElementById('taskCalendarContainer')
+    };
+
+    Object.entries(containers).forEach(([key, element]) => {
+        if (element) {
+            element.classList.toggle('hidden', key !== resolved);
+        }
+    });
+
+    const buttons = document.querySelectorAll('#taskViewSwitcher .task-view-button');
+    buttons.forEach(button => {
+        const isActive = button.getAttribute('data-view') === resolved;
+        button.classList.toggle('bg-white', isActive);
+        button.classList.toggle('shadow', isActive);
+        button.classList.toggle('text-gray-600', !isActive);
+    });
+
+    highlightSelectedTask();
+}
+
+function setTaskSchedulePeriod(period) {
+    const resolved = period || 'week';
+    taskUIState.currentSchedulePeriod = resolved;
+
+    const buttons = document.querySelectorAll('#taskSchedulePeriod .task-period-button');
+    buttons.forEach(button => {
+        const isActive = button.getAttribute('data-period') === resolved;
+        button.classList.toggle('bg-white', isActive);
+        button.classList.toggle('shadow', isActive);
+        button.classList.toggle('text-gray-600', !isActive);
+    });
+
+    renderTaskSchedule(taskUIState.dataset);
+}
+
+function renderTaskSchedule(tasks = []) {
+    const container = document.getElementById('taskCalendarContent');
+    if (!container) {
+        return;
+    }
+
+    const period = taskUIState.currentSchedulePeriod || 'week';
+    const groups = new Map();
+    const noDue = [];
+    const today = new Date();
+    const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+
+    tasks.forEach(task => {
+        const date = task?.due_date ? new Date(task.due_date) : null;
+        if (!date || Number.isNaN(date.getTime())) {
+            noDue.push(task);
+            return;
+        }
+
+        const diffDays = (date.getTime() - startOfDay.getTime()) / (1000 * 60 * 60 * 24);
+        if (period === 'day' && (diffDays < 0 || diffDays >= 1)) {
+            return;
+        }
+        if (period === 'week' && diffDays >= 7) {
+            return;
+        }
+        if (period === 'month' && diffDays >= 31) {
+            return;
+        }
+
+        const key = date.toISOString().split('T')[0];
+        if (!groups.has(key)) {
+            groups.set(key, []);
+        }
+        groups.get(key).push(task);
+    });
+
+    const sortedKeys = Array.from(groups.keys()).sort((a, b) => a.localeCompare(b));
+    if (noDue.length) {
+        sortedKeys.push('no-date');
+        groups.set('no-date', noDue);
+    }
+
+    if (!sortedKeys.length) {
+        container.innerHTML = `
+            <div class="border border-dashed border-gray-200 rounded-xl p-6 text-center text-gray-500">
+                <i class="fas fa-calendar-days text-3xl mb-3"></i>
+                <p>Немає завдань у вибраному періоді.</p>
+            </div>
+        `;
+        highlightSelectedTask();
+        return;
+    }
+
+    const sections = sortedKeys.map(key => {
+        const items = groups.get(key) || [];
+        const label = key === 'no-date'
+            ? 'Без терміну'
+            : formatTaskDate(key);
+        const formattedDate = key === 'no-date' ? '' : new Date(key);
+        const weekDay = key === 'no-date' ? '' : new Intl.DateTimeFormat(undefined, { weekday: 'long' }).format(formattedDate);
+
+        const list = items.map(task => {
+            const taskId = sanitizeText(task?.id || '');
+            const overdue = isTaskOverdue(task);
+            const statusBadge = `<span class="px-2 py-0.5 text-xs rounded-full ${getTaskStatusClass(task?.status)}">${safeText(task?.status || '—')}</span>`;
+            return `
+                <article class="border border-gray-200 rounded-lg bg-white p-4 cursor-pointer hover:border-blue-300" data-task-schedule-card="${taskId}" onclick="selectTask('${taskId}')">
+                    <div class="flex items-start justify-between gap-3">
+                        <div>
+                            <h5 class="text-sm font-semibold text-gray-800">${safeText(task?.title || 'Без назви')}</h5>
+                            <p class="text-xs text-gray-500 mt-1">${task?.description ? safeText(truncateText(String(task.description), 120)) : 'Без опису'}</p>
+                            <div class="mt-2 flex flex-wrap gap-2 text-xs text-gray-500">
+                                ${task?.assigned_to ? `<span class="inline-flex items-center gap-1"><i class="fas fa-user"></i>${safeText(task.assigned_to)}</span>` : ''}
+                                ${task?.priority ? `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full ${getPriorityClass(task.priority)} bg-opacity-20">${safeText(task.priority)}</span>` : ''}
+                            </div>
+                        </div>
+                        <div class="flex flex-col items-end gap-2 text-xs ${overdue ? 'text-rose-600' : 'text-gray-400'}">
+                            ${task?.due_date && task?.due_date.includes('T') ? safeText(formatTaskTime(task.due_date)) : ''}
+                            ${statusBadge}
+                        </div>
+                    </div>
+                </article>
+            `;
+        }).join('');
+
+        return `
+            <section class="border border-gray-200 rounded-xl bg-gray-50 p-5">
+                <header class="flex items-center justify-between gap-3">
+                    <div>
+                        <h4 class="text-sm font-semibold text-gray-800">${safeText(label)}</h4>
+                        ${weekDay ? `<p class="text-xs text-gray-500 capitalize">${safeText(weekDay)}</p>` : ''}
+                    </div>
+                    <span class="text-xs text-gray-400">${items.length} шт.</span>
+                </header>
+                <div class="mt-4 space-y-3">
+                    ${list}
+                </div>
+            </section>
+        `;
     }).join('');
+
+    container.innerHTML = sections;
+    highlightSelectedTask();
+}
+
+function renderTaskKanban(tasks = [], relatedDataset = null) {
+    const container = document.getElementById('taskKanbanColumns');
+    if (!container) {
+        return;
+    }
+
+    const statusEntries = getDictionaryEntries('tasks', 'statuses', ['Not Started', 'In Progress', 'Completed', 'Cancelled']);
+    const statusMap = new Map(statusEntries.map(entry => [entry.value, { label: entry.label, tasks: [] }]));
+    const otherTasks = [];
+
+    tasks.forEach(task => {
+        const key = task?.status && statusMap.has(task.status) ? task.status : null;
+        if (key) {
+            statusMap.get(key).tasks.push(task);
+        } else {
+            otherTasks.push(task);
+        }
+    });
+
+    if (otherTasks.length) {
+        statusMap.set('other', {
+            label: 'Інше',
+            tasks: otherTasks
+        });
+    }
+
+    if (!tasks.length) {
+        container.innerHTML = `
+            <div class="col-span-full border border-dashed border-gray-200 rounded-xl p-6 text-center text-gray-500">
+                <i class="fas fa-layer-group text-3xl mb-3"></i>
+                <p>Додайте завдання, щоб побачити їх у Канбані.</p>
+            </div>
+        `;
+        return;
+    }
+
+    const columns = Array.from(statusMap.entries()).map(([status, data]) => {
+        const columnTasks = data.tasks || [];
+        const cards = columnTasks.length
+            ? columnTasks.map(task => renderTaskKanbanCard(task, relatedDataset)).join('')
+            : '<p class="text-sm text-gray-400 border border-dashed border-gray-200 rounded-lg p-4 text-center">Немає завдань</p>';
+        return `
+            <div class="bg-gray-50 border border-gray-200 rounded-xl p-4 flex flex-col gap-4">
+                <div class="flex items-center justify-between">
+                    <h4 class="text-sm font-semibold text-gray-700">${safeText(data.label || status)}</h4>
+                    <span class="text-xs text-gray-500">${columnTasks.length}</span>
+                </div>
+                <div class="flex-1 space-y-3">
+                    ${cards}
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    container.innerHTML = columns;
+    highlightSelectedTask();
+}
+
+function renderTaskKanbanCard(task, relatedDataset = null) {
+    const taskId = sanitizeText(task?.id || '');
+    const selected = taskUIState.selectedTaskId && String(taskUIState.selectedTaskId) === String(task?.id);
+    const relationBadge = buildTaskRelationBadge(task, relatedDataset);
+    const overdue = isTaskOverdue(task);
+    return `
+        <article class="border ${selected ? 'border-blue-500 bg-blue-50/50' : 'border-transparent'} rounded-lg bg-white shadow-sm p-4 cursor-pointer hover:border-blue-300" data-task-id="${taskId}" onclick="selectTask('${taskId}')">
+            <div class="flex items-start justify-between gap-3">
+                <h5 class="text-sm font-semibold text-gray-800">${safeText(task?.title || 'Без назви')}</h5>
+                <span class="px-2 py-0.5 text-xs rounded-full ${getPriorityClass(task?.priority)}">${safeText(task?.priority || '—')}</span>
+            </div>
+            <p class="mt-2 text-xs text-gray-500">${task?.description ? safeText(truncateText(String(task.description), 120)) : 'Без опису'}</p>
+            <div class="mt-3 flex flex-wrap gap-2 text-xs text-gray-500">
+                ${relationBadge}
+                ${task?.assigned_to ? `<span class="inline-flex items-center gap-1"><i class="fas fa-user"></i>${safeText(task.assigned_to)}</span>` : ''}
+                ${task?.due_date ? `<span class="inline-flex items-center gap-1 ${overdue ? 'text-rose-600' : ''}"><i class="fas fa-clock"></i>${safeText(formatTaskDate(task.due_date))}</span>` : ''}
+            </div>
+        </article>
+    `;
+}
+
+function updateTaskSummaryCards(visibleTasks = [], totalCount = 0) {
+    const container = document.getElementById('taskSummaryCards');
+    if (!container) {
+        return;
+    }
+
+    const allTasks = taskUIState.allTasks || [];
+    const total = typeof totalCount === 'number' && totalCount > 0 ? totalCount : allTasks.length;
+    const completed = allTasks.filter(isTaskCompleted).length;
+    const openTasks = allTasks.filter(task => !isTaskCompleted(task) && !isTaskCancelled(task)).length;
+    const overdue = allTasks.filter(isTaskOverdue).length;
+    const highPriority = allTasks.filter(task => {
+        const priority = String(task?.priority || '').toLowerCase();
+        return priority === 'high' || priority === 'critical';
+    }).length;
+
+    container.innerHTML = `
+        <div class="border border-gray-100 rounded-xl bg-white p-4 shadow-sm flex items-center gap-4">
+            <span class="w-10 h-10 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center"><i class="fas fa-list-check"></i></span>
+            <div>
+                <p class="text-sm text-gray-500">Усього завдань</p>
+                <p class="text-xl font-semibold text-gray-800">${total}</p>
+            </div>
+        </div>
+        <div class="border border-gray-100 rounded-xl bg-white p-4 shadow-sm flex items-center gap-4">
+            <span class="w-10 h-10 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center"><i class="fas fa-play"></i></span>
+            <div>
+                <p class="text-sm text-gray-500">Активні</p>
+                <p class="text-xl font-semibold text-gray-800">${openTasks}</p>
+            </div>
+        </div>
+        <div class="border border-gray-100 rounded-xl bg-white p-4 shadow-sm flex items-center gap-4">
+            <span class="w-10 h-10 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center"><i class="fas fa-clock"></i></span>
+            <div>
+                <p class="text-sm text-gray-500">Прострочені</p>
+                <p class="text-xl font-semibold text-gray-800">${overdue}</p>
+            </div>
+        </div>
+        <div class="border border-gray-100 rounded-xl bg-white p-4 shadow-sm flex items-center gap-4">
+            <span class="w-10 h-10 rounded-lg bg-orange-50 text-orange-600 flex items-center justify-center"><i class="fas fa-fire"></i></span>
+            <div>
+                <p class="text-sm text-gray-500">Високий пріоритет</p>
+                <p class="text-xl font-semibold text-gray-800">${highPriority}</p>
+            </div>
+        </div>
+    `;
+
+    const footnote = document.createElement('div');
+    footnote.className = 'col-span-full text-xs text-gray-500 text-right';
+    footnote.textContent = `Відфільтровано: ${visibleTasks.length} з ${total} завдань`;
+    container.appendChild(footnote);
+}
+
+function renderTaskAnalytics(allTasks = [], visibleTasks = []) {
+    const container = document.getElementById('taskAnalyticsContainer');
+    if (!container) {
+        return;
+    }
+
+    const total = allTasks.length;
+    const completed = allTasks.filter(isTaskCompleted).length;
+    const open = allTasks.filter(task => !isTaskCompleted(task) && !isTaskCancelled(task)).length;
+    const overdue = allTasks.filter(isTaskOverdue).length;
+    const highPriority = allTasks.filter(task => {
+        const priority = String(task?.priority || '').toLowerCase();
+        return priority === 'high' || priority === 'critical';
+    }).length;
+
+    const completedTasks = allTasks.filter(isTaskCompleted);
+    const durations = completedTasks.map(task => {
+        const created = task?.created_at ? new Date(task.created_at) : null;
+        const completedAt = task?.completed_date ? new Date(task.completed_date) : (task?.updated_at ? new Date(task.updated_at) : null);
+        if (!created || Number.isNaN(created.getTime()) || !completedAt || Number.isNaN(completedAt.getTime())) {
+            return null;
+        }
+        return Math.max(0, completedAt.getTime() - created.getTime());
+    }).filter(Number.isFinite);
+    const averageDurationDays = durations.length ? (durations.reduce((sum, value) => sum + value, 0) / durations.length) / (1000 * 60 * 60 * 24) : 0;
+
+    container.innerHTML = `
+        ${renderTaskMetricRow('Виконано', completed, total, 'bg-emerald-500')}
+        ${renderTaskMetricRow('У роботі', open, total, 'bg-blue-500')}
+        ${renderTaskMetricRow('Прострочено', overdue, total, 'bg-rose-500')}
+        ${renderTaskMetricRow('Високий пріоритет', highPriority, total, 'bg-orange-500')}
+        <p class="text-xs text-gray-500">Середній час виконання: ${averageDurationDays ? `${averageDurationDays.toFixed(1)} дн.` : 'н/д'}</p>
+        <p class="text-xs text-gray-400">У фокусі зараз: ${visibleTasks.length} завдань.</p>
+    `;
+}
+
+function renderTaskMetricRow(label, value, total, accentClass) {
+    const ratio = total ? Math.min(100, Math.max(0, (value / total) * 100)) : 0;
+    return `
+        <div class="space-y-2">
+            <div class="flex items-center justify-between text-sm text-gray-600">
+                <span>${safeText(label)}</span>
+                <span class="font-semibold text-gray-800">${value}</span>
+            </div>
+            <div class="h-2 bg-gray-200 rounded-full overflow-hidden">
+                <div class="h-full ${accentClass}" style="width: ${ratio}%"></div>
+            </div>
+        </div>
+    `;
+}
+
+function renderTaskHistorySnapshot(allTasks = []) {
+    const container = document.getElementById('taskHistorySnapshot');
+    if (!container) {
+        return;
+    }
+
+    if (!allTasks.length) {
+        container.innerHTML = '<p class="text-sm text-gray-500">Поки немає активності по завданнях.</p>';
+        return;
+    }
+
+    const sorted = allTasks
+        .filter(task => task?.updated_at || task?.created_at)
+        .sort((a, b) => new Date(b.updated_at || b.created_at || 0) - new Date(a.updated_at || a.created_at || 0))
+        .slice(0, 5);
+
+    container.innerHTML = sorted.map(task => {
+        const updated = formatTaskDateTime(task?.updated_at || task?.created_at, { withTime: true });
+        const statusBadge = `<span class="px-2 py-0.5 text-xs rounded-full ${getTaskStatusClass(task?.status)}">${safeText(task?.status || '—')}</span>`;
+        return `
+            <div class="flex items-start gap-3">
+                <span class="w-8 h-8 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center"><i class="fas fa-circle-info"></i></span>
+                <div class="flex-1">
+                    <p class="text-sm font-semibold text-gray-800">${safeText(task?.title || 'Без назви')}</p>
+                    <div class="mt-1 flex items-center gap-3 text-xs text-gray-500">
+                        <span>${safeText(updated)}</span>
+                        ${statusBadge}
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+function updateTaskDetailPanel(task, relatedDataset = null) {
+    const panel = document.getElementById('taskDetailPanel');
+    if (!panel) {
+        return;
+    }
+
+    if (!task) {
+        panel.innerHTML = `
+            <div class="text-center text-sm text-gray-500">
+                <p><i class="fas fa-info-circle mr-2"></i>Оберіть завдання у списку, щоб побачити деталі.</p>
+            </div>
+        `;
+        return;
+    }
+
+    const statusBadge = `<span class="px-2 py-1 text-xs rounded-full ${getTaskStatusClass(task?.status)}">${safeText(task?.status || '—')}</span>`;
+    const priorityBadge = `<span class="px-2 py-1 text-xs rounded-full ${getPriorityClass(task?.priority)}">${safeText(task?.priority || '—')}</span>`;
+    const typeBadge = task?.type ? `<span class="px-2 py-1 text-xs bg-gray-100 text-gray-700 rounded-full">${safeText(task.type)}</span>` : '';
+    const relationInfo = buildTaskRelationBadge(task, relatedDataset);
+    const recurrenceLabel = formatTaskRecurrence(task) || 'Одноразове';
+    const expectedResult = task?.expected_result ? safeText(task.expected_result) : 'Не вказано';
+    const dueDate = formatTaskDateTime(task?.due_date, { withTime: true });
+    const createdAt = formatTaskDateTime(task?.created_at, { withTime: true });
+    const updatedAt = formatTaskDateTime(task?.updated_at, { withTime: true });
+    const comments = Array.isArray(task?.comments) ? task.comments : [];
+    const history = Array.isArray(task?.history) ? task.history : [];
+
+    const commentsHtml = comments.length
+        ? comments.map(comment => {
+            const author = comment?.author ? safeText(comment.author) : 'Без автора';
+            const date = comment?.created_at ? safeText(formatTaskDateTime(comment.created_at, { withTime: true })) : '';
+            const text = comment?.text ? safeText(comment.text) : '';
+            return `
+                <article class="border border-gray-200 rounded-lg p-3">
+                    <header class="flex items-center justify-between text-xs text-gray-500">
+                        <span>${author}</span>
+                        <span>${date}</span>
+                    </header>
+                    <p class="mt-2 text-sm text-gray-700">${text}</p>
+                </article>
+            `;
+        }).join('')
+        : `<div class="text-sm text-gray-500 flex items-center justify-between"><span>Коментарів поки немає.</span><button class="text-blue-600 hover:text-blue-700" onclick="openTaskCommentModal('${sanitizeText(task?.id || '')}')">Додати коментар</button></div>`;
+
+    const historyHtml = history.length
+        ? history.map(item => {
+            const actor = item?.actor ? safeText(item.actor) : 'Система';
+            const action = item?.action ? safeText(item.action) : 'Оновлення';
+            const timestamp = item?.timestamp ? safeText(formatTaskDateTime(item.timestamp, { withTime: true })) : '';
+            return `<li class="flex items-start gap-3 text-sm text-gray-600"><i class="fas fa-circle text-xs text-gray-400 mt-1"></i><div><p class="font-medium text-gray-700">${actor}</p><p>${action}</p><p class="text-xs text-gray-400 mt-1">${timestamp}</p></div></li>`;
+        }).join('')
+        : `<li class="text-sm text-gray-500">Оновлень поки не зафіксовано.</li>`;
+
+    panel.innerHTML = `
+        <div class="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+            <div>
+                <h4 class="text-lg font-semibold text-gray-800">${safeText(task?.title || 'Без назви')}</h4>
+                <p class="mt-2 text-sm text-gray-600">${task?.description ? safeText(task.description) : 'Без опису'}</p>
+            </div>
+            <div class="flex flex-wrap items-center gap-2">
+                ${typeBadge}
+                ${priorityBadge}
+                ${statusBadge}
+            </div>
+        </div>
+        <div class="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6 text-sm text-gray-600">
+            <div class="space-y-2">
+                <div><span class="font-medium text-gray-700">Категорія:</span> ${task?.category ? safeText(task.category) : 'Не вказано'}</div>
+                <div><span class="font-medium text-gray-700">Очікуваний результат:</span> ${expectedResult}</div>
+                <div><span class="font-medium text-gray-700">Термін:</span> ${safeText(dueDate)}</div>
+                <div><span class="font-medium text-gray-700">Повторюваність:</span> ${safeText(recurrenceLabel)}</div>
+                <div><span class="font-medium text-gray-700">Створено:</span> ${safeText(createdAt)}</div>
+                <div><span class="font-medium text-gray-700">Оновлено:</span> ${safeText(updatedAt)}</div>
+            </div>
+            <div class="space-y-2">
+                <div><span class="font-medium text-gray-700">Виконавець:</span> ${task?.assigned_to ? safeText(task.assigned_to) : 'Не призначено'}</div>
+                <div><span class="font-medium text-gray-700">Автор:</span> ${task?.author || task?.created_by ? safeText(task.author || task.created_by) : 'Не вказано'}</div>
+                <div><span class="font-medium text-gray-700">Співвиконавці:</span> ${Array.isArray(task?.collaborators) && task.collaborators.length ? safeText(task.collaborators.join(', ')) : 'Не вказано'}</div>
+                ${relationInfo ? `<div><span class="font-medium text-gray-700">Пов’язаний об’єкт:</span> ${relationInfo}</div>` : ''}
+            </div>
+        </div>
+        <div class="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+            <section>
+                <h5 class="text-sm font-semibold text-gray-700 mb-3">Коментарі</h5>
+                <div class="space-y-3">${commentsHtml}</div>
+            </section>
+            <section>
+                <h5 class="text-sm font-semibold text-gray-700 mb-3">Історія змін</h5>
+                <ul class="space-y-3">${historyHtml}</ul>
+            </section>
+        </div>
+    `;
+}
+
+function selectTask(taskId) {
+    if (!taskId) {
+        return;
+    }
+    taskUIState.selectedTaskId = taskId;
+    const task = taskUIState.allTasks.find(item => String(item?.id) === String(taskId));
+    updateTaskDetailPanel(task || null, taskUIState.relatedDataset);
+    highlightSelectedTask();
+}
+
+function handleTaskRowClick(event, taskId) {
+    if (event.target.closest('button, a, input, label')) {
+        return;
+    }
+    selectTask(taskId);
+}
+
+function highlightSelectedTask() {
+    const selectedId = taskUIState.selectedTaskId ? String(taskUIState.selectedTaskId) : null;
+    document.querySelectorAll('#tasksTableBody .task-row').forEach(row => {
+        const rowId = row.getAttribute('data-task-id');
+        const isSelected = selectedId && rowId === selectedId;
+        row.classList.toggle('bg-blue-50', Boolean(isSelected));
+        row.classList.toggle('border-blue-200', Boolean(isSelected));
+    });
+    document.querySelectorAll('#taskKanbanColumns article').forEach(card => {
+        const cardId = card.getAttribute('data-task-id');
+        const isSelected = selectedId && cardId === selectedId;
+        card.classList.toggle('border-blue-500', Boolean(isSelected));
+        card.classList.toggle('bg-blue-50/50', Boolean(isSelected));
+        card.classList.toggle('border-transparent', !isSelected);
+    });
+    document.querySelectorAll('[data-task-schedule-card]').forEach(card => {
+        const cardId = card.getAttribute('data-task-schedule-card');
+        const isSelected = selectedId && cardId === selectedId;
+        card.classList.toggle('border-blue-400', Boolean(isSelected));
+        card.classList.toggle('border-gray-200', !isSelected);
+    });
+}
+
+function setupTaskBulkActions() {
+    const bulkContainer = document.getElementById('taskBulkActions');
+    bulkContainer?.addEventListener('click', event => {
+        const button = event.target.closest('button[data-bulk-action]');
+        if (!button) {
+            return;
+        }
+        event.preventDefault();
+        handleTaskBulkAction(button.getAttribute('data-bulk-action'));
+    });
+
+    const listContainer = document.getElementById('taskListContainer');
+    listContainer?.addEventListener('change', event => {
+        const target = event.target;
+        if (target.id === 'selectAllTasks') {
+            const checked = target.checked;
+            target.indeterminate = false;
+            document.querySelectorAll('.task-bulk-checkbox').forEach(checkbox => {
+                checkbox.checked = checked;
+            });
+        }
+        if (target.classList && target.classList.contains('task-bulk-checkbox')) {
+            updateTaskSelectAllState();
+        }
+    });
+}
+
+function getSelectedTaskIds() {
+    return Array.from(document.querySelectorAll('.task-bulk-checkbox:checked')).map(input => input.value);
+}
+
+function handleTaskBulkAction(action) {
+    const selectedIds = getSelectedTaskIds();
+    if (!selectedIds.length) {
+        showToast('Оберіть принаймні одне завдання', 'warning');
+        return;
+    }
+
+    const selectedTasks = taskUIState.allTasks.filter(task => selectedIds.includes(String(task?.id)));
+
+    switch (action) {
+        case 'assign':
+            showToast(`Масове призначення ${selectedIds.length} завдань — функція у розробці`, 'info');
+            break;
+        case 'status':
+            showToast(`Масова зміна статусу (${selectedIds.length}) — відкрийте детальну форму, щоб оновити статуси.`, 'info');
+            break;
+        case 'export':
+            exportTasksSelection(selectedTasks);
+            break;
+        default:
+            showToast('Оберіть дію для масового оновлення', 'warning');
+    }
+}
+
+function exportTasksSelection(tasks) {
+    if (!Array.isArray(tasks) || !tasks.length) {
+        showToast('Немає вибраних завдань для експорту', 'warning');
+        return;
+    }
+
+    const data = tasks.map(task => ({
+        id: task?.id,
+        title: task?.title,
+        description: task?.description,
+        type: task?.type,
+        priority: task?.priority,
+        status: task?.status,
+        due_date: task?.due_date,
+        assigned_to: task?.assigned_to,
+        category: task?.category,
+        expected_result: task?.expected_result,
+        created_at: task?.created_at,
+        updated_at: task?.updated_at
+    }));
+
+    const csv = convertToCSV(data);
+    downloadCSV(csv, 'tasks_export.csv');
+    showToast(`Експортовано ${tasks.length} завдань`, 'success');
+}
+
+function updateTaskSelectAllState() {
+    const selectAll = document.getElementById('selectAllTasks');
+    if (!selectAll) {
+        return;
+    }
+    const checkboxes = Array.from(document.querySelectorAll('.task-bulk-checkbox'));
+    if (!checkboxes.length) {
+        selectAll.checked = false;
+        selectAll.indeterminate = false;
+        return;
+    }
+    const checkedCount = checkboxes.filter(checkbox => checkbox.checked).length;
+    selectAll.checked = checkedCount === checkboxes.length;
+    selectAll.indeterminate = checkedCount > 0 && checkedCount < checkboxes.length;
+}
+
+function openTaskCommentModal(taskId) {
+    if (!taskId) {
+        return;
+    }
+    showToast('Форма додавання коментарів буде доступна у наступному релізі.', 'info');
 }
 
 function getTaskStatusClass(status) {
@@ -6466,16 +7501,16 @@ function setupTaskFilters() {
         }, 300);
     };
 
-    searchInput.addEventListener('input', applyFilters);
-    statusFilter.addEventListener('change', applyFilters);
-    priorityFilter.addEventListener('change', applyFilters);
-    typeFilter.addEventListener('change', applyFilters);
+    searchInput?.addEventListener('input', applyFilters);
+    statusFilter?.addEventListener('change', applyFilters);
+    priorityFilter?.addEventListener('change', applyFilters);
+    typeFilter?.addEventListener('change', applyFilters);
     if (relationTypeFilter) {
         relationTypeFilter.addEventListener('change', async () => {
             await fetchRelatedRecordsForLinking();
             if (relationRecordFilter) {
                 relationRecordFilter.disabled = true;
-                relationRecordFilter.innerHTML = '<option value="">All records</option>';
+                relationRecordFilter.innerHTML = '<option value="">Усі записи</option>';
                 relationRecordFilter.value = '';
             }
             applyFilters();
