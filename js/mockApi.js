@@ -270,7 +270,121 @@
                 created_at: '2024-01-10T09:30:00Z',
                 updated_at: '2024-05-01T11:15:00Z',
                 notes: 'Interested in enterprise analytics package.',
-                obsidian_note: 'Contacts/Emily Johnson – TechCorp Solutions.md'
+                obsidian_note: 'Contacts/Emily Johnson – TechCorp Solutions.md',
+                birthday: '1986-07-18',
+                preferred_language: 'English',
+                timezone: 'America/Los_Angeles',
+                website: 'https://techcorp.com/procurement',
+                socials: {
+                    linkedin: 'https://www.linkedin.com/in/emilyjohnson',
+                    facebook: null,
+                    instagram: null,
+                    telegram: 'https://t.me/emily-johnson'
+                },
+                phones: [
+                    { type: 'work', label: 'Work', value: '+1 (555) 123-4567' },
+                    { type: 'mobile', label: 'Mobile', value: '+1 (555) 555-0123' }
+                ],
+                emails: [
+                    { type: 'work', label: 'Work', value: 'emily.johnson@techcorp.com' },
+                    { type: 'personal', label: 'Personal', value: 'emily.johnson@gmail.com' }
+                ],
+                addresses: [
+                    {
+                        type: 'hq',
+                        label: 'Headquarters',
+                        street: '100 Market Street',
+                        city: 'San Francisco',
+                        state: 'CA',
+                        postal_code: '94105',
+                        country: 'USA'
+                    }
+                ],
+                tags: ['VIP', 'Champion', 'Procurement'],
+                segments: ['Enterprise', 'Strategic'],
+                groups: ['Key Accounts', 'Procurement Leaders'],
+                relationship_stage: 'Active Customer',
+                account_owner: 'Laura Mills',
+                preferred_channels: ['Email', 'Teams', 'On-site'],
+                source_details: {
+                    campaign: 'Q4 Partner Referral',
+                    captured_by: 'Liam Thompson',
+                    first_interaction: '2023-10-15T14:00:00Z',
+                    last_updated: '2024-05-01T11:15:00Z',
+                    notes: 'Referred by CloudCore integrators.'
+                },
+                loyalty: {
+                    score: 92,
+                    sentiment: 'Positive',
+                    nps: 9,
+                    feedback: 'Values proactive risk mitigation and roadmap visibility.',
+                    last_survey: '2024-04-05'
+                },
+                analytics: {
+                    interaction_frequency: 'Bi-weekly',
+                    last_interaction: '2024-05-10T16:15:00Z',
+                    total_deal_value: 182000,
+                    deals_closed: 4,
+                    average_deal_size: 45500,
+                    lifetime_value: 215000,
+                    tasks_open: 2,
+                    tasks_completed: 18
+                },
+                financial: {
+                    credit_limit: 75000,
+                    outstanding_balance: 18450,
+                    preferred_payment_methods: ['Wire transfer', 'ACH'],
+                    payments: [
+                        {
+                            id: 'pay-101',
+                            date: '2024-04-28',
+                            amount: 12500,
+                            status: 'Paid',
+                            method: 'Wire',
+                            invoice: 'INV-2041',
+                            description: 'Q2 analytics subscription'
+                        },
+                        {
+                            id: 'pay-094',
+                            date: '2024-03-12',
+                            amount: 9800,
+                            status: 'Paid',
+                            method: 'ACH',
+                            invoice: 'INV-1988',
+                            description: 'Implementation support sprint'
+                        }
+                    ]
+                },
+                integrations: [
+                    {
+                        name: 'Mailchimp',
+                        type: 'Email Marketing',
+                        status: 'Synced',
+                        last_sync: '2024-05-02T09:00:00Z'
+                    },
+                    {
+                        name: 'QuickBooks',
+                        type: 'Accounting',
+                        status: 'Active',
+                        last_sync: '2024-05-03T12:30:00Z'
+                    }
+                ],
+                automation: [
+                    {
+                        name: 'Renewal reminder',
+                        description: 'Sends renewal sequence 45 days before contract end.',
+                        channel: 'Email',
+                        cadence: '45 days before renewal'
+                    },
+                    {
+                        name: 'Procurement pulse check',
+                        description: 'Automated NPS check-in after each QBR.',
+                        channel: 'Teams',
+                        cadence: 'Quarterly'
+                    }
+                ],
+                key_products: ['Enterprise Analytics', 'InsightOps Automation'],
+                favorite_topics: ['Cost optimization', 'Supplier visibility']
             },
             {
                 id: 'contact-2',
@@ -293,7 +407,111 @@
                 created_at: '2024-02-18T13:00:00Z',
                 updated_at: '2024-04-21T16:30:00Z',
                 notes: 'Awaiting follow-up on security requirements.',
-                obsidian_note: 'Contacts/Michael Chen – Global Manufacturing Inc.md'
+                obsidian_note: 'Contacts/Michael Chen – Global Manufacturing Inc.md',
+                birthday: '1982-11-02',
+                preferred_language: 'English',
+                timezone: 'America/Chicago',
+                website: 'https://globalmanufacturing.com/it',
+                socials: {
+                    linkedin: 'https://www.linkedin.com/in/michaelchen-it',
+                    facebook: null,
+                    instagram: null,
+                    telegram: null
+                },
+                phones: [
+                    { type: 'work', label: 'Work', value: '+1 (555) 987-6543' },
+                    { type: 'mobile', label: 'Mobile', value: '+1 (555) 123-9876' }
+                ],
+                emails: [
+                    { type: 'work', label: 'Work', value: 'michael.chen@globalmanufacturing.com' }
+                ],
+                addresses: [
+                    {
+                        type: 'hq',
+                        label: 'Main Plant',
+                        street: '250 Industrial Way',
+                        city: 'Chicago',
+                        state: 'IL',
+                        postal_code: '60601',
+                        country: 'USA'
+                    }
+                ],
+                tags: ['Key Stakeholder', 'Security Focused'],
+                segments: ['Manufacturing', 'Enterprise'],
+                groups: ['North America Expansion'],
+                relationship_stage: 'Evaluation',
+                account_owner: 'Noah Patel',
+                preferred_channels: ['Email', 'Phone'],
+                source_details: {
+                    campaign: 'Inbound website',
+                    captured_by: 'Website Chatbot',
+                    first_interaction: '2024-02-18T13:00:00Z',
+                    last_updated: '2024-04-21T16:30:00Z',
+                    notes: 'Submitted RFP form via website.'
+                },
+                loyalty: {
+                    score: 78,
+                    sentiment: 'Neutral',
+                    nps: 7,
+                    feedback: 'Needs clear security roadmap and compliance milestones.',
+                    last_survey: '2024-03-30'
+                },
+                analytics: {
+                    interaction_frequency: 'Weekly',
+                    last_interaction: '2024-05-12T14:30:00Z',
+                    total_deal_value: 95000,
+                    deals_closed: 1,
+                    average_deal_size: 95000,
+                    lifetime_value: 120000,
+                    tasks_open: 1,
+                    tasks_completed: 9
+                },
+                financial: {
+                    credit_limit: 50000,
+                    outstanding_balance: 0,
+                    preferred_payment_methods: ['Wire transfer'],
+                    payments: [
+                        {
+                            id: 'pay-083',
+                            date: '2024-02-28',
+                            amount: 3500,
+                            status: 'Paid',
+                            method: 'Wire',
+                            invoice: 'INV-1901',
+                            description: 'Pilot discovery workshop'
+                        }
+                    ]
+                },
+                integrations: [
+                    {
+                        name: 'Azure AD Sync',
+                        type: 'SSO',
+                        status: 'In Testing',
+                        last_sync: '2024-05-09T18:00:00Z'
+                    },
+                    {
+                        name: 'Slack Alerts',
+                        type: 'Messenger',
+                        status: 'Active',
+                        last_sync: '2024-05-07T15:30:00Z'
+                    }
+                ],
+                automation: [
+                    {
+                        name: 'Security review follow-up',
+                        description: 'Schedules compliance checklist review after each workshop.',
+                        channel: 'Email',
+                        cadence: '48 hours after meeting'
+                    },
+                    {
+                        name: 'Manufacturing newsletter',
+                        description: 'Adds contact to quarterly manufacturing innovations digest.',
+                        channel: 'Email',
+                        cadence: 'Quarterly'
+                    }
+                ],
+                key_products: ['Hybrid Cloud Migration', 'Security Automation'],
+                favorite_topics: ['Compliance', 'Disaster Recovery']
             },
             {
                 id: 'contact-3',
@@ -316,7 +534,121 @@
                 created_at: '2023-11-05T09:00:00Z',
                 updated_at: '2024-05-04T15:45:00Z',
                 notes: 'Upsell opportunity for premium analytics add-on.',
-                obsidian_note: 'Contacts/Sofia Martinez – StartupXYZ.md'
+                obsidian_note: 'Contacts/Sofia Martinez – StartupXYZ.md',
+                birthday: '1990-03-22',
+                preferred_language: 'Spanish',
+                timezone: 'America/Chicago',
+                website: 'https://startupxyz.com/marketing',
+                socials: {
+                    linkedin: 'https://www.linkedin.com/in/sofia-martinez-cmo',
+                    facebook: null,
+                    instagram: 'https://www.instagram.com/sofia.marketer',
+                    telegram: null
+                },
+                phones: [
+                    { type: 'work', label: 'Work', value: '+1 (555) 222-3344' },
+                    { type: 'mobile', label: 'Mobile', value: '+1 (555) 222-8899' }
+                ],
+                emails: [
+                    { type: 'work', label: 'Work', value: 'sofia.martinez@startupxyz.com' },
+                    { type: 'personal', label: 'Personal', value: 'sofia.creative@gmail.com' }
+                ],
+                addresses: [
+                    {
+                        type: 'hq',
+                        label: 'Innovation Campus',
+                        street: '88 Innovation Drive',
+                        city: 'Austin',
+                        state: 'TX',
+                        postal_code: '73301',
+                        country: 'USA'
+                    }
+                ],
+                tags: ['Champion', 'Marketing Leader'],
+                segments: ['Scale-up', 'SaaS'],
+                groups: ['Expansion Accounts'],
+                relationship_stage: 'Expansion',
+                account_owner: 'Ava Ramirez',
+                preferred_channels: ['Email', 'Slack'],
+                source_details: {
+                    campaign: 'SaaS Growth Summit',
+                    captured_by: 'Field Marketing',
+                    first_interaction: '2023-09-20T18:30:00Z',
+                    last_updated: '2024-05-04T15:45:00Z',
+                    notes: 'Met during SaaS Growth Summit in Austin.'
+                },
+                loyalty: {
+                    score: 96,
+                    sentiment: 'Positive',
+                    nps: 10,
+                    feedback: 'Appreciates proactive campaign ideation and co-marketing.',
+                    last_survey: '2024-04-18'
+                },
+                analytics: {
+                    interaction_frequency: 'Monthly',
+                    last_interaction: '2024-05-08T09:00:00Z',
+                    total_deal_value: 124000,
+                    deals_closed: 3,
+                    average_deal_size: 41333,
+                    lifetime_value: 180000,
+                    tasks_open: 1,
+                    tasks_completed: 15
+                },
+                financial: {
+                    credit_limit: 65000,
+                    outstanding_balance: 4200,
+                    preferred_payment_methods: ['Credit card', 'Wire transfer'],
+                    payments: [
+                        {
+                            id: 'pay-065',
+                            date: '2024-04-15',
+                            amount: 6200,
+                            status: 'Paid',
+                            method: 'Credit card',
+                            invoice: 'INV-2027',
+                            description: 'Marketing automation add-on'
+                        },
+                        {
+                            id: 'pay-052',
+                            date: '2024-02-05',
+                            amount: 5400,
+                            status: 'Paid',
+                            method: 'Wire',
+                            invoice: 'INV-1948',
+                            description: 'Customer 360 expansion seats'
+                        }
+                    ]
+                },
+                integrations: [
+                    {
+                        name: 'HubSpot Sync',
+                        type: 'Marketing Automation',
+                        status: 'Active',
+                        last_sync: '2024-05-08T07:45:00Z'
+                    },
+                    {
+                        name: 'Zapier Automations',
+                        type: 'Workflow',
+                        status: 'Active',
+                        last_sync: '2024-05-06T10:10:00Z'
+                    }
+                ],
+                automation: [
+                    {
+                        name: 'Upsell nurture',
+                        description: 'Sends product usage insights to drive add-on adoption.',
+                        channel: 'Email',
+                        cadence: 'Monthly'
+                    },
+                    {
+                        name: 'Birthday greeting',
+                        description: 'Automated personalized birthday greeting with curated content.',
+                        channel: 'Email',
+                        cadence: 'Annual'
+                    }
+                ],
+                key_products: ['Customer 360 Suite', 'Marketing Automation Pilot'],
+                favorite_topics: ['Personalisation', 'Campaign automation']
             },
             {
                 id: 'contact-4',
@@ -339,7 +671,105 @@
                 created_at: '2024-03-01T10:45:00Z',
                 updated_at: '2024-04-28T08:20:00Z',
                 notes: 'Considering pilot program starting next quarter.',
-                obsidian_note: 'Contacts/Daniel Iverson – Northwind Logistics.md'
+                obsidian_note: 'Contacts/Daniel Iverson – Northwind Logistics.md',
+                birthday: '1984-01-09',
+                preferred_language: 'English',
+                timezone: 'America/Los_Angeles',
+                website: 'https://northwindlogistics.com/operations',
+                socials: {
+                    linkedin: 'https://www.linkedin.com/in/daniel-iverson-ops',
+                    facebook: null,
+                    instagram: null,
+                    telegram: null
+                },
+                phones: [
+                    { type: 'work', label: 'Work', value: '+1 (555) 765-4321' },
+                    { type: 'mobile', label: 'Mobile', value: '+1 (555) 765-0987' }
+                ],
+                emails: [
+                    { type: 'work', label: 'Work', value: 'daniel.iverson@northwindlogistics.com' }
+                ],
+                addresses: [
+                    {
+                        type: 'hq',
+                        label: 'Logistics Hub',
+                        street: '410 Harbor Blvd',
+                        city: 'Seattle',
+                        state: 'WA',
+                        postal_code: '98101',
+                        country: 'USA'
+                    }
+                ],
+                tags: ['Operations', 'Logistics'],
+                segments: ['Logistics', 'Mid-Market'],
+                groups: ['Pilot Programs'],
+                relationship_stage: 'Pilot',
+                account_owner: 'Jordan Blake',
+                preferred_channels: ['Phone', 'Email'],
+                source_details: {
+                    campaign: 'Outbound calling program',
+                    captured_by: 'Account Development',
+                    first_interaction: '2024-02-20T16:10:00Z',
+                    last_updated: '2024-04-28T08:20:00Z',
+                    notes: 'Engaged after logistics efficiency benchmarking call.'
+                },
+                loyalty: {
+                    score: 74,
+                    sentiment: 'Positive',
+                    nps: 6,
+                    feedback: 'Needs proof of value during pilot and logistics benchmarks.',
+                    last_survey: '2024-04-12'
+                },
+                analytics: {
+                    interaction_frequency: 'Bi-weekly',
+                    last_interaction: '2024-05-03T11:20:00Z',
+                    total_deal_value: 48000,
+                    deals_closed: 0,
+                    average_deal_size: 24000,
+                    lifetime_value: 60000,
+                    tasks_open: 1,
+                    tasks_completed: 4
+                },
+                financial: {
+                    credit_limit: 30000,
+                    outstanding_balance: 0,
+                    preferred_payment_methods: ['Wire transfer'],
+                    payments: [
+                        {
+                            id: 'pay-039',
+                            date: '2024-03-25',
+                            amount: 4500,
+                            status: 'Paid',
+                            method: 'Wire',
+                            invoice: 'INV-1962',
+                            description: 'Pilot onboarding fee'
+                        }
+                    ]
+                },
+                integrations: [
+                    {
+                        name: 'Power BI Connector',
+                        type: 'Analytics',
+                        status: 'Planned',
+                        last_sync: null
+                    },
+                    {
+                        name: 'Teams Alerts',
+                        type: 'Messenger',
+                        status: 'Active',
+                        last_sync: '2024-05-05T09:40:00Z'
+                    }
+                ],
+                automation: [
+                    {
+                        name: 'Pilot health check',
+                        description: 'Automated survey 14 days into pilot engagement.',
+                        channel: 'Email',
+                        cadence: 'Bi-weekly'
+                    }
+                ],
+                key_products: ['Logistics Optimization Suite'],
+                favorite_topics: ['Throughput monitoring', 'Automation ROI']
             }
         ],
         leads: [
@@ -546,6 +976,8 @@
                 due_date: '2024-05-25',
                 assigned_to: 'Michael Chen',
                 related_to: 'opp-1',
+                contact_id: 'contact-2',
+                contact_name: 'Michael Chen',
                 created_at: '2024-05-05T10:00:00Z',
                 updated_at: '2024-05-10T08:30:00Z'
             },
@@ -559,6 +991,8 @@
                 due_date: '2024-05-22',
                 assigned_to: 'Emily Johnson',
                 related_to: 'opp-2',
+                contact_id: 'contact-1',
+                contact_name: 'Emily Johnson',
                 created_at: '2024-05-08T09:00:00Z',
                 updated_at: '2024-05-08T09:00:00Z'
             },
@@ -572,6 +1006,8 @@
                 due_date: '2024-05-28',
                 assigned_to: 'Sofia Martinez',
                 related_to: 'lead-3',
+                contact_id: 'contact-3',
+                contact_name: 'Sofia Martinez',
                 created_at: '2024-05-03T14:30:00Z',
                 updated_at: '2024-05-09T11:45:00Z'
             },
@@ -615,6 +1051,38 @@
                 category: 'Competitive Intelligence',
                 tags: ['competitor', 'marketpulse'],
                 updated_at: '2024-05-08T12:00:00Z'
+            },
+            {
+                id: 'task-7',
+                title: 'Confirm renewal terms with TechCorp',
+                description: 'Review procurement checklist and send pricing confirmation to Emily Johnson.',
+                type: 'Follow-up',
+                priority: 'High',
+                status: 'In Progress',
+                due_date: '2024-05-30',
+                assigned_to: 'Account Management Team',
+                related_to: 'contact-1',
+                contact_id: 'contact-1',
+                contact_name: 'Emily Johnson',
+                tags: ['renewal', 'vip'],
+                created_at: '2024-05-12T08:15:00Z',
+                updated_at: '2024-05-12T08:15:00Z'
+            },
+            {
+                id: 'task-8',
+                title: 'Plan pilot success review',
+                description: 'Outline KPIs and logistics milestones for Daniel Iverson before pilot kickoff.',
+                type: 'Planning',
+                priority: 'Medium',
+                status: 'Not Started',
+                due_date: '2024-05-26',
+                assigned_to: 'Jordan Blake',
+                related_to: 'contact-4',
+                contact_id: 'contact-4',
+                contact_name: 'Daniel Iverson',
+                tags: ['pilot', 'logistics'],
+                created_at: '2024-05-11T13:45:00Z',
+                updated_at: '2024-05-11T13:45:00Z'
             }
         ],
         activities: [
@@ -626,7 +1094,10 @@
                 date: '2024-05-12T14:30:00Z',
                 duration: 45,
                 outcome: 'Positive',
-                assigned_to: 'Michael Chen'
+                assigned_to: 'Michael Chen',
+                contact_id: 'contact-2',
+                contact_name: 'Michael Chen',
+                direction: 'Outbound'
             },
             {
                 id: 'activity-2',
@@ -635,7 +1106,10 @@
                 description: 'Shared updated pricing and implementation timeline.',
                 date: '2024-05-10T16:15:00Z',
                 outcome: 'Awaiting response',
-                assigned_to: 'Emily Johnson'
+                assigned_to: 'Emily Johnson',
+                contact_id: 'contact-1',
+                contact_name: 'Emily Johnson',
+                direction: 'Outbound'
             },
             {
                 id: 'activity-3',
@@ -645,7 +1119,10 @@
                 date: '2024-05-08T09:00:00Z',
                 duration: 60,
                 outcome: 'Action items assigned',
-                assigned_to: 'Sofia Martinez'
+                assigned_to: 'Sofia Martinez',
+                contact_id: 'contact-3',
+                contact_name: 'Sofia Martinez',
+                location: 'Virtual'
             },
             {
                 id: 'activity-4',
@@ -662,7 +1139,9 @@
                 description: 'Collect success metrics and milestones for presentation.',
                 date: '2024-05-03T11:20:00Z',
                 assigned_to: 'Emily Johnson',
-                outcome: 'In progress'
+                outcome: 'In progress',
+                contact_id: 'contact-3',
+                contact_name: 'Sofia Martinez'
             },
             {
                 id: 'activity-6',
@@ -670,7 +1149,9 @@
                 subject: 'Uploaded migration readiness checklist',
                 description: 'Checklist shared with Global Manufacturing stakeholders.',
                 date: '2024-04-30T15:05:00Z',
-                assigned_to: 'Michael Chen'
+                assigned_to: 'Michael Chen',
+                contact_id: 'contact-2',
+                contact_name: 'Michael Chen'
             },
             {
                 id: 'activity-7',
@@ -691,6 +1172,44 @@
                 assigned_to: 'Regional Desk',
                 category: 'Competitive Intelligence',
                 related_competitors: ['competitor-marketpulse']
+            },
+            {
+                id: 'activity-9',
+                type: 'Call',
+                subject: 'Pilot kickoff alignment with Northwind Logistics',
+                description: 'Confirmed success metrics and logistics data sharing cadence.',
+                date: '2024-05-06T10:45:00Z',
+                duration: 35,
+                outcome: 'Positive',
+                assigned_to: 'Jordan Blake',
+                contact_id: 'contact-4',
+                contact_name: 'Daniel Iverson',
+                direction: 'Outbound'
+            },
+            {
+                id: 'activity-10',
+                type: 'Email',
+                subject: 'Renewal ROI summary sent to TechCorp',
+                description: 'Shared ROI calculator and renewal roadmap slides.',
+                date: '2024-05-11T12:10:00Z',
+                outcome: 'Awaiting response',
+                assigned_to: 'Laura Mills',
+                contact_id: 'contact-1',
+                contact_name: 'Emily Johnson',
+                direction: 'Outbound'
+            },
+            {
+                id: 'activity-11',
+                type: 'Meeting',
+                subject: 'Security architecture review',
+                description: 'Deep dive on zero-trust requirements with Michael Chen and security team.',
+                date: '2024-05-09T15:00:00Z',
+                duration: 50,
+                outcome: 'Action items assigned',
+                assigned_to: 'Noah Patel',
+                contact_id: 'contact-2',
+                contact_name: 'Michael Chen',
+                location: 'Virtual'
             }
         ],
         files: [
@@ -706,6 +1225,7 @@
                 opportunity_id: 'opp-1',
                 company_id: 'company-1',
                 company_name: 'TechCorp Solutions',
+                contact_id: 'contact-1',
                 updated_at: '2024-05-08T10:10:00Z'
             },
             {
@@ -721,15 +1241,45 @@
             },
             {
                 id: 'file-3',
-                name: 'Emily Johnson profile',
-                type: 'Markdown',
-                format: 'md',
-                vault_path: 'Contacts/Emily Johnson – TechCorp.md',
-                size_kb: 12,
-                owner: 'Revenue Operations',
-                related_to: 'contact-1',
-                contact_id: 'contact-1',
-                updated_at: '2024-05-01T11:45:00Z'
+                name: 'Security architecture checklist',
+                type: 'Spreadsheet',
+                format: 'xlsx',
+                vault_path: 'Contacts/Michael Chen – Global Manufacturing Inc.md',
+                size_kb: 512,
+                owner: 'Noah Patel',
+                related_to: 'contact-2',
+                contact_id: 'contact-2',
+                company_id: 'company-2',
+                company_name: 'Global Manufacturing Inc',
+                updated_at: '2024-05-09T15:45:00Z'
+            },
+            {
+                id: 'file-4',
+                name: 'Campaign co-marketing plan',
+                type: 'Document',
+                format: 'docx',
+                vault_path: 'Contacts/Sofia Martinez – StartupXYZ.md',
+                size_kb: 940,
+                owner: 'Ava Ramirez',
+                related_to: 'contact-3',
+                contact_id: 'contact-3',
+                company_id: 'company-3',
+                company_name: 'StartupXYZ',
+                updated_at: '2024-05-06T13:25:00Z'
+            },
+            {
+                id: 'file-5',
+                name: 'Logistics pilot scorecard',
+                type: 'Spreadsheet',
+                format: 'xlsx',
+                vault_path: 'Contacts/Daniel Iverson – Northwind Logistics.md',
+                size_kb: 274,
+                owner: 'Jordan Blake',
+                related_to: 'contact-4',
+                contact_id: 'contact-4',
+                company_id: 'company-4',
+                company_name: 'Northwind Logistics',
+                updated_at: '2024-05-06T11:05:00Z'
             }
         ],
         notes: [
@@ -771,6 +1321,32 @@
                 tags: ['pricing', 'competitive-intel'],
                 created_at: '2024-05-09T08:05:00Z',
                 updated_at: '2024-05-09T08:05:00Z'
+            },
+            {
+                id: 'note-4',
+                title: 'Emily Johnson renewal prep',
+                content: 'Emily wants a consolidated ROI summary before procurement committee on 15 May. Include implementation roadmap.',
+                author: 'Laura Mills',
+                entity_type: 'contacts',
+                entity_id: 'contact-1',
+                entity_name: 'Emily Johnson',
+                vault_path: 'Contacts/Emily Johnson – TechCorp Solutions.md',
+                tags: ['renewal', 'vip'],
+                created_at: '2024-05-10T17:05:00Z',
+                updated_at: '2024-05-10T17:05:00Z'
+            },
+            {
+                id: 'note-5',
+                title: 'Security requirements checklist',
+                content: 'Michael requested mapping of zero-trust controls to ISO 27001. Follow-up scheduled with security architect.',
+                author: 'Noah Patel',
+                entity_type: 'contacts',
+                entity_id: 'contact-2',
+                entity_name: 'Michael Chen',
+                vault_path: 'Contacts/Michael Chen – Global Manufacturing Inc.md',
+                tags: ['security', 'compliance'],
+                created_at: '2024-05-09T16:20:00Z',
+                updated_at: '2024-05-09T16:20:00Z'
             }
         ],
         workflows: [

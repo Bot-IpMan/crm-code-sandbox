@@ -60,6 +60,272 @@ const opportunityModalState = {
 
 window.opportunityModalState = opportunityModalState;
 
+const CONTACT_ACTIVITY_ICON_MAP = {
+    call: 'fa-phone',
+    email: 'fa-envelope',
+    meeting: 'fa-handshake',
+    note: 'fa-sticky-note',
+    task: 'fa-check-square',
+    document: 'fa-file-alt',
+    update: 'fa-bullhorn',
+    alert: 'fa-bell',
+    other: 'fa-clipboard-list'
+};
+
+const CONTACT_ACTIVITY_LABEL_KEY_MAP = {
+    call: 'contacts.history.call',
+    email: 'contacts.history.email',
+    meeting: 'contacts.history.meeting',
+    note: 'contacts.history.note',
+    task: 'contacts.history.other',
+    document: 'contacts.history.other',
+    update: 'contacts.history.other',
+    alert: 'contacts.history.other'
+};
+
+const CONTACT_STATUS_COLOR_MAP = {
+    active: 'bg-green-100 text-green-700 ring-1 ring-green-200',
+    customer: 'bg-blue-100 text-blue-700 ring-1 ring-blue-200',
+    qualified: 'bg-amber-100 text-amber-700 ring-1 ring-amber-200',
+    inactive: 'bg-gray-200 text-gray-600 ring-1 ring-gray-300',
+    pilot: 'bg-purple-100 text-purple-700 ring-1 ring-purple-200'
+};
+
+const DEFAULT_CONTACT_FILTERS = {
+    search: '',
+    status: '',
+    segment: '',
+    tag: '',
+    source: ''
+};
+
+function getContactsWorkspaceState() {
+    if (!window.contactsWorkspaceState) {
+        window.contactsWorkspaceState = {
+            records: [],
+            filters: { ...DEFAULT_CONTACT_FILTERS },
+            selectedId: null,
+            relatedData: {
+                tasks: [],
+                activities: [],
+                opportunities: [],
+                leads: [],
+                files: [],
+                notes: []
+            },
+            filterOptions: {
+                statuses: [],
+                segments: [],
+                tags: [],
+                sources: []
+            },
+            metrics: {
+                total: 0,
+                active: 0,
+                vip: 0,
+                pipelineValue: 0,
+                openTasks: 0,
+                lastInteraction: null
+            },
+            contactInsights: new Map()
+        };
+    }
+    return window.contactsWorkspaceState;
+}
+
+function ensureArray(value) {
+    if (Array.isArray(value)) {
+        return value;
+    }
+    if (value === undefined || value === null) {
+        return [];
+    }
+    return [value];
+}
+
+function normalizeContactRecord(contact) {
+    if (!contact || typeof contact !== 'object') {
+        return contact;
+    }
+
+    const normalized = { ...contact };
+
+    const phones = ensureArray(contact.phones).filter(Boolean).map(phone => ({
+        type: phone.type || phone.label || 'other',
+        label: phone.label || phone.type || 'Phone',
+        value: phone.value || phone.number || ''
+    })).filter(phone => phone.value);
+
+    if (contact.phone && !phones.some(phone => phone.value === contact.phone)) {
+        phones.unshift({ type: 'work', label: 'Work', value: contact.phone });
+    }
+    if (contact.mobile && !phones.some(phone => phone.value === contact.mobile)) {
+        phones.push({ type: 'mobile', label: 'Mobile', value: contact.mobile });
+    }
+    normalized.phones = phones;
+
+    const emails = ensureArray(contact.emails).filter(Boolean).map(email => ({
+        type: email.type || email.label || 'email',
+        label: email.label || email.type || 'Email',
+        value: email.value || ''
+    })).filter(email => email.value);
+
+    if (contact.email && !emails.some(email => email.value === contact.email)) {
+        emails.unshift({ type: 'work', label: 'Work', value: contact.email });
+    }
+    normalized.emails = emails;
+
+    const addresses = ensureArray(contact.addresses).filter(Boolean).map(address => ({
+        type: address.type || 'primary',
+        label: address.label || 'Address',
+        street: address.street || contact.address || '',
+        city: address.city || contact.city || '',
+        state: address.state || contact.state || '',
+        postal_code: address.postal_code || contact.postal_code || '',
+        country: address.country || contact.country || ''
+    })).filter(address => address.street || address.city || address.country);
+
+    if (!addresses.length && (contact.address || contact.city || contact.country)) {
+        addresses.push({
+            type: 'primary',
+            label: 'Primary',
+            street: contact.address || '',
+            city: contact.city || '',
+            state: contact.state || '',
+            postal_code: contact.postal_code || '',
+            country: contact.country || ''
+        });
+    }
+    normalized.addresses = addresses;
+
+    normalized.tags = ensureArray(contact.tags).filter(Boolean);
+    normalized.groups = ensureArray(contact.groups).filter(Boolean);
+    normalized.segments = ensureArray(contact.segments).filter(Boolean);
+    normalized.preferred_channels = ensureArray(contact.preferred_channels).filter(Boolean);
+    normalized.key_products = ensureArray(contact.key_products).filter(Boolean);
+    normalized.favorite_topics = ensureArray(contact.favorite_topics).filter(Boolean);
+
+    normalized.socials = contact.socials || {
+        linkedin: contact.linkedin || '',
+        facebook: contact.facebook || '',
+        instagram: contact.instagram || '',
+        telegram: contact.telegram || ''
+    };
+
+    normalized.source_details = contact.source_details || null;
+    normalized.loyalty = contact.loyalty || {};
+    normalized.analytics = contact.analytics || {};
+    normalized.financial = contact.financial || {
+        credit_limit: 0,
+        outstanding_balance: 0,
+        preferred_payment_methods: [],
+        payments: []
+    };
+    normalized.integrations = ensureArray(contact.integrations).filter(Boolean);
+    normalized.automation = ensureArray(contact.automation).filter(Boolean);
+
+    return normalized;
+}
+
+function groupBy(collection, selector) {
+    const result = new Map();
+    if (!Array.isArray(collection)) {
+        return result;
+    }
+    collection.forEach(item => {
+        if (!item) {
+            return;
+        }
+        const key = typeof selector === 'function' ? selector(item) : item[selector];
+        if (!key) {
+            return;
+        }
+        if (!result.has(key)) {
+            result.set(key, []);
+        }
+        result.get(key).push(item);
+    });
+    return result;
+}
+
+function formatNumber(value) {
+    const locale = currentLanguage === 'uk' ? 'uk-UA' : 'en-US';
+    return new Intl.NumberFormat(locale).format(Number.isFinite(value) ? value : 0);
+}
+
+function formatDateOnly(timestamp) {
+    if (!timestamp) {
+        return '';
+    }
+    const date = new Date(timestamp);
+    if (Number.isNaN(date.getTime())) {
+        return '';
+    }
+    const locale = currentLanguage === 'uk' ? 'uk-UA' : 'en-US';
+    return date.toLocaleDateString(locale, { year: 'numeric', month: 'short', day: 'numeric' });
+}
+
+function formatRelativeTime(timestamp) {
+    if (!timestamp) {
+        return '';
+    }
+    const date = new Date(timestamp);
+    if (Number.isNaN(date.getTime())) {
+        return '';
+    }
+    const diff = Date.now() - date.getTime();
+    const absDiff = Math.abs(diff);
+    const minute = 60 * 1000;
+    const hour = 60 * minute;
+    const day = 24 * hour;
+    const locale = currentLanguage === 'uk' ? 'uk-UA' : 'en-US';
+
+    if (absDiff < minute) {
+        return currentLanguage === 'uk' ? 'щойно' : 'just now';
+    }
+    if (absDiff < hour) {
+        const minutes = Math.max(1, Math.round(absDiff / minute));
+        if (currentLanguage === 'uk') {
+            return `${minutes} хв тому`;
+        }
+        return `${minutes} min ago`;
+    }
+    if (absDiff < day) {
+        const hours = Math.max(1, Math.round(absDiff / hour));
+        if (currentLanguage === 'uk') {
+            return `${hours} год тому`;
+        }
+        return `${hours} h ago`;
+    }
+    if (absDiff < 7 * day) {
+        const days = Math.max(1, Math.round(absDiff / day));
+        if (currentLanguage === 'uk') {
+            return `${days} дн тому`;
+        }
+        return `${days} d ago`;
+    }
+    return date.toLocaleDateString(locale, { year: 'numeric', month: 'short', day: 'numeric' });
+}
+
+function getContactStatusBadgeClass(status) {
+    const normalized = (status || '').toLowerCase();
+    return CONTACT_STATUS_COLOR_MAP[normalized] || 'bg-gray-100 text-gray-700 ring-1 ring-gray-200';
+}
+
+function renderContactAvatar(contact, options = {}) {
+    const size = options.size || 56;
+    const initials = getInitials(contact.first_name, contact.last_name) || (contact.company_name ? contact.company_name.charAt(0) : '?');
+    const photo = contact.photo_url || contact.photo || '';
+    const dimensionClass = `w-${Math.round(size / 4) * 4} h-${Math.round(size / 4) * 4}`;
+
+    if (photo) {
+        const sanitized = sanitizeText(photo);
+        return `<img src="${sanitized}" alt="${sanitizeText(getContactDisplayName(contact))}" class="${dimensionClass} rounded-full object-cover border border-gray-200">`;
+    }
+
+    return `<div class="${dimensionClass} rounded-full bg-blue-600 text-white flex items-center justify-center text-lg font-semibold">${sanitizeText(initials)}</div>`;
+}
+
 function sanitizeText(value) {
     if (value === undefined || value === null) {
         return '';
@@ -653,6 +919,90 @@ const TRANSLATIONS = {
         'contacts.noEmail': 'No email',
         'contacts.noPhone': 'No phone',
         'contacts.loadError': 'Failed to load contacts',
+        'contacts.summary.total': 'Total contacts',
+        'contacts.summary.active': 'Active relationships',
+        'contacts.summary.vip': 'VIP & key accounts',
+        'contacts.summary.pipeline': 'Pipeline value',
+        'contacts.summary.lastActivity': 'Last interaction',
+        'contacts.summary.openTasks': 'Open tasks',
+        'contacts.filters.statusLabel': 'Status',
+        'contacts.filters.segmentLabel': 'Segment',
+        'contacts.filter.segment.all': 'All segments',
+        'contacts.filters.sourceLabel': 'Source',
+        'contacts.filters.tagLabel': 'Tag',
+        'contacts.filter.tag.all': 'All tags',
+        'contacts.filters.clear': 'Reset filters',
+        'contacts.list.empty': 'No contacts match your filters.',
+        'contacts.details.selectPrompt': 'Select a contact to view full profile.',
+        'contacts.section.overview': 'Overview',
+        'contacts.section.communication': 'Communication',
+        'contacts.section.categorization': 'Categorization & segmentation',
+        'contacts.section.source': 'Acquisition source',
+        'contacts.section.history': 'Interaction history',
+        'contacts.section.tasks': 'Tasks & reminders',
+        'contacts.section.financial': 'Financial summary',
+        'contacts.section.files': 'Files & documents',
+        'contacts.section.analytics': 'Engagement analytics',
+        'contacts.section.integrations': 'Integrations & automation',
+        'contacts.integrations.connected': 'Integrations',
+        'contacts.integrations.automation': 'Automation workflows',
+        'contacts.section.notes': 'Notes',
+        'contacts.history.empty': 'No interactions logged yet.',
+        'contacts.files.empty': 'No files attached to this contact.',
+        'contacts.tasks.empty': 'No tasks scheduled.',
+        'contacts.financial.creditLimit': 'Credit limit',
+        'contacts.financial.outstanding': 'Outstanding balance',
+        'contacts.financial.preferredPayment': 'Preferred payment methods',
+        'contacts.financial.payments': 'Payment history',
+        'contacts.financial.payments.empty': 'No payments recorded.',
+        'contacts.financial.table.invoice': 'Invoice',
+        'contacts.financial.table.date': 'Date',
+        'contacts.financial.table.amount': 'Amount',
+        'contacts.financial.table.status': 'Status',
+        'contacts.details.phones': 'Phones',
+        'contacts.details.emails': 'Emails',
+        'contacts.details.addresses': 'Addresses',
+        'contacts.details.social': 'Social & web',
+        'contacts.details.birthday': 'Birthday',
+        'contacts.details.language': 'Preferred language',
+        'contacts.details.timezone': 'Time zone',
+        'contacts.details.website': 'Website',
+        'contacts.details.owner': 'Account owner',
+        'contacts.details.stage': 'Relationship stage',
+        'contacts.details.tags': 'Tags',
+        'contacts.details.groups': 'Groups',
+        'contacts.details.communicationChannels': 'Preferred channels',
+        'contacts.details.keyProducts': 'Key products',
+        'contacts.details.topics': 'Focus areas',
+        'contacts.details.noData': 'Not specified',
+        'contacts.details.viewInVault': 'Open in vault',
+        'contacts.source.campaign': 'Campaign',
+        'contacts.source.capturedBy': 'Captured by',
+        'contacts.source.firstInteraction': 'First interaction',
+        'contacts.source.lastUpdated': 'Last updated',
+        'contacts.actions.newTask': 'New task',
+        'contacts.actions.logInteraction': 'Log interaction',
+        'contacts.actions.newDeal': 'New deal',
+        'contacts.tasks.status.notStarted': 'Not started',
+        'contacts.tasks.status.inProgress': 'In progress',
+        'contacts.tasks.status.completed': 'Completed',
+        'contacts.tasks.due': 'Due',
+        'contacts.history.call': 'Call',
+        'contacts.history.email': 'Email',
+        'contacts.history.meeting': 'Meeting',
+        'contacts.history.note': 'Note',
+        'contacts.history.other': 'Interaction',
+        'contacts.files.open': 'Open',
+        'contacts.analytics.frequency': 'Interaction frequency',
+        'contacts.analytics.lastInteraction': 'Last interaction',
+        'contacts.analytics.totalValue': 'Total deal value',
+        'contacts.analytics.averageDeal': 'Average deal size',
+        'contacts.analytics.ltv': 'Lifetime value',
+        'contacts.analytics.satisfaction': 'Satisfaction',
+        'contacts.analytics.segment': 'Segment',
+        'contacts.analytics.score': 'Score',
+        'contacts.analytics.sentiment': 'Sentiment',
+        'contacts.analytics.loyalty': 'Loyalty',
         'companies.heading': 'All Companies',
         'companies.searchPlaceholder': 'Search companies...',
         'companies.export': 'Export',
@@ -831,6 +1181,90 @@ const TRANSLATIONS = {
         'contacts.noEmail': 'Без email',
         'contacts.noPhone': 'Без телефону',
         'contacts.loadError': 'Не вдалося завантажити контакти',
+        'contacts.summary.total': 'Усього контактів',
+        'contacts.summary.active': 'Активні взаємини',
+        'contacts.summary.vip': 'VIP та ключові акаунти',
+        'contacts.summary.pipeline': 'Вартість у воронці',
+        'contacts.summary.lastActivity': 'Остання взаємодія',
+        'contacts.summary.openTasks': 'Відкриті завдання',
+        'contacts.filters.statusLabel': 'Статус',
+        'contacts.filters.segmentLabel': 'Сегмент',
+        'contacts.filter.segment.all': 'Усі сегменти',
+        'contacts.filters.sourceLabel': 'Джерело',
+        'contacts.filters.tagLabel': 'Тег',
+        'contacts.filter.tag.all': 'Усі теги',
+        'contacts.filters.clear': 'Скинути фільтри',
+        'contacts.list.empty': 'Контакти за такими умовами не знайдені.',
+        'contacts.details.selectPrompt': 'Оберіть контакт, щоб переглянути повний профіль.',
+        'contacts.section.overview': 'Огляд',
+        'contacts.section.communication': 'Комунікації',
+        'contacts.section.categorization': 'Категоризація та сегментація',
+        'contacts.section.source': 'Джерело контакту',
+        'contacts.section.history': 'Історія взаємодій',
+        'contacts.section.tasks': 'Завдання та нагадування',
+        'contacts.section.financial': 'Фінансовий підсумок',
+        'contacts.section.files': 'Файли та документи',
+        'contacts.section.analytics': 'Аналітика залученості',
+        'contacts.section.integrations': 'Інтеграції та автоматизація',
+        'contacts.integrations.connected': 'Інтеграції',
+        'contacts.integrations.automation': 'Автоматизація',
+        'contacts.section.notes': 'Нотатки',
+        'contacts.history.empty': 'Взаємодій ще не зафіксовано.',
+        'contacts.files.empty': 'Для цього контакту файлів не прикріплено.',
+        'contacts.tasks.empty': 'Завдання ще не заплановані.',
+        'contacts.financial.creditLimit': 'Кредитний ліміт',
+        'contacts.financial.outstanding': 'Поточна заборгованість',
+        'contacts.financial.preferredPayment': 'Переважні методи оплати',
+        'contacts.financial.payments': 'Історія платежів',
+        'contacts.financial.payments.empty': 'Платежі ще не зафіксовано.',
+        'contacts.financial.table.invoice': 'Рахунок',
+        'contacts.financial.table.date': 'Дата',
+        'contacts.financial.table.amount': 'Сума',
+        'contacts.financial.table.status': 'Статус',
+        'contacts.details.phones': 'Телефони',
+        'contacts.details.emails': 'Email-адреси',
+        'contacts.details.addresses': 'Адреси',
+        'contacts.details.social': 'Соціальні мережі та веб',
+        'contacts.details.birthday': 'Дата народження',
+        'contacts.details.language': 'Мова спілкування',
+        'contacts.details.timezone': 'Часовий пояс',
+        'contacts.details.website': 'Вебсайт',
+        'contacts.details.owner': 'Відповідальний менеджер',
+        'contacts.details.stage': 'Стадія відносин',
+        'contacts.details.tags': 'Теги',
+        'contacts.details.groups': 'Групи',
+        'contacts.details.communicationChannels': 'Улюблені канали',
+        'contacts.details.keyProducts': 'Ключові продукти',
+        'contacts.details.topics': 'Фокусні теми',
+        'contacts.details.noData': 'Не вказано',
+        'contacts.details.viewInVault': 'Відкрити у сховищі',
+        'contacts.source.campaign': 'Кампанія',
+        'contacts.source.capturedBy': 'Зафіксував',
+        'contacts.source.firstInteraction': 'Перша взаємодія',
+        'contacts.source.lastUpdated': 'Останнє оновлення',
+        'contacts.actions.newTask': 'Створити завдання',
+        'contacts.actions.logInteraction': 'Зареєструвати взаємодію',
+        'contacts.actions.newDeal': 'Нова угода',
+        'contacts.tasks.status.notStarted': 'Не розпочато',
+        'contacts.tasks.status.inProgress': 'В роботі',
+        'contacts.tasks.status.completed': 'Виконано',
+        'contacts.tasks.due': 'Строк',
+        'contacts.history.call': 'Дзвінок',
+        'contacts.history.email': 'Email',
+        'contacts.history.meeting': 'Зустріч',
+        'contacts.history.note': 'Нотатка',
+        'contacts.history.other': 'Взаємодія',
+        'contacts.files.open': 'Відкрити',
+        'contacts.analytics.frequency': 'Частота взаємодій',
+        'contacts.analytics.lastInteraction': 'Остання взаємодія',
+        'contacts.analytics.totalValue': 'Сумарна вартість угод',
+        'contacts.analytics.averageDeal': 'Середній чек',
+        'contacts.analytics.ltv': 'Життєва цінність (LTV)',
+        'contacts.analytics.satisfaction': 'Задоволеність',
+        'contacts.analytics.segment': 'Сегмент',
+        'contacts.analytics.score': 'Оцінка',
+        'contacts.analytics.sentiment': 'Настрій',
+        'contacts.analytics.loyalty': 'Лояльність',
         'companies.heading': 'Усі компанії',
         'companies.searchPlaceholder': 'Пошук компаній...',
         'companies.export': 'Експорт',
@@ -960,6 +1394,10 @@ function setLanguage(language) {
 
     applyTranslations();
     setPageHeader(currentView);
+
+    if (currentView === 'contacts') {
+        renderContactsWorkspace();
+    }
 }
 
 function applyTheme(theme) {
@@ -1751,120 +2189,100 @@ async function showContacts() {
     showView('contacts');
     setPageHeader('contacts');
 
-    const statusFilterOptions = renderSelectOptions(
-        getDictionaryEntries('contacts', 'statuses'),
-        '',
-        {
-            includeBlank: true,
-            blankLabel: translate('contacts.filter.status.all'),
-            blankI18nKey: 'contacts.filter.status.all'
-        }
-    );
-
-    const sourceFilterOptions = renderSelectOptions(
-        getDictionaryEntries('contacts', 'leadSources'),
-        '',
-        {
-            includeBlank: true,
-            blankLabel: translate('contacts.filter.source.all'),
-            blankI18nKey: 'contacts.filter.source.all'
-        }
-    );
-
     const contactsView = document.getElementById('contactsView');
+    getContactsWorkspaceState();
+
     contactsView.innerHTML = `
-        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-            <div class="flex items-center justify-between mb-6">
-                <div class="flex items-center space-x-4">
-                    <h3 class="text-lg font-semibold text-gray-800" data-i18n="contacts.heading">All Contacts</h3>
-                    <div class="relative">
-                        <input type="text" id="contactSearch" placeholder="Search contacts..." data-i18n="contacts.searchPlaceholder" data-i18n-attr="placeholder"
-                               class="pl-10 pr-4 py-2 w-64 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                        <i class="fas fa-search absolute left-3 top-3 text-gray-400"></i>
+        <div class="space-y-6">
+            <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4" id="contactsSummary"></div>
+            <div class="grid gap-6 lg:grid-cols-[360px_1fr]">
+                <aside class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 flex flex-col">
+                    <div class="flex items-center gap-3 mb-4">
+                        <div class="relative flex-1">
+                            <input type="text" id="contactSearch" class="w-full border border-gray-300 rounded-lg pl-10 pr-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="${sanitizeText(translate('contacts.searchPlaceholder'))}" data-i18n="contacts.searchPlaceholder" data-i18n-attr="placeholder">
+                            <i class="fas fa-search absolute left-3 top-3 text-gray-400"></i>
+                        </div>
+                        <button type="button" id="contactFiltersReset" class="text-sm text-gray-600 hover:text-gray-900 flex items-center gap-2">
+                            <i class="fas fa-rotate-left"></i>
+                            <span data-i18n="contacts.filters.clear">${translate('contacts.filters.clear')}</span>
+                        </button>
                     </div>
-                </div>
-                <div class="flex items-center space-x-3">
-                    <button onclick="exportContacts()" class="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50">
-                        <i class="fas fa-download mr-2"></i><span data-i18n="contacts.export">Export</span>
+                    <div class="space-y-3 mb-4">
+                        <label class="block">
+                            <span class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1" data-i18n="contacts.filters.statusLabel">${translate('contacts.filters.statusLabel')}</span>
+                            <select id="contactStatusFilter" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"></select>
+                        </label>
+                        <label class="block">
+                            <span class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1" data-i18n="contacts.filters.segmentLabel">${translate('contacts.filters.segmentLabel')}</span>
+                            <select id="contactSegmentFilter" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"></select>
+                        </label>
+                        <label class="block">
+                            <span class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1" data-i18n="contacts.filters.sourceLabel">${translate('contacts.filters.sourceLabel')}</span>
+                            <select id="contactSourceFilter" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"></select>
+                        </label>
+                        <label class="block">
+                            <span class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1" data-i18n="contacts.filters.tagLabel">${translate('contacts.filters.tagLabel')}</span>
+                            <select id="contactTagFilter" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"></select>
+                        </label>
+                    </div>
+                    <div class="flex items-center justify-between mb-3">
+                        <h3 class="text-sm font-semibold text-gray-700" data-i18n="contacts.heading">${translate('contacts.heading')}</h3>
+                        <button type="button" onclick="exportContacts()" class="text-xs text-gray-500 hover:text-gray-700"><i class="fas fa-download mr-1"></i><span data-i18n="contacts.export">${translate('contacts.export')}</span></button>
+                    </div>
+                    <div class="-mx-2 flex-1 overflow-y-auto pr-2" id="contactsList" style="max-height: calc(100vh - 320px);"></div>
+                    <button type="button" onclick="showContactForm()" class="mt-4 inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
+                        <i class="fas fa-plus"></i>
+                        <span data-i18n="contacts.addContact">${translate('contacts.addContact')}</span>
                     </button>
-                    <button onclick="showContactForm()" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-                        <i class="fas fa-plus mr-2"></i><span data-i18n="contacts.addContact">Add Contact</span>
-                    </button>
-                </div>
-            </div>
-
-            <!-- Filters -->
-            <div class="flex items-center space-x-4 mb-6">
-                <select id="statusFilter" class="border border-gray-300 rounded-lg px-3 py-2">
-                    ${statusFilterOptions}
-                </select>
-                <select id="sourceFilter" class="border border-gray-300 rounded-lg px-3 py-2">
-                    ${sourceFilterOptions}
-                </select>
-            </div>
-
-            <!-- Contacts table -->
-            <div class="overflow-x-auto">
-                <table class="w-full">
-                    <thead class="bg-gray-50">
-                        <tr>
-                            <th class="text-left p-3 font-medium text-gray-600" data-i18n="contacts.table.name">Name</th>
-                            <th class="text-left p-3 font-medium text-gray-600" data-i18n="contacts.table.company">Company</th>
-                            <th class="text-left p-3 font-medium text-gray-600" data-i18n="contacts.table.email">Email</th>
-                            <th class="text-left p-3 font-medium text-gray-600" data-i18n="contacts.table.phone">Phone</th>
-                            <th class="text-left p-3 font-medium text-gray-600" data-i18n="contacts.table.status">Status</th>
-                            <th class="text-left p-3 font-medium text-gray-600" data-i18n="contacts.table.actions">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody id="contactsTableBody">
-                        <!-- Contacts will be loaded here -->
-                    </tbody>
-                </table>
-            </div>
-
-            <!-- Pagination -->
-            <div id="contactsPagination" class="mt-6 flex items-center justify-between">
-                <!-- Pagination will be added here -->
+                </aside>
+                <section id="contactDetailPanel" class="space-y-6"></section>
             </div>
         </div>
     `;
 
-    applyTranslations();
-
-    await loadContacts();
     setupContactFilters();
+    await loadContacts();
 }
 
-async function loadContacts(page = 1, search, status, source) {
+async function loadContacts() {
     showLoading();
+    const state = getContactsWorkspaceState();
     try {
-        const searchInput = document.getElementById('contactSearch');
-        const statusSelect = document.getElementById('statusFilter');
-        const sourceSelect = document.getElementById('sourceFilter');
+        const [contactsResponse, tasksResponse, activitiesResponse, opportunitiesResponse, leadsResponse, filesResponse, notesResponse] = await Promise.all([
+            fetch('tables/contacts?limit=10000').then(res => res.json()),
+            fetch('tables/tasks?limit=10000').then(res => res.json()).catch(() => ({ data: [] })),
+            fetch('tables/activities?limit=10000').then(res => res.json()).catch(() => ({ data: [] })),
+            fetch('tables/opportunities?limit=10000').then(res => res.json()).catch(() => ({ data: [] })),
+            fetch('tables/leads?limit=10000').then(res => res.json()).catch(() => ({ data: [] })),
+            fetch('tables/files?limit=10000').then(res => res.json()).catch(() => ({ data: [] })),
+            fetch('tables/notes?limit=10000').then(res => res.json()).catch(() => ({ data: [] }))
+        ]);
 
-        const searchValue = search !== undefined ? search : (searchInput?.value ?? '');
-        const statusValue = status !== undefined ? status : (statusSelect?.value ?? '');
-        const sourceValue = source !== undefined ? source : (sourceSelect?.value ?? '');
+        const contactsData = Array.isArray(contactsResponse?.data) ? contactsResponse.data : Array.isArray(contactsResponse) ? contactsResponse : [];
+        const tasksData = Array.isArray(tasksResponse?.data) ? tasksResponse.data : Array.isArray(tasksResponse) ? tasksResponse : [];
+        const activitiesData = Array.isArray(activitiesResponse?.data) ? activitiesResponse.data : Array.isArray(activitiesResponse) ? activitiesResponse : [];
+        const opportunitiesData = Array.isArray(opportunitiesResponse?.data) ? opportunitiesResponse.data : Array.isArray(opportunitiesResponse) ? opportunitiesResponse : [];
+        const leadsData = Array.isArray(leadsResponse?.data) ? leadsResponse.data : Array.isArray(leadsResponse) ? leadsResponse : [];
+        const filesData = Array.isArray(filesResponse?.data) ? filesResponse.data : Array.isArray(filesResponse) ? filesResponse : [];
+        const notesData = Array.isArray(notesResponse?.data) ? notesResponse.data : Array.isArray(notesResponse) ? notesResponse : [];
 
-        const params = new URLSearchParams({
-            page: String(page),
-            limit: '20'
-        });
-
-        if (searchValue.trim()) params.append('search', searchValue.trim());
-        if (statusValue) params.append('status', statusValue);
-        if (sourceValue) params.append('source', sourceValue);
-
-        const response = await fetch(`tables/contacts?${params.toString()}`);
-        const data = await response.json();
-        const records = Array.isArray(data?.data) ? data.data : [];
-
-        displayContacts(records);
+        const normalizedContacts = contactsData.map(normalizeContactRecord);
         if (typeof updateContactDirectory === 'function') {
-            updateContactDirectory(records, { merge: true });
+            updateContactDirectory(normalizedContacts, { merge: true });
         }
-        displayPagination('contacts', data, page);
 
+        state.records = normalizedContacts;
+        state.relatedData = {
+            tasks: tasksData,
+            activities: activitiesData,
+            opportunities: opportunitiesData,
+            leads: leadsData,
+            files: filesData,
+            notes: notesData
+        };
+
+        prepareContactsWorkspace(state);
+        renderContactsWorkspace();
     } catch (error) {
         console.error('Error loading contacts:', error);
         showToast(translate('contacts.loadError'), 'error');
@@ -1873,60 +2291,947 @@ async function loadContacts(page = 1, search, status, source) {
     }
 }
 
-function displayContacts(contacts) {
-    const tbody = document.getElementById('contactsTableBody');
-    
-    if (contacts.length === 0) {
-        tbody.innerHTML = `
-            <tr>
-                <td colspan="6" class="text-center py-8 text-gray-500">
-                    <i class="fas fa-users text-4xl mb-4"></i>
-                    <p data-i18n="contacts.empty">No contacts found</p>
-                    <button onclick="showContactForm()" class="mt-2 text-blue-600 hover:text-blue-700" data-i18n="contacts.emptyCta">Add your first contact</button>
-                </td>
-            </tr>
-        `;
-        applyTranslations();
-        return;
+function prepareContactsWorkspace(state) {
+    const statuses = new Set();
+    const segments = new Set();
+    const tags = new Set();
+    const sources = new Set();
+
+    const activities = ensureArray(state.relatedData.activities);
+    const tasks = ensureArray(state.relatedData.tasks);
+    const opportunities = ensureArray(state.relatedData.opportunities);
+    const leads = ensureArray(state.relatedData.leads);
+    const files = ensureArray(state.relatedData.files);
+    const notes = ensureArray(state.relatedData.notes);
+
+    state.activitiesByContact = groupBy(activities, activity => activity.contact_id);
+    state.tasksByContact = groupBy(tasks, task => task.contact_id);
+    state.opportunitiesByContact = groupBy(opportunities, opportunity => opportunity.primary_contact_id || opportunity.contact_id);
+    state.leadsByContact = groupBy(leads, lead => lead.contact_id);
+    state.filesByContact = groupBy(files, file => file.contact_id);
+    state.notesByContact = groupBy(notes.filter(note => note?.entity_type === 'contacts'), note => note.entity_id);
+
+    let totalPipeline = 0;
+    let totalOpenTasks = 0;
+    let mostRecentInteraction = null;
+
+    state.contactInsights = new Map();
+
+    state.records.forEach(contact => {
+        if (contact.status) {
+            statuses.add(contact.status);
+        }
+        contact.segments.forEach(segment => segments.add(segment));
+        contact.tags.forEach(tag => tags.add(tag));
+        if (contact.lead_source) {
+            sources.add(contact.lead_source);
+        }
+
+        const contactId = contact.id;
+        const contactActivities = state.activitiesByContact.get(contactId) || [];
+        const contactTasks = state.tasksByContact.get(contactId) || [];
+        const contactOpportunities = state.opportunitiesByContact.get(contactId) || [];
+        const contactLeads = state.leadsByContact.get(contactId) || [];
+        const contactFiles = state.filesByContact.get(contactId) || [];
+        const contactNotes = state.notesByContact.get(contactId) || [];
+
+        const pipelineValue = contactOpportunities.reduce((sum, opportunity) => sum + (opportunity?.value || 0), 0);
+        totalPipeline += pipelineValue;
+
+        const openTasks = contactTasks.filter(task => {
+            const normalized = (task.status || '').toLowerCase();
+            return normalized !== 'completed' && normalized !== 'done';
+        }).length;
+        totalOpenTasks += openTasks;
+
+        let lastInteractionTimestamp = contact.analytics?.last_interaction ? new Date(contact.analytics.last_interaction).getTime() : null;
+        contactActivities.forEach(activity => {
+            const timestamp = activity?.date ? new Date(activity.date).getTime() : NaN;
+            if (!Number.isNaN(timestamp) && (!lastInteractionTimestamp || timestamp > lastInteractionTimestamp)) {
+                lastInteractionTimestamp = timestamp;
+            }
+        });
+        contactTasks.forEach(task => {
+            const timestamp = task?.updated_at ? new Date(task.updated_at).getTime() : task?.due_date ? new Date(task.due_date).getTime() : NaN;
+            if (!Number.isNaN(timestamp) && (!lastInteractionTimestamp || timestamp > lastInteractionTimestamp)) {
+                lastInteractionTimestamp = timestamp;
+            }
+        });
+
+        if (lastInteractionTimestamp && (!mostRecentInteraction || lastInteractionTimestamp > mostRecentInteraction)) {
+            mostRecentInteraction = lastInteractionTimestamp;
+        }
+
+        state.contactInsights.set(contactId, {
+            activities: contactActivities,
+            tasks: contactTasks,
+            opportunities: contactOpportunities,
+            leads: contactLeads,
+            files: contactFiles,
+            notes: contactNotes,
+            totalPipelineValue: pipelineValue,
+            openTasks,
+            lastInteraction: lastInteractionTimestamp,
+            payments: Array.isArray(contact.financial?.payments) ? contact.financial.payments : []
+        });
+    });
+
+    state.filterOptions = {
+        statuses: Array.from(statuses).filter(Boolean).sort(),
+        segments: Array.from(segments).filter(Boolean).sort(),
+        tags: Array.from(tags).filter(Boolean).sort(),
+        sources: Array.from(sources).filter(Boolean).sort()
+    };
+
+    state.metrics = {
+        total: state.records.length,
+        active: state.records.filter(contact => ['active', 'customer'].includes((contact.status || '').toLowerCase())).length,
+        vip: state.records.filter(contact => contact.tags.some(tag => tag.toLowerCase().includes('vip')) || contact.segments.some(segment => segment.toLowerCase().includes('strategic'))).length,
+        pipelineValue: totalPipeline,
+        openTasks: totalOpenTasks,
+        lastInteraction: mostRecentInteraction
+    };
+
+    if (!state.selectedId && state.records.length) {
+        state.selectedId = state.records[0].id;
+    }
+}
+
+
+function filterContacts() {
+    const state = getContactsWorkspaceState();
+    const { records, filters } = state;
+
+    const searchTerm = (filters.search || '').trim().toLowerCase();
+    const statusFilter = (filters.status || '').trim().toLowerCase();
+    const segmentFilter = (filters.segment || '').trim().toLowerCase();
+    const tagFilter = (filters.tag || '').trim().toLowerCase();
+    const sourceFilter = (filters.source || '').trim().toLowerCase();
+
+    return records.filter(contact => {
+        if (statusFilter && (contact.status || '').trim().toLowerCase() !== statusFilter) {
+            return false;
+        }
+
+        if (segmentFilter && !contact.segments.some(segment => segment.trim().toLowerCase() === segmentFilter)) {
+            return false;
+        }
+
+        if (tagFilter && !contact.tags.some(tag => tag.trim().toLowerCase() === tagFilter)) {
+            return false;
+        }
+
+        if (sourceFilter && (contact.lead_source || '').trim().toLowerCase() !== sourceFilter) {
+            return false;
+        }
+
+        if (!searchTerm) {
+            return true;
+        }
+
+        const searchTokens = [
+            contact.first_name,
+            contact.last_name,
+            contact.title,
+            contact.company_name,
+            contact.email,
+            contact.phone,
+            contact.mobile,
+            contact.lead_source,
+            contact.notes,
+            contact.relationship_stage,
+            ...(contact.tags || []),
+            ...(contact.segments || []),
+            ...(contact.groups || []),
+            ...ensureArray(contact.emails).map(email => email.value),
+            ...ensureArray(contact.phones).map(phone => phone.value)
+        ];
+
+        return searchTokens.some(token => {
+            if (!token) {
+                return false;
+            }
+            return String(token).toLowerCase().includes(searchTerm);
+        });
+    });
+}
+
+function renderContactsWorkspace() {
+    const state = getContactsWorkspaceState();
+    const filteredContacts = filterContacts();
+
+    if (state.selectedId && !filteredContacts.some(contact => contact.id === state.selectedId)) {
+        state.selectedId = filteredContacts.length ? filteredContacts[0].id : null;
     }
 
-    tbody.innerHTML = contacts.map(contact => `
-        <tr class="border-b border-gray-100 hover:bg-gray-50">
-            <td class="p-3">
-                <div class="flex items-center space-x-3">
-                    <div class="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
-                        <span class="text-blue-600 font-semibold">${getInitials(contact.first_name, contact.last_name)}</span>
-                    </div>
-                    <div>
-                        <p class="font-medium text-gray-800">${contact.first_name} ${contact.last_name}</p>
-                        <p class="text-sm text-gray-600">${contact.title || `<span data-i18n="contacts.noTitle">${translate('contacts.noTitle')}</span>`}</p>
-                    </div>
-                </div>
-            </td>
-            <td class="p-3 text-gray-600">${contact.company_name || `<span data-i18n="contacts.noCompany">${translate('contacts.noCompany')}</span>`}</td>
-            <td class="p-3 text-gray-600">${contact.email || `<span data-i18n="contacts.noEmail">${translate('contacts.noEmail')}</span>`}</td>
-            <td class="p-3 text-gray-600">${contact.phone || `<span data-i18n="contacts.noPhone">${translate('contacts.noPhone')}</span>`}</td>
-            <td class="p-3">
-                <span class="px-2 py-1 text-xs rounded-full ${getStatusClass(contact.status)}" ${getStatusI18nAttribute(contact.status)}>${translate(getStatusTranslationKey(contact.status))}</span>
-            </td>
-            <td class="p-3">
-                <div class="flex items-center space-x-2">
-                    <button onclick="viewContact('${contact.id}')" class="p-2 text-blue-600 hover:bg-blue-50 rounded">
-                        <i class="fas fa-eye"></i>
-                    </button>
-                    <button onclick="editContact('${contact.id}')" class="p-2 text-green-600 hover:bg-green-50 rounded">
-                        <i class="fas fa-edit"></i>
-                    </button>
-                    <button onclick="deleteContact('${contact.id}')" class="p-2 text-red-600 hover:bg-red-50 rounded">
-                        <i class="fas fa-trash"></i>
-                    </button>
-                </div>
-            </td>
-        </tr>
-    `).join('');
+    renderContactSummary(filteredContacts);
+    renderContactFilters();
+    renderContactList(filteredContacts);
+    renderContactDetails(filteredContacts);
 
     applyTranslations();
 }
+
+function renderContactSummary(filteredContacts) {
+    const state = getContactsWorkspaceState();
+    const container = document.getElementById('contactsSummary');
+    if (!container) {
+        return;
+    }
+
+    const insights = state.contactInsights || new Map();
+
+    let totalPipeline = 0;
+    let totalOpenTasks = 0;
+    let lastInteraction = null;
+
+    filteredContacts.forEach(contact => {
+        const contactInsights = insights.get(contact.id);
+        if (!contactInsights) {
+            return;
+        }
+        totalPipeline += Number(contactInsights.totalPipelineValue) || 0;
+        totalOpenTasks += Number(contactInsights.openTasks) || 0;
+        if (contactInsights.lastInteraction && (!lastInteraction || contactInsights.lastInteraction > lastInteraction)) {
+            lastInteraction = contactInsights.lastInteraction;
+        }
+    });
+
+    const summaryCards = [
+        {
+            icon: 'fa-address-book',
+            labelKey: 'contacts.summary.total',
+            value: formatNumber(filteredContacts.length),
+            accent: 'bg-blue-50 text-blue-600'
+        },
+        {
+            icon: 'fa-user-check',
+            labelKey: 'contacts.summary.active',
+            value: formatNumber(filteredContacts.filter(contact => ['active', 'customer'].includes((contact.status || '').toLowerCase())).length),
+            accent: 'bg-emerald-50 text-emerald-600'
+        },
+        {
+            icon: 'fa-crown',
+            labelKey: 'contacts.summary.vip',
+            value: formatNumber(filteredContacts.filter(contact => contact.tags.some(tag => tag.toLowerCase().includes('vip')) || contact.segments.some(segment => segment.toLowerCase().includes('strategic'))).length),
+            accent: 'bg-amber-50 text-amber-600'
+        },
+        {
+            icon: 'fa-chart-line',
+            labelKey: 'contacts.summary.pipeline',
+            value: formatCurrency(totalPipeline),
+            accent: 'bg-indigo-50 text-indigo-600'
+        },
+        {
+            icon: 'fa-tasks',
+            labelKey: 'contacts.summary.openTasks',
+            value: formatNumber(totalOpenTasks),
+            accent: 'bg-slate-50 text-slate-600'
+        },
+        {
+            icon: 'fa-clock',
+            labelKey: 'contacts.summary.lastActivity',
+            value: lastInteraction ? formatRelativeTime(lastInteraction) : translate('contacts.details.noData'),
+            accent: 'bg-purple-50 text-purple-600'
+        }
+    ];
+
+    container.innerHTML = summaryCards.map(card => `
+        <div class="rounded-xl bg-white shadow-sm border border-gray-100 p-4 flex items-center gap-4">
+            <span class="inline-flex h-12 w-12 items-center justify-center rounded-full ${card.accent}">
+                <i class="fas ${card.icon}"></i>
+            </span>
+            <div>
+                <p class="text-xs uppercase tracking-wide text-gray-500" data-i18n="${card.labelKey}">${translate(card.labelKey)}</p>
+                <p class="text-xl font-semibold text-gray-900">${sanitizeText(card.value)}</p>
+            </div>
+        </div>
+    `).join('');
+}
+
+function renderContactFilters() {
+    const state = getContactsWorkspaceState();
+    const { filters, filterOptions } = state;
+
+    const statusSelect = document.getElementById('contactStatusFilter');
+    const segmentSelect = document.getElementById('contactSegmentFilter');
+    const sourceSelect = document.getElementById('contactSourceFilter');
+    const tagSelect = document.getElementById('contactTagFilter');
+
+    if (statusSelect) {
+        const options = [''].concat(filterOptions.statuses || []);
+        statusSelect.innerHTML = options.map(value => {
+            if (!value) {
+                return `<option value="" data-i18n="contacts.filter.status.all">${translate('contacts.filter.status.all')}</option>`;
+            }
+            const normalized = value.trim();
+            const key = getStatusTranslationKey(normalized);
+            const translated = translate(key);
+            return `<option value="${sanitizeText(normalized.toLowerCase())}" data-i18n="${key}">${sanitizeText(translated)}</option>`;
+        }).join('');
+        statusSelect.value = (filters.status || '').toLowerCase();
+    }
+
+    if (segmentSelect) {
+        const options = [''].concat(filterOptions.segments || []);
+        segmentSelect.innerHTML = options.map(value => {
+            if (!value) {
+                return `<option value="" data-i18n="contacts.filter.segment.all">${translate('contacts.filter.segment.all')}</option>`;
+            }
+            const normalized = value.trim();
+            return `<option value="${sanitizeText(normalized.toLowerCase())}">${sanitizeText(normalized)}</option>`;
+        }).join('');
+        segmentSelect.value = (filters.segment || '').toLowerCase();
+    }
+
+    if (sourceSelect) {
+        const options = [''].concat(filterOptions.sources || []);
+        sourceSelect.innerHTML = options.map(value => {
+            if (!value) {
+                return `<option value="" data-i18n="contacts.filter.source.all">${translate('contacts.filter.source.all')}</option>`;
+            }
+            const normalized = value.trim();
+            const translated = translate(`contacts.filter.source.${normalized.replace(/\s+/g, '')}`);
+            return `<option value="${sanitizeText(normalized.toLowerCase())}">${sanitizeText(translated !== `contacts.filter.source.${normalized.replace(/\s+/g, '')}` ? translated : normalized)}</option>`;
+        }).join('');
+        sourceSelect.value = (filters.source || '').toLowerCase();
+    }
+
+    if (tagSelect) {
+        const options = [''].concat(filterOptions.tags || []);
+        tagSelect.innerHTML = options.map(value => {
+            if (!value) {
+                return `<option value="" data-i18n="contacts.filter.tag.all">${translate('contacts.filter.tag.all')}</option>`;
+            }
+            const normalized = value.trim();
+            return `<option value="${sanitizeText(normalized.toLowerCase())}">${sanitizeText(normalized)}</option>`;
+        }).join('');
+        tagSelect.value = (filters.tag || '').toLowerCase();
+    }
+}
+
+function renderContactList(filteredContacts) {
+    const state = getContactsWorkspaceState();
+    const container = document.getElementById('contactsList');
+    if (!container) {
+        return;
+    }
+
+    if (!filteredContacts.length) {
+        container.innerHTML = `
+            <div class="text-center text-sm text-gray-500 py-10" data-i18n="contacts.list.empty">${translate('contacts.list.empty')}</div>
+        `;
+        return;
+    }
+
+    const listItems = filteredContacts.map(contact => {
+        const contactInsights = state.contactInsights.get(contact.id) || {};
+        const isSelected = contact.id === state.selectedId;
+        const displayName = getContactDisplayName(contact);
+        const subtitleParts = [contact.title, contact.company_name].filter(Boolean).join(' · ');
+        const statusClass = getContactStatusBadgeClass(contact.status);
+        const statusLabelKey = getStatusTranslationKey(contact.status);
+        const lastInteraction = contactInsights.lastInteraction ? formatRelativeTime(contactInsights.lastInteraction) : translate('contacts.details.noData');
+        const openTasks = Number(contactInsights.openTasks) || 0;
+
+        return `
+            <article data-contact-id="${sanitizeText(contact.id)}" class="group rounded-lg border ${isSelected ? 'border-blue-500 bg-blue-50/50' : 'border-transparent hover:border-blue-200'} px-3 py-3 transition-colors cursor-pointer">
+                <div class="flex items-start gap-3">
+                    ${renderContactAvatar(contact, { size: 48 })}
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center justify-between gap-2">
+                            <h4 class="text-sm font-semibold text-gray-900 truncate">${sanitizeText(displayName)}</h4>
+                            <span class="text-[11px] font-semibold px-2 py-1 rounded-full ${statusClass}" ${getStatusI18nAttribute(contact.status)}>${translate(statusLabelKey)}</span>
+                        </div>
+                        <p class="text-xs text-gray-500 truncate">${subtitleParts ? sanitizeText(subtitleParts) : translate('contacts.noTitle')}</p>
+                        <div class="mt-2 flex items-center gap-3 text-[11px] text-gray-500">
+                            <span><i class="far fa-clock mr-1"></i>${sanitizeText(lastInteraction)}</span>
+                            <span><i class="far fa-check-circle mr-1"></i>${formatNumber(openTasks)} ${translate('contacts.summary.openTasks')}</span>
+                        </div>
+                    </div>
+                </div>
+            </article>
+        `;
+    }).join('');
+
+    container.innerHTML = listItems;
+}
+
+function renderContactDetails(filteredContacts) {
+    const state = getContactsWorkspaceState();
+    const panel = document.getElementById('contactDetailPanel');
+    if (!panel) {
+        return;
+    }
+
+    if (!filteredContacts.length || !state.selectedId) {
+        panel.innerHTML = `
+            <div class="flex h-full min-h-[320px] items-center justify-center rounded-xl border border-dashed border-gray-300 bg-white p-12 text-center text-gray-500">
+                <div>
+                    <i class="fas fa-user-tag text-2xl mb-3"></i>
+                    <p data-i18n="contacts.details.selectPrompt">${translate('contacts.details.selectPrompt')}</p>
+                </div>
+            </div>
+        `;
+        return;
+    }
+
+    const contact = filteredContacts.find(record => record.id === state.selectedId) || filteredContacts[0];
+    if (contact.id !== state.selectedId) {
+        state.selectedId = contact.id;
+    }
+
+    const insights = state.contactInsights.get(contact.id) || {
+        activities: [],
+        tasks: [],
+        opportunities: [],
+        leads: [],
+        files: [],
+        notes: [],
+        totalPipelineValue: 0,
+        openTasks: 0,
+        lastInteraction: null,
+        payments: []
+    };
+
+    const sections = [
+        renderContactCard(contact, insights),
+        renderContactOverviewSection(contact, insights),
+        renderContactCommunicationSection(contact),
+        renderContactCategorizationSection(contact),
+        renderContactSourceSection(contact),
+        renderContactHistorySection(contact, insights),
+        renderContactTasksSection(contact, insights),
+        renderContactFinancialSection(contact, insights),
+        renderContactFilesSection(contact, insights),
+        renderContactAnalyticsSection(contact, insights),
+        renderContactIntegrationsSection(contact),
+        renderContactNotesSection(contact, insights)
+    ].filter(Boolean);
+
+    panel.innerHTML = sections.join('');
+}
+
+function renderContactCard(contact, insights) {
+    const displayName = getContactDisplayName(contact);
+    const statusLabelKey = getStatusTranslationKey(contact.status);
+    const statusClass = getContactStatusBadgeClass(contact.status);
+    const subtitleParts = [contact.title, contact.company_name].filter(Boolean).join(' · ');
+    const owner = contact.account_owner ? sanitizeText(contact.account_owner) : translate('contacts.details.noData');
+    const lastInteraction = insights.lastInteraction ? formatRelativeTime(insights.lastInteraction) : translate('contacts.details.noData');
+
+    return `
+        <section class="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
+            <div class="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
+                <div class="flex items-center gap-4">
+                    ${renderContactAvatar(contact, { size: 72 })}
+                    <div>
+                        <div class="flex items-center gap-3 flex-wrap">
+                            <h2 class="text-xl font-semibold text-gray-900">${sanitizeText(displayName)}</h2>
+                            <span class="text-xs font-semibold px-3 py-1 rounded-full ${statusClass}" ${getStatusI18nAttribute(contact.status)}>${translate(statusLabelKey)}</span>
+                        </div>
+                        <p class="text-sm text-gray-600">${subtitleParts ? sanitizeText(subtitleParts) : translate('contacts.noTitle')}</p>
+                        <div class="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs text-gray-500">
+                            <div><span class="font-semibold" data-i18n="contacts.details.owner">${translate('contacts.details.owner')}</span>: ${owner}</div>
+                            <div><span class="font-semibold" data-i18n="contacts.analytics.lastInteraction">${translate('contacts.analytics.lastInteraction')}</span>: ${sanitizeText(lastInteraction)}</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="flex flex-wrap gap-2">
+                    <button type="button" class="inline-flex items-center gap-2 rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50" data-contact-action="add-task" data-contact-id="${sanitizeText(contact.id)}">
+                        <i class="fas fa-plus"></i>
+                        <span data-i18n="contacts.actions.newTask">${translate('contacts.actions.newTask')}</span>
+                    </button>
+                    <button type="button" class="inline-flex items-center gap-2 rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50" data-contact-action="add-activity" data-contact-id="${sanitizeText(contact.id)}">
+                        <i class="fas fa-comment-dots"></i>
+                        <span data-i18n="contacts.actions.logInteraction">${translate('contacts.actions.logInteraction')}</span>
+                    </button>
+                    <button type="button" class="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700" data-contact-action="add-deal" data-contact-id="${sanitizeText(contact.id)}">
+                        <i class="fas fa-briefcase"></i>
+                        <span data-i18n="contacts.actions.newDeal">${translate('contacts.actions.newDeal')}</span>
+                    </button>
+                </div>
+            </div>
+        </section>
+    `;
+}
+
+function renderContactOverviewSection(contact, insights) {
+    const primaryEmail = ensureArray(contact.emails)[0]?.value || contact.email || '';
+    const primaryPhone = ensureArray(contact.phones)[0]?.value || contact.phone || '';
+    const primaryAddress = ensureArray(contact.addresses)[0] || null;
+    const website = contact.website || (contact.socials && contact.socials.website) || '';
+
+    const formattedAddress = primaryAddress
+        ? [primaryAddress.street, [primaryAddress.city, primaryAddress.state].filter(Boolean).join(', '), primaryAddress.country]
+            .filter(Boolean)
+            .join(', ')
+        : '';
+
+    const stats = [
+        {
+            icon: 'fa-chart-line',
+            labelKey: 'contacts.summary.pipeline',
+            value: formatCurrency(insights.totalPipelineValue || 0)
+        },
+        {
+            icon: 'fa-briefcase',
+            labelKey: 'nav.opportunities',
+            value: formatNumber(ensureArray(insights.opportunities).length)
+        },
+        {
+            icon: 'fa-bullseye',
+            labelKey: 'nav.leads',
+            value: formatNumber(ensureArray(insights.leads).length)
+        },
+        {
+            icon: 'fa-file-alt',
+            labelKey: 'contacts.section.files',
+            value: formatNumber(ensureArray(insights.files).length)
+        }
+    ];
+
+    const body = `
+        <div class="grid gap-4 lg:grid-cols-[2fr_3fr]">
+            <div class="space-y-3 text-sm text-gray-600">
+                <div><span class="font-medium" data-i18n="contacts.table.company">${translate('contacts.table.company')}</span>: ${contact.company_name ? sanitizeText(contact.company_name) : translate('contacts.noCompany')}</div>
+                <div><span class="font-medium" data-i18n="contacts.table.email">${translate('contacts.table.email')}</span>: ${primaryEmail ? `<a href="mailto:${sanitizeText(primaryEmail)}" class="text-blue-600 hover:underline">${sanitizeText(primaryEmail)}</a>` : translate('contacts.noEmail')}</div>
+                <div><span class="font-medium" data-i18n="contacts.table.phone">${translate('contacts.table.phone')}</span>: ${primaryPhone ? `<a href="tel:${sanitizeText(primaryPhone)}" class="text-blue-600 hover:underline">${sanitizeText(primaryPhone)}</a>` : translate('contacts.noPhone')}</div>
+                <div><span class="font-medium" data-i18n="contacts.filters.sourceLabel">${translate('contacts.filters.sourceLabel')}</span>: ${contact.lead_source ? sanitizeText(contact.lead_source) : translate('contacts.details.noData')}</div>
+                <div><span class="font-medium" data-i18n="contacts.details.addresses">${translate('contacts.details.addresses')}</span>: ${formattedAddress ? sanitizeText(formattedAddress) : translate('contacts.details.noData')}</div>
+                <div><span class="font-medium" data-i18n="contacts.details.website">${translate('contacts.details.website')}</span>: ${website ? `<a href="${sanitizeText(website)}" target="_blank" rel="noopener" class="text-blue-600 hover:underline">${sanitizeText(website)}</a>` : translate('contacts.details.noData')}</div>
+            </div>
+            <div class="grid gap-3 sm:grid-cols-2">
+                ${stats.map(stat => `
+                    <div class="rounded-lg border border-gray-100 p-4">
+                        <div class="flex items-center gap-3">
+                            <span class="inline-flex h-10 w-10 items-center justify-center rounded-full bg-blue-50 text-blue-600"><i class="fas ${stat.icon}"></i></span>
+                            <div>
+                                <p class="text-xs font-semibold uppercase tracking-wide text-gray-500" data-i18n="${stat.labelKey}">${translate(stat.labelKey)}</p>
+                                <p class="text-sm font-semibold text-gray-900">${sanitizeText(stat.value)}</p>
+                            </div>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        </div>
+    `;
+
+    return renderSectionShell('contacts.section.overview', body);
+}
+
+function renderSectionShell(titleKey, bodyHtml) {
+    if (!bodyHtml) {
+        return '';
+    }
+    return `
+        <section class="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
+            <h3 class="text-sm font-semibold text-gray-700 mb-4" data-i18n="${titleKey}">${translate(titleKey)}</h3>
+            ${bodyHtml}
+        </section>
+    `;
+}
+
+function renderContactCommunicationSection(contact) {
+    const phones = ensureArray(contact.phones);
+    const emails = ensureArray(contact.emails);
+    const addresses = ensureArray(contact.addresses);
+    const socials = contact.socials || {};
+
+    const phonesHtml = phones.length
+        ? `<ul class="space-y-1 text-sm text-gray-600">${phones.map(phone => `<li><span class="font-medium">${sanitizeText(phone.label || phone.type || '')}:</span> ${sanitizeText(phone.value || '')}</li>`).join('')}</ul>`
+        : `<p class="text-sm text-gray-500" data-i18n="contacts.noPhone">${translate('contacts.noPhone')}</p>`;
+
+    const emailsHtml = emails.length
+        ? `<ul class="space-y-1 text-sm text-gray-600">${emails.map(email => `<li><span class="font-medium">${sanitizeText(email.label || email.type || '')}:</span> ${sanitizeText(email.value || '')}</li>`).join('')}</ul>`
+        : `<p class="text-sm text-gray-500" data-i18n="contacts.noEmail">${translate('contacts.noEmail')}</p>`;
+
+    const addressesHtml = addresses.length
+        ? `<ul class="space-y-3 text-sm text-gray-600">${addresses.map(address => {
+            const lines = [address.street, [address.city, address.state].filter(Boolean).join(', '), address.postal_code, address.country].filter(Boolean);
+            return `<li><div class="font-medium">${sanitizeText(address.label || address.type || '')}</div><div>${sanitizeText(lines.join(', '))}</div></li>`;
+        }).join('')}</ul>`
+        : `<p class="text-sm text-gray-500" data-i18n="contacts.details.noData">${translate('contacts.details.noData')}</p>`;
+
+    const socialEntries = Object.entries(socials).filter(([, value]) => !!value);
+    const socialsHtml = socialEntries.length
+        ? `<ul class="space-y-1 text-sm text-blue-600">${socialEntries.map(([key, value]) => `<li><a href="${sanitizeText(value)}" target="_blank" rel="noopener" class="hover:underline">${sanitizeText(key)}</a></li>`).join('')}</ul>`
+        : `<p class="text-sm text-gray-500" data-i18n="contacts.details.noData">${translate('contacts.details.noData')}</p>`;
+
+    const metadata = [
+        { labelKey: 'contacts.details.birthday', value: contact.birthday ? formatDateOnly(contact.birthday) : '' },
+        { labelKey: 'contacts.details.language', value: contact.preferred_language },
+        { labelKey: 'contacts.details.timezone', value: contact.timezone }
+    ].map(item => `<div class="text-sm text-gray-600"><span class="font-medium" data-i18n="${item.labelKey}">${translate(item.labelKey)}</span>: ${item.value ? sanitizeText(item.value) : translate('contacts.details.noData')}</div>`).join('');
+
+    const body = `
+        <div class="grid gap-6 lg:grid-cols-2">
+            <div>
+                <h4 class="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2" data-i18n="contacts.details.phones">${translate('contacts.details.phones')}</h4>
+                ${phonesHtml}
+            </div>
+            <div>
+                <h4 class="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2" data-i18n="contacts.details.emails">${translate('contacts.details.emails')}</h4>
+                ${emailsHtml}
+            </div>
+            <div>
+                <h4 class="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2" data-i18n="contacts.details.addresses">${translate('contacts.details.addresses')}</h4>
+                ${addressesHtml}
+            </div>
+            <div>
+                <h4 class="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2" data-i18n="contacts.details.social">${translate('contacts.details.social')}</h4>
+                ${socialsHtml}
+            </div>
+        </div>
+        <div class="mt-6 grid gap-3 md:grid-cols-3">${metadata}</div>
+    `;
+
+    return renderSectionShell('contacts.section.communication', body);
+}
+
+function renderContactCategorizationSection(contact) {
+    const chips = (values, emptyKey) => {
+        if (!values || !values.length) {
+            return `<span class="text-sm text-gray-500" data-i18n="${emptyKey}">${translate(emptyKey)}</span>`;
+        }
+        return `<div class="flex flex-wrap gap-2">${values.map(value => `<span class="inline-flex items-center rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700">${sanitizeText(value)}</span>`).join('')}</div>`;
+    };
+
+    const body = `
+        <div class="grid gap-4 md:grid-cols-2">
+            <div>
+                <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2" data-i18n="contacts.details.stage">${translate('contacts.details.stage')}</p>
+                <p class="text-sm text-gray-700">${contact.relationship_stage ? sanitizeText(contact.relationship_stage) : translate('contacts.details.noData')}</p>
+            </div>
+            <div>
+                <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2" data-i18n="contacts.details.communicationChannels">${translate('contacts.details.communicationChannels')}</p>
+                ${chips(contact.preferred_channels, 'contacts.details.noData')}
+            </div>
+            <div>
+                <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2" data-i18n="contacts.details.tags">${translate('contacts.details.tags')}</p>
+                ${chips(contact.tags, 'contacts.details.noData')}
+            </div>
+            <div>
+                <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2" data-i18n="contacts.details.groups">${translate('contacts.details.groups')}</p>
+                ${chips(contact.groups, 'contacts.details.noData')}
+            </div>
+            <div>
+                <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2" data-i18n="contacts.details.keyProducts">${translate('contacts.details.keyProducts')}</p>
+                ${chips(contact.key_products, 'contacts.details.noData')}
+            </div>
+            <div>
+                <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2" data-i18n="contacts.details.topics">${translate('contacts.details.topics')}</p>
+                ${chips(contact.favorite_topics, 'contacts.details.noData')}
+            </div>
+        </div>
+    `;
+
+    return renderSectionShell('contacts.section.categorization', body);
+}
+
+function renderContactSourceSection(contact) {
+    const leadSource = contact.lead_source ? sanitizeText(contact.lead_source) : translate('contacts.details.noData');
+    const details = contact.source_details || {};
+
+    const rows = [
+        { labelKey: 'contacts.source.campaign', value: details.campaign },
+        { labelKey: 'contacts.source.capturedBy', value: details.captured_by },
+        { labelKey: 'contacts.source.firstInteraction', value: details.first_interaction ? formatDateOnly(details.first_interaction) : '' },
+        { labelKey: 'contacts.source.lastUpdated', value: details.last_updated ? formatDateOnly(details.last_updated) : '' }
+    ].map(item => `<div class="flex justify-between text-sm text-gray-600"><span class="font-medium" data-i18n="${item.labelKey}">${translate(item.labelKey)}</span><span>${item.value ? sanitizeText(item.value) : translate('contacts.details.noData')}</span></div>`).join('');
+
+    const notesHtml = details.notes ? `<p class="mt-4 rounded-lg bg-blue-50 px-4 py-3 text-sm text-blue-700">${sanitizeText(details.notes)}</p>` : '';
+
+    const body = `
+        <div class="space-y-3 text-sm text-gray-600">
+            <div><span class="font-medium" data-i18n="contacts.filters.sourceLabel">${translate('contacts.filters.sourceLabel')}</span>: ${leadSource}</div>
+            ${rows}
+            ${notesHtml}
+        </div>
+    `;
+
+    return renderSectionShell('contacts.section.source', body);
+}
+
+function renderContactHistorySection(contact, insights) {
+    const activities = ensureArray(insights.activities).slice().sort((a, b) => {
+        const dateA = a?.date ? new Date(a.date).getTime() : 0;
+        const dateB = b?.date ? new Date(b.date).getTime() : 0;
+        return dateB - dateA;
+    });
+
+    if (!activities.length) {
+        return renderSectionShell('contacts.section.history', `<p class="text-sm text-gray-500" data-i18n="contacts.history.empty">${translate('contacts.history.empty')}</p>`);
+    }
+
+    const body = `
+        <ol class="space-y-4">
+            ${activities.map(activity => {
+                const type = (activity.type || '').toLowerCase();
+                const icon = CONTACT_ACTIVITY_ICON_MAP[type] || 'fa-clipboard-list';
+                const labelKey = CONTACT_ACTIVITY_LABEL_KEY_MAP[type] || 'contacts.history.other';
+                const timestamp = activity.date ? formatRelativeTime(activity.date) : '';
+                return `
+                    <li class="flex gap-3">
+                        <span class="mt-1 inline-flex h-8 w-8 items-center justify-center rounded-full bg-blue-50 text-blue-600"><i class="fas ${icon}"></i></span>
+                        <div class="flex-1">
+                            <div class="flex flex-wrap items-center gap-2 text-sm text-gray-700">
+                                <span class="font-semibold" data-i18n="${labelKey}">${translate(labelKey)}</span>
+                                ${activity.subject ? `<span class="text-gray-500">${sanitizeText(activity.subject)}</span>` : ''}
+                            </div>
+                            ${activity.description ? `<p class="text-xs text-gray-500 mt-1">${sanitizeText(activity.description)}</p>` : ''}
+                            <div class="mt-1 flex flex-wrap items-center gap-3 text-[11px] text-gray-500">
+                                ${timestamp ? `<span><i class="far fa-clock mr-1"></i>${sanitizeText(timestamp)}</span>` : ''}
+                                ${activity.assigned_to ? `<span><i class="far fa-user mr-1"></i>${sanitizeText(activity.assigned_to)}</span>` : ''}
+                            </div>
+                        </div>
+                    </li>
+                `;
+            }).join('')}
+        </ol>
+    `;
+
+    return renderSectionShell('contacts.section.history', body);
+}
+
+function renderContactTasksSection(contact, insights) {
+    const tasks = ensureArray(insights.tasks).slice().sort((a, b) => {
+        const dateA = a?.due_date ? new Date(a.due_date).getTime() : 0;
+        const dateB = b?.due_date ? new Date(b.due_date).getTime() : 0;
+        return dateA - dateB;
+    });
+
+    if (!tasks.length) {
+        return renderSectionShell('contacts.section.tasks', `<p class="text-sm text-gray-500" data-i18n="contacts.tasks.empty">${translate('contacts.tasks.empty')}</p>`);
+    }
+
+    const body = `
+        <ul class="space-y-3">
+            ${tasks.map(task => {
+                const statusKey = getTaskStatusTranslationKey(task.status);
+                const dueDate = task.due_date ? formatDateOnly(task.due_date) : '';
+                return `
+                    <li class="rounded-lg border border-gray-100 p-3">
+                        <div class="flex items-start justify-between gap-3">
+                            <div>
+                                <p class="text-sm font-semibold text-gray-800">${sanitizeText(task.title || '')}</p>
+                                ${task.description ? `<p class="text-xs text-gray-500 mt-1">${sanitizeText(task.description)}</p>` : ''}
+                                <div class="mt-2 flex flex-wrap items-center gap-3 text-[11px] text-gray-500">
+                                    ${task.priority ? `<span class="inline-flex items-center rounded-full bg-gray-100 px-2 py-1">${sanitizeText(task.priority)}</span>` : ''}
+                                    <span data-i18n="${statusKey}">${translate(statusKey)}</span>
+                                    ${task.assigned_to ? `<span><i class="far fa-user mr-1"></i>${sanitizeText(task.assigned_to)}</span>` : ''}
+                                </div>
+                            </div>
+                            <div class="text-right text-xs text-gray-500">
+                                ${dueDate ? `<div><span class="font-medium" data-i18n="contacts.tasks.due">${translate('contacts.tasks.due')}</span>: ${sanitizeText(dueDate)}</div>` : ''}
+                            </div>
+                        </div>
+                    </li>
+                `;
+            }).join('')}
+        </ul>
+    `;
+
+    return renderSectionShell('contacts.section.tasks', body);
+}
+
+function renderContactFinancialSection(contact, insights) {
+    const financial = contact.financial || {};
+    const payments = ensureArray(financial.payments || insights.payments);
+
+    const paymentRows = payments.length
+        ? payments.map(payment => `
+            <tr class="text-sm text-gray-600">
+                <td class="px-3 py-2 font-medium">${sanitizeText(payment.invoice || payment.id || '')}</td>
+                <td class="px-3 py-2">${payment.date ? sanitizeText(formatDateOnly(payment.date)) : ''}</td>
+                <td class="px-3 py-2">${formatCurrency(payment.amount || 0)}</td>
+                <td class="px-3 py-2">${sanitizeText(payment.status || '')}</td>
+            </tr>
+        `).join('')
+        : `<tr><td class="px-3 py-4 text-center text-sm text-gray-500" colspan="4" data-i18n="contacts.financial.payments.empty">${translate('contacts.financial.payments.empty')}</td></tr>`;
+
+    const body = `
+        <div class="grid gap-4 md:grid-cols-3">
+            <div class="rounded-lg bg-slate-50 p-4">
+                <p class="text-xs font-semibold uppercase tracking-wide text-gray-500" data-i18n="contacts.financial.creditLimit">${translate('contacts.financial.creditLimit')}</p>
+                <p class="mt-1 text-lg font-semibold text-gray-900">${formatCurrency(financial.credit_limit || 0)}</p>
+            </div>
+            <div class="rounded-lg bg-amber-50 p-4">
+                <p class="text-xs font-semibold uppercase tracking-wide text-amber-700" data-i18n="contacts.financial.outstanding">${translate('contacts.financial.outstanding')}</p>
+                <p class="mt-1 text-lg font-semibold text-amber-700">${formatCurrency(financial.outstanding_balance || 0)}</p>
+            </div>
+            <div class="rounded-lg bg-emerald-50 p-4">
+                <p class="text-xs font-semibold uppercase tracking-wide text-emerald-700" data-i18n="contacts.financial.preferredPayment">${translate('contacts.financial.preferredPayment')}</p>
+                <p class="mt-1 text-sm text-emerald-700">${financial.preferred_payment_methods && financial.preferred_payment_methods.length ? sanitizeText(financial.preferred_payment_methods.join(', ')) : translate('contacts.details.noData')}</p>
+            </div>
+        </div>
+        <div class="mt-6 overflow-hidden rounded-lg border border-gray-100">
+            <table class="min-w-full divide-y divide-gray-100 text-left">
+                <thead class="bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
+                    <tr>
+                        <th class="px-3 py-2" data-i18n="contacts.financial.table.invoice">${translate('contacts.financial.table.invoice')}</th>
+                        <th class="px-3 py-2" data-i18n="contacts.financial.table.date">${translate('contacts.financial.table.date')}</th>
+                        <th class="px-3 py-2" data-i18n="contacts.financial.table.amount">${translate('contacts.financial.table.amount')}</th>
+                        <th class="px-3 py-2" data-i18n="contacts.financial.table.status">${translate('contacts.financial.table.status')}</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">${paymentRows}</tbody>
+            </table>
+        </div>
+    `;
+
+    return renderSectionShell('contacts.section.financial', body);
+}
+
+function renderContactFilesSection(contact, insights) {
+    const files = ensureArray(insights.files).slice().sort((a, b) => {
+        const dateA = a?.updated_at ? new Date(a.updated_at).getTime() : 0;
+        const dateB = b?.updated_at ? new Date(b.updated_at).getTime() : 0;
+        return dateB - dateA;
+    });
+
+    if (!files.length) {
+        return renderSectionShell('contacts.section.files', `<p class="text-sm text-gray-500" data-i18n="contacts.files.empty">${translate('contacts.files.empty')}</p>`);
+    }
+
+    const body = `
+        <ul class="space-y-3">
+            ${files.map(file => {
+                const updated = file.updated_at ? formatRelativeTime(file.updated_at) : '';
+                return `
+                    <li class="flex items-center justify-between gap-3 rounded-lg border border-gray-100 p-3">
+                        <div>
+                            <p class="text-sm font-semibold text-gray-800">${sanitizeText(file.name || '')}</p>
+                            <div class="text-xs text-gray-500 mt-1 flex flex-wrap gap-3">
+                                ${file.type ? `<span>${sanitizeText(file.type)}</span>` : ''}
+                                ${file.owner ? `<span><i class="far fa-user mr-1"></i>${sanitizeText(file.owner)}</span>` : ''}
+                                ${updated ? `<span><i class="far fa-clock mr-1"></i>${sanitizeText(updated)}</span>` : ''}
+                            </div>
+                        </div>
+                        ${file.vault_path ? `<a href="vault/${encodeURI(file.vault_path)}" class="text-sm text-blue-600 hover:underline" data-i18n="contacts.files.open">${translate('contacts.files.open')}</a>` : ''}
+                    </li>
+                `;
+            }).join('')}
+        </ul>
+    `;
+
+    return renderSectionShell('contacts.section.files', body);
+}
+
+function renderContactAnalyticsSection(contact, insights) {
+    const analytics = contact.analytics || {};
+    const loyalty = contact.loyalty || {};
+
+    const metrics = [
+        { labelKey: 'contacts.analytics.frequency', value: analytics.interaction_frequency },
+        { labelKey: 'contacts.analytics.lastInteraction', value: analytics.last_interaction ? formatRelativeTime(analytics.last_interaction) : '' },
+        { labelKey: 'contacts.analytics.totalValue', value: analytics.total_deal_value ? formatCurrency(analytics.total_deal_value) : '' },
+        { labelKey: 'contacts.analytics.averageDeal', value: analytics.average_deal_size ? formatCurrency(analytics.average_deal_size) : '' },
+        { labelKey: 'contacts.analytics.ltv', value: analytics.lifetime_value ? formatCurrency(analytics.lifetime_value) : '' },
+        { labelKey: 'contacts.analytics.segment', value: contact.segments && contact.segments.length ? contact.segments.join(', ') : '' },
+        { labelKey: 'contacts.analytics.score', value: loyalty.score },
+        { labelKey: 'contacts.analytics.sentiment', value: loyalty.sentiment },
+        { labelKey: 'contacts.analytics.loyalty', value: loyalty.nps !== undefined ? loyalty.nps : '' }
+    ];
+
+    const body = `
+        <div class="grid gap-4 md:grid-cols-3">
+            ${metrics.map(metric => `
+                <div class="rounded-lg border border-gray-100 p-4">
+                    <p class="text-xs font-semibold uppercase tracking-wide text-gray-500" data-i18n="${metric.labelKey}">${translate(metric.labelKey)}</p>
+                    <p class="mt-2 text-sm font-medium text-gray-800">${metric.value !== undefined && metric.value !== '' ? sanitizeText(metric.value) : translate('contacts.details.noData')}</p>
+                </div>
+            `).join('')}
+        </div>
+        ${loyalty.feedback ? `<p class="mt-4 rounded-lg bg-green-50 px-4 py-3 text-sm text-green-700">${sanitizeText(loyalty.feedback)}</p>` : ''}
+    `;
+
+    return renderSectionShell('contacts.section.analytics', body);
+}
+
+function renderContactIntegrationsSection(contact) {
+    const integrations = ensureArray(contact.integrations);
+    const automations = ensureArray(contact.automation);
+
+    if (!integrations.length && !automations.length) {
+        return renderSectionShell('contacts.section.integrations', `<p class="text-sm text-gray-500" data-i18n="contacts.details.noData">${translate('contacts.details.noData')}</p>`);
+    }
+
+    const integrationsHtml = integrations.length
+        ? `<div class="space-y-2">${integrations.map(integration => `
+                <div class="rounded-lg border border-gray-100 p-3">
+                    <p class="text-sm font-semibold text-gray-800">${sanitizeText(integration.name || '')}</p>
+                    <div class="mt-1 text-xs text-gray-500 flex flex-wrap gap-3">
+                        ${integration.type ? `<span>${sanitizeText(integration.type)}</span>` : ''}
+                        ${integration.status ? `<span>${sanitizeText(integration.status)}</span>` : ''}
+                        ${integration.last_sync ? `<span><i class="far fa-clock mr-1"></i>${sanitizeText(formatRelativeTime(integration.last_sync))}</span>` : ''}
+                    </div>
+                </div>
+            `).join('')}</div>`
+        : '';
+
+    const automationsHtml = automations.length
+        ? `<div class="space-y-2">${automations.map(automation => `
+                <div class="rounded-lg border border-gray-100 p-3">
+                    <p class="text-sm font-semibold text-gray-800">${sanitizeText(automation.name || '')}</p>
+                    ${automation.description ? `<p class="mt-1 text-xs text-gray-500">${sanitizeText(automation.description)}</p>` : ''}
+                    <div class="mt-2 text-xs text-gray-500 flex flex-wrap gap-3">
+                        ${automation.channel ? `<span>${sanitizeText(automation.channel)}</span>` : ''}
+                        ${automation.cadence ? `<span>${sanitizeText(automation.cadence)}</span>` : ''}
+                    </div>
+                </div>
+            `).join('')}</div>`
+        : '';
+
+    const body = `
+        <div class="grid gap-4 md:grid-cols-2">
+            ${integrationsHtml ? `<div><p class="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2" data-i18n="contacts.integrations.connected">${translate('contacts.integrations.connected')}</p>${integrationsHtml}</div>` : ''}
+            ${automationsHtml ? `<div><p class="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2" data-i18n="contacts.integrations.automation">${translate('contacts.integrations.automation')}</p>${automationsHtml}</div>` : ''}
+        </div>
+    `;
+
+    return renderSectionShell('contacts.section.integrations', body);
+}
+
+function renderContactNotesSection(contact, insights) {
+    const stateNotes = ensureArray(insights.notes).slice().sort((a, b) => {
+        const dateA = a?.updated_at ? new Date(a.updated_at).getTime() : 0;
+        const dateB = b?.updated_at ? new Date(b.updated_at).getTime() : 0;
+        return dateB - dateA;
+    });
+
+    const inlineNotes = contact.notes ? `<p class="rounded-lg border border-gray-100 bg-gray-50 px-4 py-3 text-sm text-gray-700">${sanitizeText(contact.notes)}</p>` : '';
+
+    if (!inlineNotes && !stateNotes.length) {
+        return renderSectionShell('contacts.section.notes', `<p class="text-sm text-gray-500" data-i18n="contacts.details.noData">${translate('contacts.details.noData')}</p>`);
+    }
+
+    const noteItems = stateNotes.map(note => `
+        <li class="rounded-lg border border-gray-100 p-4">
+            <div class="flex items-start justify-between gap-3">
+                <div>
+                    <p class="text-sm font-semibold text-gray-800">${sanitizeText(note.title || '')}</p>
+                    ${note.content ? `<p class="mt-1 text-sm text-gray-600">${sanitizeText(note.content)}</p>` : ''}
+                    <div class="mt-2 flex flex-wrap gap-3 text-[11px] text-gray-500">
+                        ${note.author ? `<span><i class="far fa-user mr-1"></i>${sanitizeText(note.author)}</span>` : ''}
+                        ${note.updated_at ? `<span><i class="far fa-clock mr-1"></i>${sanitizeText(formatRelativeTime(note.updated_at))}</span>` : ''}
+                    </div>
+                </div>
+                ${note.vault_path ? `<a href="vault/${encodeURI(note.vault_path)}" class="text-xs text-blue-600 hover:underline" data-i18n="contacts.details.viewInVault">${translate('contacts.details.viewInVault')}</a>` : ''}
+            </div>
+        </li>
+    `).join('');
+
+    const body = `
+        <div class="space-y-4">
+            ${inlineNotes}
+            ${noteItems ? `<ul class="space-y-3">${noteItems}</ul>` : ''}
+        </div>
+    `;
+
+    return renderSectionShell('contacts.section.notes', body);
+}
+
 
 function getStatusTranslationKey(status) {
     const normalized = (status || 'Active').toLowerCase();
@@ -1949,24 +3254,123 @@ function getStatusI18nAttribute(status) {
     return `data-i18n="${key}"`;
 }
 
-function setupContactFilters() {
-    const searchInput = document.getElementById('contactSearch');
-    const statusFilter = document.getElementById('statusFilter');
-    const sourceFilter = document.getElementById('sourceFilter');
-    
-    let filterTimeout;
-    
-    const applyFilters = () => {
-        clearTimeout(filterTimeout);
-        filterTimeout = setTimeout(() => {
-            loadContacts(1, searchInput.value, statusFilter.value, sourceFilter.value);
-        }, 300);
-    };
-    
-    searchInput.addEventListener('input', applyFilters);
-    statusFilter.addEventListener('change', applyFilters);
-    sourceFilter.addEventListener('change', applyFilters);
+function getTaskStatusTranslationKey(status) {
+    const normalized = (status || '').toLowerCase();
+    if (normalized === 'completed' || normalized === 'done') {
+        return 'contacts.tasks.status.completed';
+    }
+    if (normalized === 'in progress' || normalized === 'in-progress') {
+        return 'contacts.tasks.status.inProgress';
+    }
+    return 'contacts.tasks.status.notStarted';
 }
+
+function setupContactFilters() {
+    const state = getContactsWorkspaceState();
+    const searchInput = document.getElementById('contactSearch');
+    const statusSelect = document.getElementById('contactStatusFilter');
+    const segmentSelect = document.getElementById('contactSegmentFilter');
+    const sourceSelect = document.getElementById('contactSourceFilter');
+    const tagSelect = document.getElementById('contactTagFilter');
+    const resetButton = document.getElementById('contactFiltersReset');
+    const listContainer = document.getElementById('contactsList');
+    const contactsView = document.getElementById('contactsView');
+
+    if (searchInput) {
+        searchInput.value = state.filters.search || '';
+    }
+    if (statusSelect) {
+        statusSelect.value = (state.filters.status || '').toLowerCase();
+    }
+    if (segmentSelect) {
+        segmentSelect.value = (state.filters.segment || '').toLowerCase();
+    }
+    if (sourceSelect) {
+        sourceSelect.value = (state.filters.source || '').toLowerCase();
+    }
+    if (tagSelect) {
+        tagSelect.value = (state.filters.tag || '').toLowerCase();
+    }
+
+    let searchTimeout;
+    if (searchInput) {
+        searchInput.addEventListener('input', event => {
+            clearTimeout(searchTimeout);
+            const value = event.target.value;
+            searchTimeout = setTimeout(() => {
+                state.filters.search = value;
+                renderContactsWorkspace();
+            }, 250);
+        });
+    }
+
+    const applyDropdownFilters = () => {
+        state.filters.status = statusSelect ? statusSelect.value : '';
+        state.filters.segment = segmentSelect ? segmentSelect.value : '';
+        state.filters.source = sourceSelect ? sourceSelect.value : '';
+        state.filters.tag = tagSelect ? tagSelect.value : '';
+        renderContactsWorkspace();
+    };
+
+    statusSelect?.addEventListener('change', applyDropdownFilters);
+    segmentSelect?.addEventListener('change', applyDropdownFilters);
+    sourceSelect?.addEventListener('change', applyDropdownFilters);
+    tagSelect?.addEventListener('change', applyDropdownFilters);
+
+    resetButton?.addEventListener('click', () => {
+        state.filters = { ...DEFAULT_CONTACT_FILTERS };
+        if (searchInput) searchInput.value = '';
+        if (statusSelect) statusSelect.value = '';
+        if (segmentSelect) segmentSelect.value = '';
+        if (sourceSelect) sourceSelect.value = '';
+        if (tagSelect) tagSelect.value = '';
+        renderContactsWorkspace();
+    });
+
+    if (listContainer && !listContainer.dataset.contactsListBound) {
+        listContainer.addEventListener('click', event => {
+            const item = event.target.closest('[data-contact-id]');
+            if (!item) {
+                return;
+            }
+            const contactId = item.getAttribute('data-contact-id');
+            if (contactId && contactId !== state.selectedId) {
+                state.selectedId = contactId;
+                renderContactsWorkspace();
+            }
+        });
+        listContainer.dataset.contactsListBound = 'true';
+    }
+
+    if (contactsView && contactsView.dataset.contactsActionsBound !== 'true') {
+        contactsView.addEventListener('click', event => {
+            const actionButton = event.target.closest('[data-contact-action]');
+            if (!actionButton) {
+                return;
+            }
+            const action = actionButton.getAttribute('data-contact-action');
+            const contactId = actionButton.getAttribute('data-contact-id') || state.selectedId;
+            if (!contactId) {
+                return;
+            }
+            if (action === 'add-task' && typeof showTaskForm === 'function') {
+                showTaskForm(null, { defaultRelatedType: 'contact', defaultRelatedId: contactId });
+            } else if (action === 'add-activity' && typeof showActivityForm === 'function') {
+                showActivityForm(null, { defaultRelatedType: 'contact', defaultRelatedId: contactId });
+            } else if (action === 'add-deal' && typeof showOpportunityForm === 'function') {
+                const contact = state.records.find(record => record.id === contactId) || null;
+                showOpportunityForm(null, {
+                    defaultContactId: contactId,
+                    defaultContactName: contact ? getContactDisplayName(contact) : '',
+                    defaultCompanyId: contact?.company_id || '',
+                    defaultCompanyName: contact?.company_name || ''
+                });
+            }
+        }, { passive: true });
+        contactsView.dataset.contactsActionsBound = 'true';
+    }
+}
+
 
 async function showContactForm(contactId = null, options = {}) {
     const isEdit = contactId !== null;
