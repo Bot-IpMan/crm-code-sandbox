@@ -2327,7 +2327,7 @@ function setupLeadFilters() {
     const searchInput = document.getElementById('leadSearch');
     const statusFilter = document.getElementById('leadStatusFilter');
     const priorityFilter = document.getElementById('leadPriorityFilter');
-    
+
     let filterTimeout;
     
     const applyFilters = () => {
@@ -2343,90 +2343,694 @@ function setupLeadFilters() {
 }
 
 // Opportunities Management
+const opportunitiesModuleState = {
+    opportunities: [],
+    filtered: [],
+    tasks: [],
+    activities: [],
+    files: [],
+    notes: [],
+    selectedId: null,
+    viewMode: 'board',
+    filters: {
+        search: '',
+        stage: '',
+        status: '',
+        owner: '',
+        probabilityRange: '',
+        amountRange: '',
+        dateRange: ''
+    },
+    chartInstances: {}
+};
+
 async function showOpportunities() {
     showView('opportunities');
     setPageHeader('opportunities');
-    
+
+    const stageOptions = renderSelectOptions(
+        getDictionaryEntries('opportunities', 'stages', DEFAULT_SALES_STAGE_ORDER),
+        '',
+        {
+            includeBlank: true,
+            blankLabel: 'Усі етапи',
+            blankValue: ''
+        }
+    );
+    const statusOptions = renderSelectOptions(
+        getDictionaryEntries('opportunities', 'statuses'),
+        '',
+        {
+            includeBlank: true,
+            blankLabel: 'Усі статуси',
+            blankValue: ''
+        }
+    );
+    const probabilityOptions = [
+        { value: '', label: 'Усі ймовірності' },
+        { value: '0-25', label: '0–25%' },
+        { value: '26-50', label: '26–50%' },
+        { value: '51-75', label: '51–75%' },
+        { value: '76-100', label: '76–100%' }
+    ].map(option => `<option value="${option.value}">${option.label}</option>`).join('');
+    const amountOptions = [
+        { value: '', label: 'Будь-яка сума' },
+        { value: '0-25000', label: 'До $25K' },
+        { value: '25000-50000', label: '$25K – $50K' },
+        { value: '50000-75000', label: '$50K – $75K' },
+        { value: '75000-100000', label: '$75K – $100K' },
+        { value: '100000+', label: 'Понад $100K' }
+    ].map(option => `<option value="${option.value}">${option.label}</option>`).join('');
+    const dateOptions = [
+        { value: '', label: 'Будь-яка дата' },
+        { value: 'this-week', label: 'Цей тиждень' },
+        { value: 'this-month', label: 'Цей місяць' },
+        { value: 'next-month', label: 'Наступний місяць' },
+        { value: 'quarter', label: 'Цей квартал' }
+    ].map(option => `<option value="${option.value}">${option.label}</option>`).join('');
+
     const opportunitiesView = document.getElementById('opportunitiesView');
     opportunitiesView.innerHTML = `
-        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-            <div class="flex items-center justify-between mb-6">
-                <div class="flex items-center space-x-4">
-                    <h3 class="text-lg font-semibold text-gray-800">Sales Pipeline</h3>
-                    <div class="relative">
-                        <input type="text" id="opportunitySearch" placeholder="Search opportunities..." 
-                               class="pl-10 pr-4 py-2 w-64 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                        <i class="fas fa-search absolute left-3 top-3 text-gray-400"></i>
+        <div class="space-y-8">
+            <section class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                <div class="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4">
+                    <div>
+                        <h3 class="text-2xl font-semibold text-gray-800">Керування угодами</h3>
+                        <p class="text-sm text-gray-500">Відстежуйте статуси, фінансові показники та активності по всій воронці продажів.</p>
+                    </div>
+                    <div class="flex flex-col md:flex-row items-stretch md:items-center gap-3">
+                        <div class="relative">
+                            <input type="text" id="opportunitySearch" placeholder="Пошук за назвою, клієнтом або номером"
+                                   class="pl-10 pr-4 py-2 w-full md:w-72 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                            <i class="fas fa-search absolute left-3 top-3 text-gray-400"></i>
+                        </div>
+                        <button onclick="showOpportunityForm()" class="inline-flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                            <i class="fas fa-plus mr-2"></i>Нова угода
+                        </button>
                     </div>
                 </div>
-                <div class="flex items-center space-x-3">
-                    <button onclick="showOpportunityForm()" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-                        <i class="fas fa-plus mr-2"></i>Add Opportunity
+                <div id="opportunitySummaryCards" class="mt-6 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4"></div>
+            </section>
+
+            <section class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 space-y-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-6 gap-4">
+                    <div>
+                        <label for="opportunityStageFilter" class="block text-xs uppercase tracking-wide text-gray-500 mb-1">Етап</label>
+                        <select id="opportunityStageFilter" class="w-full border border-gray-300 rounded-lg px-3 py-2">${stageOptions}</select>
+                    </div>
+                    <div>
+                        <label for="opportunityStatusFilter" class="block text-xs uppercase tracking-wide text-gray-500 mb-1">Статус</label>
+                        <select id="opportunityStatusFilter" class="w-full border border-gray-300 rounded-lg px-3 py-2">${statusOptions}</select>
+                    </div>
+                    <div>
+                        <label for="opportunityOwnerFilter" class="block text-xs uppercase tracking-wide text-gray-500 mb-1">Менеджер</label>
+                        <select id="opportunityOwnerFilter" class="w-full border border-gray-300 rounded-lg px-3 py-2">
+                            <option value="">Усі менеджери</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="opportunityProbabilityFilter" class="block text-xs uppercase tracking-wide text-gray-500 mb-1">Ймовірність</label>
+                        <select id="opportunityProbabilityFilter" class="w-full border border-gray-300 rounded-lg px-3 py-2">${probabilityOptions}</select>
+                    </div>
+                    <div>
+                        <label for="opportunityAmountFilter" class="block text-xs uppercase tracking-wide text-gray-500 mb-1">Сума</label>
+                        <select id="opportunityAmountFilter" class="w-full border border-gray-300 rounded-lg px-3 py-2">${amountOptions}</select>
+                    </div>
+                    <div>
+                        <label for="opportunityDateFilter" class="block text-xs uppercase tracking-wide text-gray-500 mb-1">Очікуване закриття</label>
+                        <select id="opportunityDateFilter" class="w-full border border-gray-300 rounded-lg px-3 py-2">${dateOptions}</select>
+                    </div>
+                </div>
+                <div class="flex flex-wrap gap-2 pt-2 border-t border-gray-100 pt-4">
+                    <span class="text-xs font-semibold text-gray-500 uppercase mr-2">Швидкі фільтри:</span>
+                    <button type="button" class="px-3 py-1 rounded-full border border-gray-200 text-sm text-gray-600 hover:border-blue-400 hover:text-blue-600" data-opportunity-quick-filter="status" data-value="">
+                        Усі <span class="ml-1 inline-flex items-center justify-center text-xs px-2 py-0.5 bg-gray-100 rounded-full" id="opportunityAllCount">0</span>
+                    </button>
+                    <button type="button" class="px-3 py-1 rounded-full border border-gray-200 text-sm text-gray-600 hover:border-blue-400 hover:text-blue-600" data-opportunity-quick-filter="status" data-value="Open">
+                        Активні <span class="ml-1 inline-flex items-center justify-center text-xs px-2 py-0.5 bg-gray-100 rounded-full" id="opportunityActiveCount">0</span>
+                    </button>
+                    <button type="button" class="px-3 py-1 rounded-full border border-gray-200 text-sm text-gray-600 hover:border-blue-400 hover:text-blue-600" data-opportunity-quick-filter="status" data-value="Closed Won">
+                        Виграні <span class="ml-1 inline-flex items-center justify-center text-xs px-2 py-0.5 bg-gray-100 rounded-full" id="opportunityWonCount">0</span>
+                    </button>
+                    <button type="button" class="px-3 py-1 rounded-full border border-gray-200 text-sm text-gray-600 hover:border-blue-400 hover:text-blue-600" data-opportunity-quick-filter="status" data-value="Closed Lost">
+                        Програні <span class="ml-1 inline-flex items-center justify-center text-xs px-2 py-0.5 bg-gray-100 rounded-full" id="opportunityLostCount">0</span>
                     </button>
                 </div>
-            </div>
-            
-            <!-- Pipeline Board View -->
-            <div class="mb-6">
-                <div class="flex space-x-4 overflow-x-auto pb-4">
-                    <div class="min-w-80 bg-gray-50 rounded-lg p-4">
-                        <h4 class="font-semibold text-gray-700 mb-3">Qualification</h4>
-                        <div id="qualificationColumn" class="space-y-3 min-h-40">
-                        </div>
+            </section>
+
+            <section class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+                    <div>
+                        <h4 class="text-lg font-semibold text-gray-800">Візуалізація угод</h4>
+                        <p class="text-sm text-gray-500">Перемикайтеся між канбан-дошкою та табличним виглядом для швидкого аналізу.</p>
                     </div>
-                    <div class="min-w-80 bg-blue-50 rounded-lg p-4">
-                        <h4 class="font-semibold text-blue-700 mb-3">Needs Analysis</h4>
-                        <div id="needsAnalysisColumn" class="space-y-3 min-h-40">
+                    <button type="button" id="viewToggle" class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200">
+                        Перейти до табличного вигляду
+                    </button>
+                </div>
+                <div id="opportunityBoardWrapper" class="overflow-x-auto pb-4">
+                    <div class="flex space-x-4 min-w-full">
+                        <div class="min-w-[18rem] bg-gray-50 rounded-lg p-4">
+                            <h5 class="font-semibold text-gray-700 mb-3">Qualification</h5>
+                            <div id="qualificationColumn" class="space-y-3 min-h-40"></div>
                         </div>
-                    </div>
-                    <div class="min-w-80 bg-yellow-50 rounded-lg p-4">
-                        <h4 class="font-semibold text-yellow-700 mb-3">Proposal</h4>
-                        <div id="proposalColumn" class="space-y-3 min-h-40">
+                        <div class="min-w-[18rem] bg-blue-50 rounded-lg p-4">
+                            <h5 class="font-semibold text-blue-700 mb-3">Needs Analysis</h5>
+                            <div id="needsAnalysisColumn" class="space-y-3 min-h-40"></div>
                         </div>
-                    </div>
-                    <div class="min-w-80 bg-orange-50 rounded-lg p-4">
-                        <h4 class="font-semibold text-orange-700 mb-3">Negotiation</h4>
-                        <div id="negotiationColumn" class="space-y-3 min-h-40">
+                        <div class="min-w-[18rem] bg-yellow-50 rounded-lg p-4">
+                            <h5 class="font-semibold text-yellow-700 mb-3">Proposal</h5>
+                            <div id="proposalColumn" class="space-y-3 min-h-40"></div>
                         </div>
-                    </div>
-                    <div class="min-w-80 bg-green-50 rounded-lg p-4">
-                        <h4 class="font-semibold text-green-700 mb-3">Closed Won</h4>
-                        <div id="closedWonColumn" class="space-y-3 min-h-40">
+                        <div class="min-w-[18rem] bg-orange-50 rounded-lg p-4">
+                            <h5 class="font-semibold text-orange-700 mb-3">Negotiation</h5>
+                            <div id="negotiationColumn" class="space-y-3 min-h-40"></div>
                         </div>
-                    </div>
-                    <div class="min-w-80 bg-red-50 rounded-lg p-4">
-                        <h4 class="font-semibold text-red-700 mb-3">Closed Lost</h4>
-                        <div id="closedLostColumn" class="space-y-3 min-h-40">
+                        <div class="min-w-[18rem] bg-green-50 rounded-lg p-4">
+                            <h5 class="font-semibold text-green-700 mb-3">Closed Won</h5>
+                            <div id="closedWonColumn" class="space-y-3 min-h-40"></div>
+                        </div>
+                        <div class="min-w-[18rem] bg-red-50 rounded-lg p-4">
+                            <h5 class="font-semibold text-red-700 mb-3">Closed Lost</h5>
+                            <div id="closedLostColumn" class="space-y-3 min-h-40"></div>
                         </div>
                     </div>
                 </div>
-            </div>
-            
-            <!-- Table View Toggle -->
-            <div class="flex justify-center mb-6">
-                <button onclick="toggleOpportunityView()" id="viewToggle" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300">
-                    Switch to Table View
-                </button>
-            </div>
+                <div id="opportunityTableWrapper" class="hidden">
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Угода</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Компанія</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Етап</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Статус</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ймовірність</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Сума</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Очікуване закриття</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Відповідальний</th>
+                                </tr>
+                            </thead>
+                            <tbody id="opportunitiesTableBody" class="bg-white divide-y divide-gray-100"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <section class="grid grid-cols-1 xl:grid-cols-3 gap-6">
+                <div class="xl:col-span-2 space-y-6">
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <div>
+                                <h4 class="text-lg font-semibold text-gray-800">Аналітика та прогнози</h4>
+                                <p class="text-sm text-gray-500">Оцінюйте стан воронки, прогнозуйте виручку та виявляйте вузькі місця процесу.</p>
+                            </div>
+                            <div id="opportunityAnalyticsSummary" class="text-right text-sm text-gray-500"></div>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <div class="bg-gray-50 rounded-lg p-4">
+                                <h5 class="text-sm font-semibold text-gray-600 mb-3">Розподіл за етапами</h5>
+                                <canvas id="opportunityStageChart" height="160"></canvas>
+                            </div>
+                            <div class="bg-gray-50 rounded-lg p-4">
+                                <h5 class="text-sm font-semibold text-gray-600 mb-3">Прогноз виручки</h5>
+                                <canvas id="opportunityForecastChart" height="160"></canvas>
+                            </div>
+                            <div class="bg-gray-50 rounded-lg p-4">
+                                <h5 class="text-sm font-semibold text-gray-600 mb-3">Пайплайн за менеджерами</h5>
+                                <canvas id="opportunityOwnerChart" height="160"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <div>
+                                <h4 class="text-lg font-semibold text-gray-800">Історія взаємодій</h4>
+                                <p class="text-sm text-gray-500">Дзвінки, листування, зустрічі та нотатки за обраною угодою.</p>
+                            </div>
+                        </div>
+                        <div id="opportunityHistory" class="space-y-4"></div>
+                    </div>
+
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <div>
+                                <h4 class="text-lg font-semibold text-gray-800">Завдання та нагадування</h4>
+                                <p class="text-sm text-gray-500">Контролюйте підготовку документів, дзвінків і дедлайнів за угодою.</p>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            <div>
+                                <h5 class="text-sm font-semibold text-gray-600 mb-2">Поточні завдання</h5>
+                                <ul id="opportunityTasks" class="space-y-3"></ul>
+                            </div>
+                            <div>
+                                <h5 class="text-sm font-semibold text-gray-600 mb-2">Нагадування та контрольні точки</h5>
+                                <ul id="opportunityReminders" class="space-y-3"></ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                        <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-4">
+                            <div>
+                                <h4 class="text-lg font-semibold text-gray-800">Сегментація та категоризація</h4>
+                                <p class="text-sm text-gray-500">Групуйте угоди за тегами, напрямками та типами клієнтів.</p>
+                            </div>
+                        </div>
+                        <div id="opportunitySegmentation" class="flex flex-wrap gap-2 mb-4"></div>
+                        <div id="opportunityGroups" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+                    </div>
+                </div>
+
+                <aside class="space-y-6">
+                    <div id="opportunityInspector" class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                        <div>
+                            <h4 class="text-lg font-semibold text-gray-800">Картка угоди</h4>
+                            <p class="text-sm text-gray-500">Оберіть угоду, щоб переглянути повну інформацію.</p>
+                        </div>
+                        <div class="mt-6 text-sm text-gray-500">
+                            Виберіть угоду у канбан-дошці або таблиці, щоб побачити деталі, фінанси та учасників.
+                        </div>
+                    </div>
+
+                    <div id="opportunityDocuments" class="bg-white rounded-xl shadow-sm border border-gray-100 p-6"></div>
+
+                    <div id="opportunityAutomation" class="bg-white rounded-xl shadow-sm border border-gray-100 p-6"></div>
+
+                    <div id="opportunitySecurity" class="bg-white rounded-xl shadow-sm border border-gray-100 p-6"></div>
+                </aside>
+            </section>
         </div>
     `;
-    
+
+    initializeOpportunityView();
     await loadOpportunities();
 }
 
 async function loadOpportunities() {
     showLoading();
     try {
-        const response = await fetch('tables/opportunities?limit=100');
-        const data = await response.json();
-        
-        displayOpportunitiesPipeline(data.data || []);
-        
+        const [opportunitiesPayload, tasksPayload, activitiesPayload, filesPayload, notesPayload] = await Promise.all([
+            safeFetchJson('tables/opportunities?limit=1000'),
+            safeFetchJson('tables/tasks?limit=1000'),
+            safeFetchJson('tables/activities?limit=1000'),
+            safeFetchJson('tables/files?limit=1000'),
+            safeFetchJson('tables/notes?limit=1000')
+        ]);
+
+        opportunitiesModuleState.opportunities = normalizeListPayload(opportunitiesPayload);
+        opportunitiesModuleState.tasks = normalizeListPayload(tasksPayload);
+        opportunitiesModuleState.activities = normalizeListPayload(activitiesPayload);
+        opportunitiesModuleState.files = normalizeListPayload(filesPayload);
+        opportunitiesModuleState.notes = normalizeListPayload(notesPayload);
+
+        populateOpportunityOwnerFilter();
+        applyOpportunityFilters();
+        renderOpportunityDocuments(null);
+        renderOpportunityAutomation(null);
+        renderOpportunitySecurity(null);
+
     } catch (error) {
         console.error('Error loading opportunities:', error);
         showToast('Failed to load opportunities', 'error');
     } finally {
         hideLoading();
+    }
+}
+
+async function safeFetchJson(url) {
+    try {
+        const response = await fetch(url);
+        if (!response || !response.ok) {
+            throw new Error(`Request failed for ${url}`);
+        }
+        return await response.json();
+    } catch (error) {
+        console.warn('safeFetchJson fallback for', url, error);
+        return { data: [] };
+    }
+}
+
+function normalizeListPayload(payload) {
+    if (!payload) {
+        return [];
+    }
+    if (Array.isArray(payload)) {
+        return payload;
+    }
+    if (Array.isArray(payload.data)) {
+        return payload.data;
+    }
+    return [];
+}
+
+function initializeOpportunityView() {
+    const searchInput = document.getElementById('opportunitySearch');
+    if (searchInput) {
+        let timeoutId;
+        searchInput.addEventListener('input', event => {
+            clearTimeout(timeoutId);
+            timeoutId = setTimeout(() => {
+                opportunitiesModuleState.filters.search = (event.target.value || '').trim().toLowerCase();
+                applyOpportunityFilters();
+            }, 200);
+        });
+    }
+
+    const stageFilter = document.getElementById('opportunityStageFilter');
+    stageFilter?.addEventListener('change', event => {
+        opportunitiesModuleState.filters.stage = event.target.value;
+        applyOpportunityFilters();
+    });
+
+    const statusFilter = document.getElementById('opportunityStatusFilter');
+    statusFilter?.addEventListener('change', event => {
+        opportunitiesModuleState.filters.status = event.target.value;
+        updateOpportunityQuickFilterButtons();
+        applyOpportunityFilters();
+    });
+
+    const ownerFilter = document.getElementById('opportunityOwnerFilter');
+    ownerFilter?.addEventListener('change', event => {
+        opportunitiesModuleState.filters.owner = event.target.value;
+        applyOpportunityFilters();
+    });
+
+    const probabilityFilter = document.getElementById('opportunityProbabilityFilter');
+    probabilityFilter?.addEventListener('change', event => {
+        opportunitiesModuleState.filters.probabilityRange = event.target.value;
+        applyOpportunityFilters();
+    });
+
+    const amountFilter = document.getElementById('opportunityAmountFilter');
+    amountFilter?.addEventListener('change', event => {
+        opportunitiesModuleState.filters.amountRange = event.target.value;
+        applyOpportunityFilters();
+    });
+
+    const dateFilter = document.getElementById('opportunityDateFilter');
+    dateFilter?.addEventListener('change', event => {
+        opportunitiesModuleState.filters.dateRange = event.target.value;
+        applyOpportunityFilters();
+    });
+
+    document.querySelectorAll('[data-opportunity-quick-filter]').forEach(button => {
+        button.addEventListener('click', () => {
+            const filterValue = button.getAttribute('data-value') || '';
+            opportunitiesModuleState.filters.status = filterValue;
+            if (statusFilter && statusFilter.value !== filterValue) {
+                statusFilter.value = filterValue;
+            }
+            updateOpportunityQuickFilterButtons();
+            applyOpportunityFilters();
+        });
+    });
+
+    const viewToggle = document.getElementById('viewToggle');
+    viewToggle?.addEventListener('click', toggleOpportunityView);
+
+    updateOpportunityQuickFilterButtons();
+}
+
+function populateOpportunityOwnerFilter() {
+    const select = document.getElementById('opportunityOwnerFilter');
+    if (!select) {
+        return;
+    }
+
+    const owners = new Set();
+    opportunitiesModuleState.opportunities.forEach(opportunity => {
+        const owner = (opportunity.assigned_to || '').trim();
+        if (owner) {
+            owners.add(owner);
+        }
+    });
+
+    const options = Array.from(owners)
+        .sort((a, b) => a.localeCompare(b))
+        .map(owner => `<option value="${sanitizeText(owner)}"${opportunitiesModuleState.filters.owner === owner ? ' selected' : ''}>${sanitizeText(owner)}</option>`)
+        .join('');
+
+    select.innerHTML = `<option value="">Усі менеджери</option>${options}`;
+
+    if (opportunitiesModuleState.filters.owner && !owners.has(opportunitiesModuleState.filters.owner)) {
+        opportunitiesModuleState.filters.owner = '';
+    }
+}
+
+function updateOpportunityQuickFilterButtons() {
+    const activeValue = opportunitiesModuleState.filters.status || '';
+    document.querySelectorAll('[data-opportunity-quick-filter]').forEach(button => {
+        const value = button.getAttribute('data-value') || '';
+        if (value === activeValue) {
+            button.classList.add('border-blue-500', 'text-blue-600', 'bg-blue-50');
+        } else {
+            button.classList.remove('border-blue-500', 'text-blue-600', 'bg-blue-50');
+        }
+    });
+}
+
+function updateOpportunityQuickFilterCounts() {
+    const allCount = opportunitiesModuleState.opportunities.length;
+    const activeCount = opportunitiesModuleState.opportunities.filter(opportunity => getOpportunityStatus(opportunity) === 'Open').length;
+    const wonCount = opportunitiesModuleState.opportunities.filter(opportunity => getOpportunityStatus(opportunity) === 'Closed Won').length;
+    const lostCount = opportunitiesModuleState.opportunities.filter(opportunity => getOpportunityStatus(opportunity) === 'Closed Lost').length;
+
+    const setCount = (id, value) => {
+        const element = document.getElementById(id);
+        if (element) {
+            element.textContent = value;
+        }
+    };
+
+    setCount('opportunityAllCount', allCount);
+    setCount('opportunityActiveCount', activeCount);
+    setCount('opportunityWonCount', wonCount);
+    setCount('opportunityLostCount', lostCount);
+}
+
+function applyOpportunityFilters() {
+    const filters = opportunitiesModuleState.filters;
+    const searchTerm = (filters.search || '').trim();
+
+    const filtered = opportunitiesModuleState.opportunities.filter(opportunity => {
+        if (searchTerm) {
+            const haystack = [
+                opportunity.name,
+                opportunity.company_name,
+                opportunity.id,
+                opportunity.obsidian_note
+            ].filter(Boolean).join(' ').toLowerCase();
+            if (!haystack.includes(searchTerm)) {
+                return false;
+            }
+        }
+
+        if (filters.stage && String(opportunity.stage || '') !== filters.stage) {
+            return false;
+        }
+
+        const normalizedStatus = getOpportunityStatus(opportunity);
+        if (filters.status && normalizedStatus !== filters.status) {
+            return false;
+        }
+
+        if (filters.owner) {
+            const owner = (opportunity.assigned_to || '').trim();
+            if (owner !== filters.owner) {
+                return false;
+            }
+        }
+
+        if (filters.probabilityRange) {
+            const probability = Number(opportunity.probability) || 0;
+            if (!probabilityMatchesRange(probability, filters.probabilityRange)) {
+                return false;
+            }
+        }
+
+        if (filters.amountRange) {
+            const value = Number(opportunity.value) || 0;
+            if (!amountMatchesRange(value, filters.amountRange)) {
+                return false;
+            }
+        }
+
+        if (filters.dateRange) {
+            const closeDate = parseDateValue(opportunity.expected_close_date);
+            if (!dateMatchesRange(closeDate, filters.dateRange)) {
+                return false;
+            }
+        }
+
+        return true;
+    });
+
+    opportunitiesModuleState.filtered = filtered;
+    updateOpportunityQuickFilterCounts();
+    renderOpportunitySummaryCards(filtered);
+    displayOpportunitiesPipeline(filtered);
+    renderOpportunityTable(filtered);
+    updateOpportunityAnalytics(filtered);
+    ensureOpportunitySelection();
+}
+
+function getOpportunityStatus(opportunity) {
+    if (!opportunity) {
+        return 'Open';
+    }
+    if (opportunity.status) {
+        return String(opportunity.status);
+    }
+    const stage = String(opportunity.stage || '').toLowerCase();
+    if (stage.includes('closed won')) {
+        return 'Closed Won';
+    }
+    if (stage.includes('closed lost')) {
+        return 'Closed Lost';
+    }
+    return 'Open';
+}
+
+function probabilityMatchesRange(probability, range) {
+    if (!range) {
+        return true;
+    }
+    if (range === '100+' || range === '100') {
+        return probability >= 100;
+    }
+    const [start, end] = range.split('-').map(value => Number(value.replace('+', '')));
+    if (Number.isNaN(start)) {
+        return true;
+    }
+    if (Number.isNaN(end)) {
+        return probability >= start;
+    }
+    return probability >= start && probability <= end;
+}
+
+function amountMatchesRange(value, range) {
+    if (!range) {
+        return true;
+    }
+    if (range.endsWith('+')) {
+        const min = Number(range.replace('+', ''));
+        return value >= min;
+    }
+    const [start, end] = range.split('-').map(Number);
+    if (Number.isNaN(start)) {
+        return true;
+    }
+    if (Number.isNaN(end)) {
+        return value >= start;
+    }
+    return value >= start && value <= end;
+}
+
+function parseDateValue(value) {
+    if (!value) {
+        return null;
+    }
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function endOfDay(date) {
+    const end = new Date(date);
+    end.setHours(23, 59, 59, 999);
+    return end;
+}
+
+function dateMatchesRange(date, range) {
+    if (!range || !date) {
+        return true;
+    }
+
+    const now = new Date();
+    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    switch (range) {
+        case 'this-week': {
+            const dayOfWeek = startOfDay.getDay() || 7;
+            const weekStart = new Date(startOfDay);
+            weekStart.setDate(startOfDay.getDate() - (dayOfWeek - 1));
+            const weekEnd = new Date(weekStart);
+            weekEnd.setDate(weekStart.getDate() + 6);
+            return date >= weekStart && date <= endOfDay(weekEnd);
+        }
+        case 'this-month': {
+            const monthStart = new Date(startOfDay.getFullYear(), startOfDay.getMonth(), 1);
+            const monthEnd = new Date(startOfDay.getFullYear(), startOfDay.getMonth() + 1, 0);
+            return date >= monthStart && date <= endOfDay(monthEnd);
+        }
+        case 'next-month': {
+            const nextMonthStart = new Date(startOfDay.getFullYear(), startOfDay.getMonth() + 1, 1);
+            const nextMonthEnd = new Date(startOfDay.getFullYear(), startOfDay.getMonth() + 2, 0);
+            return date >= nextMonthStart && date <= endOfDay(nextMonthEnd);
+        }
+        case 'quarter': {
+            const quarter = Math.floor(startOfDay.getMonth() / 3);
+            const quarterStart = new Date(startOfDay.getFullYear(), quarter * 3, 1);
+            const quarterEnd = new Date(startOfDay.getFullYear(), quarter * 3 + 3, 0);
+            return date >= quarterStart && date <= endOfDay(quarterEnd);
+        }
+        default:
+            return true;
+    }
+}
+
+function renderOpportunitySummaryCards(opportunities) {
+    const container = document.getElementById('opportunitySummaryCards');
+    if (!container) {
+        return;
+    }
+
+    const totalDeals = opportunities.length;
+    const pipelineValue = opportunities
+        .filter(opportunity => getOpportunityStatus(opportunity) !== 'Closed Lost')
+        .reduce((sum, opportunity) => sum + (Number(opportunity.value) || 0), 0);
+    const weightedPipeline = opportunities.reduce((sum, opportunity) => {
+        const probability = Number(opportunity.probability) || 0;
+        return sum + ((Number(opportunity.value) || 0) * probability / 100);
+    }, 0);
+    const wonCount = opportunities.filter(opportunity => getOpportunityStatus(opportunity) === 'Closed Won').length;
+    const lostCount = opportunities.filter(opportunity => getOpportunityStatus(opportunity) === 'Closed Lost').length;
+    const activeCount = opportunities.filter(opportunity => getOpportunityStatus(opportunity) === 'Open').length;
+    const averageProbability = totalDeals
+        ? Math.round(opportunities.reduce((sum, opportunity) => sum + (Number(opportunity.probability) || 0), 0) / totalDeals)
+        : 0;
+
+    container.innerHTML = `
+        <div class="bg-blue-50 border border-blue-100 rounded-lg p-4">
+            <p class="text-xs font-semibold text-blue-600 uppercase">Активні угоди</p>
+            <p class="text-2xl font-semibold text-blue-900 mt-1">${activeCount}</p>
+            <p class="text-sm text-blue-700">${totalDeals} угод загалом</p>
+        </div>
+        <div class="bg-emerald-50 border border-emerald-100 rounded-lg p-4">
+            <p class="text-xs font-semibold text-emerald-600 uppercase">Обсяг воронки</p>
+            <p class="text-2xl font-semibold text-emerald-900 mt-1">${formatCurrency(pipelineValue)}</p>
+            <p class="text-sm text-emerald-700">З урахуванням усіх відкритих угод</p>
+        </div>
+        <div class="bg-purple-50 border border-purple-100 rounded-lg p-4">
+            <p class="text-xs font-semibold text-purple-600 uppercase">Зважений прогноз</p>
+            <p class="text-2xl font-semibold text-purple-900 mt-1">${formatCurrency(weightedPipeline)}</p>
+            <p class="text-sm text-purple-700">Середня ймовірність: ${averageProbability}%</p>
+        </div>
+        <div class="bg-gray-50 border border-gray-200 rounded-lg p-4">
+            <p class="text-xs font-semibold text-gray-600 uppercase">Результати угод</p>
+            <p class="text-2xl font-semibold text-gray-900 mt-1">${wonCount} / ${lostCount}</p>
+            <p class="text-sm text-gray-600">Виграно / Програно</p>
+        </div>
+    `;
+
+    const analyticsSummary = document.getElementById('opportunityAnalyticsSummary');
+    if (analyticsSummary) {
+        analyticsSummary.innerHTML = `
+            <p>Очікувана виручка: <span class="font-semibold text-gray-800">${formatCurrency(weightedPipeline)}</span></p>
+            <p>Середня ймовірність успіху: <span class="font-semibold text-gray-800">${averageProbability}%</span></p>
+        `;
     }
 }
 
@@ -2444,7 +3048,7 @@ function displayOpportunitiesPipeline(opportunities, columnPrefix = '') {
         const columnId = columnPrefix ? `${columnPrefix}${config.prefixedId}` : config.baseId;
         const column = document.getElementById(columnId);
         if (column) {
-            column.innerHTML = '';
+            column.innerHTML = '<div class="text-sm text-gray-400 bg-white/60 border border-dashed border-gray-200 rounded-lg p-3 text-center">Немає угод у цьому етапі</div>';
         }
     });
 
@@ -2457,6 +3061,9 @@ function displayOpportunitiesPipeline(opportunities, columnPrefix = '') {
         const columnId = columnPrefix ? `${columnPrefix}${config.prefixedId}` : config.baseId;
         const column = document.getElementById(columnId);
         if (column) {
+            if (column.children.length && column.firstElementChild?.classList.contains('text-gray-400')) {
+                column.innerHTML = '';
+            }
             column.innerHTML += createOpportunityCard(opp);
         }
     });
@@ -2491,9 +3098,14 @@ function createOpportunityCard(opportunity) {
         ? `<span class="flex items-center gap-1"><i class="fas fa-user"></i>${contactName}</span>`
         : '';
 
+    const isSelected = opportunitiesModuleState.selectedId === opportunity.id;
+    const selectedStyles = isSelected
+        ? 'ring-2 ring-blue-500 ring-offset-2 ring-offset-white shadow-md'
+        : 'hover:shadow-md';
+
     return `
-        <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200 cursor-pointer hover:shadow-md transition-shadow"
-             onclick="viewOpportunity('${opportunity.id}')">
+        <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200 cursor-pointer transition-shadow ${selectedStyles}"
+             onclick="selectOpportunity('${opportunity.id}')">
             <div class="flex items-start justify-between mb-2">
                 <div>
                     <h5 class="font-medium text-gray-800">${name}</h5>
@@ -2518,6 +3130,861 @@ function createOpportunityCard(opportunity) {
             </div>
         </div>
     `;
+}
+
+function renderOpportunityTable(opportunities) {
+    const tbody = document.getElementById('opportunitiesTableBody');
+    if (!tbody) {
+        return;
+    }
+
+    if (!opportunities.length) {
+        tbody.innerHTML = '<tr><td colspan="8" class="px-4 py-6 text-center text-gray-500">За вибраними фільтрами угод не знайдено.</td></tr>';
+        return;
+    }
+
+    const rows = opportunities.map(opportunity => {
+        const status = getOpportunityStatus(opportunity);
+        const probability = Number(opportunity.probability) || 0;
+        const valueDisplay = formatCurrency(opportunity.value);
+        const closeDate = formatNullableDate(parseDateValue(opportunity.expected_close_date));
+        const isSelected = opportunitiesModuleState.selectedId === opportunity.id;
+        const rowClasses = isSelected
+            ? 'bg-blue-50/70 border-l-4 border-blue-500'
+            : 'hover:bg-blue-50/50';
+
+        return `
+            <tr class="cursor-pointer ${rowClasses}" onclick="selectOpportunity('${opportunity.id}')">
+                <td class="px-4 py-3 text-sm text-gray-700 font-medium">${sanitizeText(opportunity.name || 'Без назви')}</td>
+                <td class="px-4 py-3 text-sm text-gray-600">${sanitizeText(opportunity.company_name || '—')}</td>
+                <td class="px-4 py-3 text-sm text-gray-600">${sanitizeText(opportunity.stage || '—')}</td>
+                <td class="px-4 py-3 text-sm">${sanitizeText(status)}</td>
+                <td class="px-4 py-3 text-sm text-gray-600">${probability}%</td>
+                <td class="px-4 py-3 text-sm font-semibold text-gray-800">${valueDisplay}</td>
+                <td class="px-4 py-3 text-sm text-gray-600">${closeDate}</td>
+                <td class="px-4 py-3 text-sm text-gray-600">${sanitizeText(opportunity.assigned_to || 'Не призначено')}</td>
+            </tr>
+        `;
+    }).join('');
+
+    tbody.innerHTML = rows;
+}
+
+function updateOpportunityAnalytics(opportunities) {
+    renderOpportunityStageChart(opportunities);
+    renderOpportunityOwnerChart(opportunities);
+    renderOpportunityForecastChart(opportunities);
+}
+
+function destroyOpportunityChart(key) {
+    const instance = opportunitiesModuleState.chartInstances[key];
+    if (instance && typeof instance.destroy === 'function') {
+        instance.destroy();
+    }
+    opportunitiesModuleState.chartInstances[key] = null;
+}
+
+function renderOpportunityStageChart(opportunities) {
+    const canvas = document.getElementById('opportunityStageChart');
+    if (!canvas) {
+        return;
+    }
+
+    destroyOpportunityChart('stage');
+
+    const stageOrder = DEFAULT_SALES_STAGE_ORDER;
+    const counts = stageOrder.map(stage => opportunities.filter(opportunity => String(opportunity.stage) === stage).length);
+
+    opportunitiesModuleState.chartInstances.stage = new Chart(canvas.getContext('2d'), {
+        type: 'bar',
+        data: {
+            labels: stageOrder,
+            datasets: [
+                {
+                    label: 'Кількість угод',
+                    data: counts,
+                    backgroundColor: ['#bfdbfe', '#c7d2fe', '#fde68a', '#fed7aa', '#bbf7d0', '#fecaca'],
+                    borderRadius: 6
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: { beginAtZero: true, ticks: { precision: 0 } }
+            },
+            plugins: { legend: { display: false } }
+        }
+    });
+}
+
+function renderOpportunityOwnerChart(opportunities) {
+    const canvas = document.getElementById('opportunityOwnerChart');
+    if (!canvas) {
+        return;
+    }
+
+    destroyOpportunityChart('owner');
+
+    const totalsByOwner = new Map();
+    opportunities.forEach(opportunity => {
+        const owner = (opportunity.assigned_to || 'Невизначено').trim() || 'Невизначено';
+        const current = totalsByOwner.get(owner) || 0;
+        totalsByOwner.set(owner, current + (Number(opportunity.value) || 0));
+    });
+
+    const labels = Array.from(totalsByOwner.keys());
+    const data = labels.map(label => totalsByOwner.get(label));
+
+    opportunitiesModuleState.chartInstances.owner = new Chart(canvas.getContext('2d'), {
+        type: 'doughnut',
+        data: {
+            labels,
+            datasets: [
+                {
+                    label: 'Сума угод',
+                    data,
+                    backgroundColor: ['#93c5fd', '#a5b4fc', '#fcd34d', '#fdba74', '#86efac', '#fca5a5']
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: { boxWidth: 12, usePointStyle: true }
+                }
+            }
+        }
+    });
+}
+
+function renderOpportunityForecastChart(opportunities) {
+    const canvas = document.getElementById('opportunityForecastChart');
+    if (!canvas) {
+        return;
+    }
+
+    destroyOpportunityChart('forecast');
+
+    const buckets = new Map();
+    opportunities.forEach(opportunity => {
+        const date = parseDateValue(opportunity.expected_close_date);
+        if (!date) {
+            return;
+        }
+        const bucketKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+        const current = buckets.get(bucketKey) || 0;
+        const weighted = (Number(opportunity.value) || 0) * ((Number(opportunity.probability) || 0) / 100);
+        buckets.set(bucketKey, current + weighted);
+    });
+
+    const sortedBuckets = Array.from(buckets.keys()).sort();
+    const labels = sortedBuckets.map(key => {
+        const [year, month] = key.split('-').map(Number);
+        const date = new Date(year, month - 1, 1);
+        return date.toLocaleDateString('uk-UA', { month: 'short', year: 'numeric' });
+    });
+    const data = sortedBuckets.map(key => buckets.get(key));
+
+    opportunitiesModuleState.chartInstances.forecast = new Chart(canvas.getContext('2d'), {
+        type: 'line',
+        data: {
+            labels,
+            datasets: [
+                {
+                    label: 'Прогнозована виручка',
+                    data,
+                    borderColor: '#2563eb',
+                    backgroundColor: 'rgba(37, 99, 235, 0.1)',
+                    tension: 0.3,
+                    fill: true
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback(value) {
+                            return formatCurrency(value);
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+function ensureOpportunitySelection() {
+    const filtered = opportunitiesModuleState.filtered;
+    if (!filtered.length) {
+        opportunitiesModuleState.selectedId = null;
+        renderOpportunityInspector(null);
+        renderOpportunityDocuments(null);
+        renderOpportunityTasks(null);
+        renderOpportunityReminders(null);
+        renderOpportunityHistory(null);
+        renderOpportunitySegmentation(null);
+        renderOpportunityAutomation(null);
+        renderOpportunitySecurity(null);
+        return;
+    }
+
+    if (!opportunitiesModuleState.selectedId || !filtered.some(opportunity => opportunity.id === opportunitiesModuleState.selectedId)) {
+        const preferred = filtered.find(opportunity => getOpportunityStatus(opportunity) !== 'Closed Lost') || filtered[0];
+        opportunitiesModuleState.selectedId = preferred.id;
+    }
+
+    selectOpportunity(opportunitiesModuleState.selectedId, { skipListRefresh: true });
+}
+
+function selectOpportunity(id, options = {}) {
+    if (!id) {
+        opportunitiesModuleState.selectedId = null;
+        renderOpportunityInspector(null);
+        renderOpportunityDocuments(null);
+        renderOpportunityTasks(null);
+        renderOpportunityReminders(null);
+        renderOpportunityHistory(null);
+        renderOpportunitySegmentation(null);
+        renderOpportunityAutomation(null);
+        renderOpportunitySecurity(null);
+        return;
+    }
+
+    opportunitiesModuleState.selectedId = id;
+    const opportunity = opportunitiesModuleState.opportunities.find(item => item.id === id) || null;
+
+    renderOpportunityInspector(opportunity);
+    renderOpportunityDocuments(opportunity);
+    renderOpportunityTasks(opportunity);
+    renderOpportunityReminders(opportunity);
+    renderOpportunityHistory(opportunity);
+    renderOpportunitySegmentation(opportunity);
+    renderOpportunityAutomation(opportunity);
+    renderOpportunitySecurity(opportunity);
+
+    if (!options.skipListRefresh) {
+        displayOpportunitiesPipeline(opportunitiesModuleState.filtered);
+        renderOpportunityTable(opportunitiesModuleState.filtered);
+    }
+}
+
+function renderOpportunityInspector(opportunity) {
+    const container = document.getElementById('opportunityInspector');
+    if (!container) {
+        return;
+    }
+
+    if (!opportunity) {
+        container.innerHTML = `
+            <div>
+                <h4 class="text-lg font-semibold text-gray-800">Картка угоди</h4>
+                <p class="text-sm text-gray-500">Оберіть угоду у канбан-дошці або таблиці, щоб побачити деталі, фінанси та учасників.</p>
+            </div>
+        `;
+        return;
+    }
+
+    const status = getOpportunityStatus(opportunity);
+    const probability = Number(opportunity.probability) || 0;
+    const closeDate = formatNullableDate(parseDateValue(opportunity.expected_close_date));
+    const createdDate = formatNullableDate(deriveOpportunityCreatedDate(opportunity));
+    const opportunityNumber = sanitizeText(opportunity.deal_number || `UG-${String(opportunity.id || '').toUpperCase()}`);
+    const type = sanitizeText(computeOpportunityType(opportunity));
+    const category = sanitizeText(computeOpportunityCategory(opportunity));
+    const forecastCategory = sanitizeText(computeOpportunityForecastCategory(opportunity));
+    const expectedProfit = (Number(opportunity.value) || 0) * 0.35;
+    const paymentStatus = opportunity.payment_status || (status === 'Closed Won' ? 'Очікує оплату' : status === 'Closed Lost' ? 'Не оплачено' : 'У процесі');
+    const paymentTerms = opportunity.payment_terms || 'Net 30';
+    const paymentSchedule = computeOpportunityPaymentSchedule(opportunity);
+    const products = buildOpportunityProducts(opportunity);
+
+    const productsRows = products.length
+        ? products.map(product => `
+                <tr>
+                    <td class="px-3 py-2 text-sm text-gray-700">${sanitizeText(product.name)}</td>
+                    <td class="px-3 py-2 text-sm text-gray-600">${product.quantity}</td>
+                    <td class="px-3 py-2 text-sm text-gray-600">${formatCurrency(product.price)}</td>
+                    <td class="px-3 py-2 text-sm text-gray-700 font-medium">${formatCurrency(product.total)}</td>
+                </tr>`).join('')
+        : '<tr><td colspan="4" class="px-3 py-2 text-sm text-gray-500 text-center">Немає доданих товарів або послуг.</td></tr>';
+
+    const scheduleRows = paymentSchedule.length
+        ? paymentSchedule.map(item => `
+                <tr>
+                    <td class="px-3 py-2 text-sm text-gray-600">${sanitizeText(item.label)}</td>
+                    <td class="px-3 py-2 text-sm text-gray-600">${formatNullableDate(item.date)}</td>
+                    <td class="px-3 py-2 text-sm text-gray-700 font-medium">${formatCurrency(item.amount)}</td>
+                </tr>`).join('')
+        : '<tr><td colspan="3" class="px-3 py-2 text-sm text-gray-500 text-center">Графік платежів буде сформовано після узгодження умов.</td></tr>';
+
+    container.innerHTML = `
+        <div class="flex items-start justify-between">
+            <div>
+                <h4 class="text-lg font-semibold text-gray-800">${sanitizeText(opportunity.name || 'Без назви')}</h4>
+                <p class="text-sm text-gray-500">Номер угоди: ${opportunityNumber}</p>
+            </div>
+            <span class="px-3 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-700">${sanitizeText(status)}</span>
+        </div>
+        <div class="mt-4 grid grid-cols-1 gap-4">
+            <section class="border border-gray-100 rounded-lg p-4 bg-gray-50">
+                <h5 class="text-sm font-semibold text-gray-700 mb-3">1. Основна інформація</h5>
+                <dl class="grid grid-cols-2 gap-x-4 gap-y-2 text-sm text-gray-600">
+                    <div><dt class="font-medium text-gray-700">Тип угоди</dt><dd>${type}</dd></div>
+                    <div><dt class="font-medium text-gray-700">Етап воронки</dt><dd>${sanitizeText(opportunity.stage || '—')}</dd></div>
+                    <div><dt class="font-medium text-gray-700">Категорія</dt><dd>${category}</dd></div>
+                    <div><dt class="font-medium text-gray-700">Пріоритет</dt><dd>${sanitizeText(opportunity.priority || 'Medium')}</dd></div>
+                    <div><dt class="font-medium text-gray-700">Ймовірність</dt><dd>${probability}%</dd></div>
+                    <div><dt class="font-medium text-gray-700">Дата створення</dt><dd>${createdDate}</dd></div>
+                    <div><dt class="font-medium text-gray-700">Очікуване закриття</dt><dd>${closeDate}</dd></div>
+                    <div><dt class="font-medium text-gray-700">Прогнозна категорія</dt><dd>${forecastCategory}</dd></div>
+                </dl>
+            </section>
+            <section class="border border-gray-100 rounded-lg p-4 bg-gray-50">
+                <h5 class="text-sm font-semibold text-gray-700 mb-3">2. Фінансова інформація</h5>
+                <div class="grid grid-cols-2 gap-4 text-sm text-gray-600">
+                    <div>
+                        <p class="font-medium text-gray-700">Сума угоди</p>
+                        <p class="text-lg font-semibold text-gray-900">${formatCurrency(opportunity.value)}</p>
+                    </div>
+                    <div>
+                        <p class="font-medium text-gray-700">Очікуваний прибуток</p>
+                        <p class="text-lg font-semibold text-emerald-600">${formatCurrency(expectedProfit)}</p>
+                    </div>
+                    <div>
+                        <p class="font-medium text-gray-700">Умови оплати</p>
+                        <p>${sanitizeText(paymentTerms)}</p>
+                    </div>
+                    <div>
+                        <p class="font-medium text-gray-700">Статус оплати</p>
+                        <p>${sanitizeText(paymentStatus)}</p>
+                    </div>
+                </div>
+                <div class="mt-4 border border-gray-200 rounded-lg overflow-hidden">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-white">
+                            <tr>
+                                <th class="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase">Платіж</th>
+                                <th class="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase">Дата</th>
+                                <th class="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase">Сума</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white">${scheduleRows}</tbody>
+                    </table>
+                </div>
+            </section>
+            <section class="border border-gray-100 rounded-lg p-4 bg-gray-50">
+                <h5 class="text-sm font-semibold text-gray-700 mb-3">3. Учасники угоди</h5>
+                <ul class="space-y-2 text-sm text-gray-600">
+                    <li><span class="font-medium text-gray-700">Клієнт:</span> ${sanitizeText(opportunity.company_name || '—')}</li>
+                    <li><span class="font-medium text-gray-700">Контактна особа:</span> ${sanitizeText(opportunity.primary_contact_name || '—')}</li>
+                    <li><span class="font-medium text-gray-700">Відповідальний менеджер:</span> ${sanitizeText(opportunity.assigned_to || '—')}</li>
+                    <li><span class="font-medium text-gray-700">Співвиконавці:</span> ${sanitizeText(opportunity.collaborators?.join(', ') || 'Команда продажів')}</li>
+                    <li><span class="font-medium text-gray-700">Партнери / посередники:</span> ${sanitizeText(opportunity.partner_name || 'Не залучено')}</li>
+                </ul>
+            </section>
+            <section class="border border-gray-100 rounded-lg p-4 bg-gray-50">
+                <h5 class="text-sm font-semibold text-gray-700 mb-3">4. Продукти та послуги</h5>
+                <div class="border border-gray-200 rounded-lg overflow-hidden">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-white">
+                            <tr>
+                                <th class="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase">Найменування</th>
+                                <th class="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase">К-сть</th>
+                                <th class="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase">Ціна</th>
+                                <th class="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase">Разом</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white">${productsRows}</tbody>
+                    </table>
+                </div>
+            </section>
+            <section class="border border-gray-100 rounded-lg p-4 bg-gray-50">
+                <h5 class="text-sm font-semibold text-gray-700 mb-3">5. Документи та файли</h5>
+                <div id="opportunityDocumentsInline"></div>
+            </section>
+        </div>
+    `;
+
+    const inlineDocsContainer = container.querySelector('#opportunityDocumentsInline');
+    if (inlineDocsContainer) {
+        inlineDocsContainer.replaceWith(renderOpportunityDocuments(opportunity, { returnHtml: true }));
+    }
+}
+
+function deriveOpportunityCreatedDate(opportunity) {
+    if (!opportunity) {
+        return null;
+    }
+    if (opportunity.created_at) {
+        return parseDateValue(opportunity.created_at);
+    }
+    const expected = parseDateValue(opportunity.expected_close_date);
+    if (!expected) {
+        return null;
+    }
+    const clone = new Date(expected);
+    clone.setDate(clone.getDate() - 45);
+    return clone;
+}
+
+function computeOpportunityType(opportunity) {
+    if (!opportunity) {
+        return 'Продаж';
+    }
+    if (opportunity.type) {
+        return opportunity.type;
+    }
+    if (String(opportunity.name || '').toLowerCase().includes('оренда')) {
+        return 'Оренда';
+    }
+    if (String(opportunity.name || '').toLowerCase().includes('партнер')) {
+        return 'Партнерська угода';
+    }
+    return 'Продаж';
+}
+
+function computeOpportunityCategory(opportunity) {
+    if (!opportunity) {
+        return 'Стандарт';
+    }
+    if (opportunity.category) {
+        return opportunity.category;
+    }
+    const value = Number(opportunity.value) || 0;
+    if (value >= 90000) {
+        return 'Проект';
+    }
+    if (value >= 50000) {
+        return 'Опт';
+    }
+    return 'Стандарт';
+}
+
+function computeOpportunityForecastCategory(opportunity) {
+    const probability = Number(opportunity?.probability) || 0;
+    if (getOpportunityStatus(opportunity) === 'Closed Won') {
+        return 'Closed';
+    }
+    if (probability >= 75) {
+        return 'Commit';
+    }
+    if (probability >= 50) {
+        return 'Best Case';
+    }
+    return 'Pipeline';
+}
+
+function computeOpportunityPaymentSchedule(opportunity) {
+    const value = Number(opportunity?.value) || 0;
+    if (value <= 0) {
+        return [];
+    }
+    const closeDate = parseDateValue(opportunity?.expected_close_date);
+    const baseDate = closeDate || new Date();
+    const milestone1 = new Date(baseDate);
+    const milestone2 = new Date(baseDate);
+    milestone1.setDate(baseDate.getDate() - 7);
+    milestone2.setDate(baseDate.getDate() + 30);
+
+    return [
+        { label: 'Аванс 50%', date: milestone1, amount: value * 0.5 },
+        { label: 'Фінальний платіж 50%', date: milestone2, amount: value * 0.5 }
+    ];
+}
+
+function buildOpportunityProducts(opportunity) {
+    const value = Number(opportunity?.value) || 0;
+    const baseProduct = {
+        name: opportunity?.name || 'CRM рішення',
+        quantity: 1,
+        price: value,
+        total: value
+    };
+
+    if (opportunity?.line_items && Array.isArray(opportunity.line_items) && opportunity.line_items.length) {
+        return opportunity.line_items.map(item => ({
+            name: item.name || item.description || 'Позиція',
+            quantity: item.quantity || 1,
+            price: item.price || 0,
+            total: (item.quantity || 1) * (item.price || 0)
+        }));
+    }
+
+    const addon = Math.max(Math.round(value * 0.1), 2500);
+    return value
+        ? [
+            baseProduct,
+            { name: 'Впровадження та навчання', quantity: 1, price: addon, total: addon }
+        ]
+        : [baseProduct];
+}
+
+function formatNullableDate(date) {
+    if (!date) {
+        return '—';
+    }
+    return formatDate(date.toISOString ? date.toISOString() : date);
+}
+
+function renderOpportunityDocuments(opportunity, options = {}) {
+    const returnHtml = Boolean(options.returnHtml);
+    const files = Array.isArray(opportunitiesModuleState.files) ? opportunitiesModuleState.files : [];
+    let html;
+
+    if (!opportunity) {
+        html = `
+            <div class="text-sm text-gray-500">
+                Додайте угоду, щоб прикріпити договори, комерційні пропозиції та акти виконаних робіт.
+            </div>
+        `;
+    } else {
+        const relatedFiles = files.filter(file => {
+            return file.opportunity_id === opportunity.id
+                || file.related_to === opportunity.id
+                || (opportunity.company_id && file.company_id === opportunity.company_id);
+        });
+
+        if (!relatedFiles.length) {
+            html = '<div class="text-sm text-gray-500">Немає прикріплених документів. Додайте пропозицію або договір.</div>';
+        } else {
+            const items = relatedFiles.map(file => `
+                <li class="flex items-center justify-between text-sm text-gray-600">
+                    <div class="flex items-center gap-2">
+                        <i class="fas fa-file-alt text-gray-400"></i>
+                        <span>${sanitizeText(file.name)}</span>
+                    </div>
+                    <span class="text-xs text-gray-400">${formatNullableDate(parseDateValue(file.updated_at))}</span>
+                </li>
+            `).join('');
+            html = `<ul class="space-y-2">${items}</ul>`;
+        }
+    }
+
+    if (returnHtml) {
+        const wrapper = document.createElement('div');
+        wrapper.innerHTML = html;
+        return wrapper.firstElementChild || wrapper;
+    }
+
+    const container = document.getElementById('opportunityDocuments');
+    if (container) {
+        container.innerHTML = `
+            <h4 class="text-lg font-semibold text-gray-800 mb-3">Документи та файли</h4>
+            ${html}
+        `;
+    }
+}
+
+function renderOpportunityTasks(opportunity) {
+    const container = document.getElementById('opportunityTasks');
+    if (!container) {
+        return;
+    }
+
+    if (!opportunity) {
+        container.innerHTML = '<li class="text-sm text-gray-500">Оберіть угоду, щоб переглянути пов’язані завдання.</li>';
+        return;
+    }
+
+    const tasks = (opportunitiesModuleState.tasks || []).filter(task => {
+        return task.related_to === opportunity.id
+            || task.opportunity_id === opportunity.id
+            || (opportunity.primary_contact_id && task.contact_id === opportunity.primary_contact_id);
+    });
+
+    if (!tasks.length) {
+        container.innerHTML = '<li class="text-sm text-gray-500">Завдань по цій угоді поки немає.</li>';
+        return;
+    }
+
+    const items = tasks
+        .sort((a, b) => new Date(a.due_date || 0) - new Date(b.due_date || 0))
+        .map(task => `
+            <li class="border border-gray-200 rounded-lg p-3 bg-white shadow-sm">
+                <div class="flex items-center justify-between">
+                    <p class="font-medium text-gray-700">${sanitizeText(task.title)}</p>
+                    <span class="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">${sanitizeText(task.status || '—')}</span>
+                </div>
+                <p class="text-sm text-gray-500 mt-1">${sanitizeText(task.description || '')}</p>
+                <div class="mt-2 flex items-center justify-between text-xs text-gray-400">
+                    <span><i class="fas fa-calendar-alt mr-1"></i>${formatNullableDate(parseDateValue(task.due_date))}</span>
+                    <span><i class="fas fa-user mr-1"></i>${sanitizeText(task.assigned_to || '—')}</span>
+                </div>
+            </li>
+        `).join('');
+
+    container.innerHTML = items;
+}
+
+function renderOpportunityReminders(opportunity) {
+    const container = document.getElementById('opportunityReminders');
+    if (!container) {
+        return;
+    }
+
+    if (!opportunity) {
+        container.innerHTML = '<li class="text-sm text-gray-500">Оберіть угоду, щоб переглянути нагадування.</li>';
+        return;
+    }
+
+    const reminders = buildPaymentReminderItems(opportunity);
+    if (!reminders.length) {
+        container.innerHTML = '<li class="text-sm text-gray-500">Немає запланованих нагадувань.</li>';
+        return;
+    }
+
+    container.innerHTML = reminders.map(item => `
+        <li class="flex items-start gap-3 border border-blue-100 rounded-lg p-3 bg-blue-50/60">
+            <i class="fas fa-bell text-blue-500 mt-0.5"></i>
+            <div>
+                <p class="text-sm font-medium text-blue-900">${sanitizeText(item.title)}</p>
+                <p class="text-xs text-blue-700">${sanitizeText(item.description)}</p>
+                <p class="text-xs text-blue-500 mt-1"><i class="fas fa-calendar mr-1"></i>${formatNullableDate(item.date)}</p>
+            </div>
+        </li>
+    `).join('');
+}
+
+function buildPaymentReminderItems(opportunity) {
+    const reminders = [];
+    const schedule = computeOpportunityPaymentSchedule(opportunity);
+    schedule.forEach(item => {
+        reminders.push({
+            title: item.label,
+            description: 'Контроль платежу за угодою',
+            date: item.date
+        });
+    });
+
+    const tasks = (opportunitiesModuleState.tasks || []).filter(task => task.related_to === opportunity.id && task.due_date);
+    tasks.forEach(task => {
+        reminders.push({
+            title: `Завдання: ${task.title}`,
+            description: task.description || 'Підготовка активності',
+            date: parseDateValue(task.due_date)
+        });
+    });
+
+    return reminders.sort((a, b) => new Date(a.date || 0) - new Date(b.date || 0));
+}
+
+function renderOpportunityHistory(opportunity) {
+    const container = document.getElementById('opportunityHistory');
+    if (!container) {
+        return;
+    }
+
+    if (!opportunity) {
+        container.innerHTML = '<p class="text-sm text-gray-500">Оберіть угоду, щоб переглянути історію взаємодій.</p>';
+        return;
+    }
+
+    const activities = (opportunitiesModuleState.activities || []).filter(activity => activityMatchesOpportunity(activity, opportunity));
+    const notes = (opportunitiesModuleState.notes || []).filter(note => noteMatchesOpportunity(note, opportunity));
+
+    const entries = [];
+    activities.forEach(activity => {
+        entries.push({
+            date: parseDateValue(activity.date),
+            title: activity.subject || activity.type,
+            description: activity.description || '',
+            type: activity.type || 'Activity'
+        });
+    });
+    notes.forEach(note => {
+        entries.push({
+            date: parseDateValue(note.updated_at || note.created_at),
+            title: note.title,
+            description: note.content,
+            type: 'Нотатка'
+        });
+    });
+
+    if (!entries.length) {
+        container.innerHTML = '<p class="text-sm text-gray-500">Немає зафіксованих взаємодій.</p>';
+        return;
+    }
+
+    entries.sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
+
+    container.innerHTML = entries.map(entry => `
+        <div class="border border-gray-200 rounded-lg p-4 bg-white shadow-sm">
+            <div class="flex items-center justify-between">
+                <p class="font-medium text-gray-700">${sanitizeText(entry.title || 'Активність')}</p>
+                <span class="text-xs text-gray-400">${formatNullableDate(entry.date)}</span>
+            </div>
+            <p class="text-xs uppercase text-gray-400 mt-1">${sanitizeText(entry.type)}</p>
+            <p class="text-sm text-gray-600 mt-2">${sanitizeText(entry.description || 'Без опису')}</p>
+        </div>
+    `).join('');
+}
+
+function renderOpportunitySegmentation(opportunity) {
+    const tagsContainer = document.getElementById('opportunitySegmentation');
+    const groupsContainer = document.getElementById('opportunityGroups');
+
+    if (tagsContainer) {
+        if (!opportunity) {
+            tagsContainer.innerHTML = '<span class="text-sm text-gray-500">Оберіть угоду, щоб побачити теги та категорії.</span>';
+        } else {
+            const tags = buildOpportunityTags(opportunity);
+            tagsContainer.innerHTML = tags.map(tag => `<span class="px-3 py-1 bg-blue-50 text-blue-700 text-sm rounded-full border border-blue-100">${sanitizeText(tag)}</span>`).join('');
+        }
+    }
+
+    if (groupsContainer) {
+        groupsContainer.innerHTML = opportunity ? renderOpportunityGroups(opportunity) : '';
+    }
+}
+
+function buildOpportunityTags(opportunity) {
+    const tags = new Set();
+    if (!opportunity) {
+        return Array.from(tags);
+    }
+    tags.add(`Етап: ${opportunity.stage || '—'}`);
+    tags.add(`Пріоритет: ${opportunity.priority || 'Medium'}`);
+    tags.add(`Статус: ${getOpportunityStatus(opportunity)}`);
+    tags.add(`Категорія: ${computeOpportunityCategory(opportunity)}`);
+    if (opportunity.competitor_name) {
+        tags.add(`Конкурент: ${opportunity.competitor_name}`);
+    }
+    const value = Number(opportunity.value) || 0;
+    if (value >= 75000) {
+        tags.add('Велика угода');
+    }
+    if (value <= 30000) {
+        tags.add('SMB сегмент');
+    }
+    return Array.from(tags);
+}
+
+function renderOpportunityGroups(opportunity) {
+    const businessType = opportunity.company_name && /inc|llc|corp/i.test(opportunity.company_name)
+        ? 'B2B'
+        : 'B2C';
+    const category = computeOpportunityCategory(opportunity);
+    const forecast = computeOpportunityForecastCategory(opportunity);
+
+    return `
+        <div class="border border-gray-200 rounded-lg p-4 bg-white shadow-sm">
+            <p class="text-xs uppercase text-gray-400">Сегмент</p>
+            <p class="text-sm font-semibold text-gray-800">${sanitizeText(businessType)}</p>
+            <p class="text-xs text-gray-500 mt-1">Тип клієнта за природою бізнесу</p>
+        </div>
+        <div class="border border-gray-200 rounded-lg p-4 bg-white shadow-sm">
+            <p class="text-xs uppercase text-gray-400">Категорія</p>
+            <p class="text-sm font-semibold text-gray-800">${sanitizeText(category)}</p>
+            <p class="text-xs text-gray-500 mt-1">Рівень потенціалу угоди</p>
+        </div>
+        <div class="border border-gray-200 rounded-lg p-4 bg-white shadow-sm">
+            <p class="text-xs uppercase text-gray-400">Forecast</p>
+            <p class="text-sm font-semibold text-gray-800">${sanitizeText(forecast)}</p>
+            <p class="text-xs text-gray-500 mt-1">Категорія прогнозу продажів</p>
+        </div>
+        <div class="border border-gray-200 rounded-lg p-4 bg-white shadow-sm">
+            <p class="text-xs uppercase text-gray-400">Конкурентність</p>
+            <p class="text-sm font-semibold text-gray-800">${sanitizeText(opportunity.competitor_name || 'Без конкуренції')}</p>
+            <p class="text-xs text-gray-500 mt-1">Відстежуваний конкурент або партнер</p>
+        </div>
+    `;
+}
+
+function renderOpportunityAutomation(opportunity) {
+    const container = document.getElementById('opportunityAutomation');
+    if (!container) {
+        return;
+    }
+
+    if (!opportunity) {
+        container.innerHTML = `
+            <h4 class="text-lg font-semibold text-gray-800 mb-3">Автоматизація та інтеграції</h4>
+            <p class="text-sm text-gray-500">Після вибору угоди ви зможете налаштувати автоматичне оновлення статусів та інтеграції.</p>
+        `;
+        return;
+    }
+
+    container.innerHTML = `
+        <h4 class="text-lg font-semibold text-gray-800 mb-3">Автоматизація та інтеграції</h4>
+        <ul class="space-y-3 text-sm text-gray-600">
+            <li class="flex items-start gap-2"><i class="fas fa-robot text-blue-500 mt-0.5"></i><div><p class="font-medium text-gray-700">Автоматичне оновлення статусу</p><p>Статус змінюється автоматично при закритті угоди.</p></div></li>
+            <li class="flex items-start gap-2"><i class="fas fa-envelope-open-text text-blue-500 mt-0.5"></i><div><p class="font-medium text-gray-700">Синхронізація з email</p><p>Пов’язані листи додаються до історії взаємодій.</p></div></li>
+            <li class="flex items-start gap-2"><i class="fas fa-calendar-alt text-blue-500 mt-0.5"></i><div><p class="font-medium text-gray-700">Синхронізація з календарем</p><p>Зустрічі та дзвінки додаються до календаря відповідального менеджера.</p></div></li>
+            <li class="flex items-start gap-2"><i class="fas fa-file-invoice-dollar text-blue-500 mt-0.5"></i><div><p class="font-medium text-gray-700">Інтеграція з бухгалтерією</p><p>Оплати передаються до ERP після підтвердження статусу «${sanitizeText(getOpportunityStatus(opportunity))}».</p></div></li>
+        </ul>
+    `;
+}
+
+function renderOpportunitySecurity(opportunity) {
+    const container = document.getElementById('opportunitySecurity');
+    if (!container) {
+        return;
+    }
+
+    if (!opportunity) {
+        container.innerHTML = `
+            <h4 class="text-lg font-semibold text-gray-800 mb-3">Безпека та доступ</h4>
+            <p class="text-sm text-gray-500">Виберіть угоду, щоб переглянути, хто має до неї доступ.</p>
+        `;
+        return;
+    }
+
+    container.innerHTML = `
+        <h4 class="text-lg font-semibold text-gray-800 mb-3">Безпека та доступ</h4>
+        <ul class="space-y-2 text-sm text-gray-600">
+            <li><span class="font-medium text-gray-700">Власник угоди:</span> ${sanitizeText(opportunity.assigned_to || '—')}</li>
+            <li><span class="font-medium text-gray-700">Команда продажів:</span> Доступ на редагування</li>
+            <li><span class="font-medium text-gray-700">Фінансовий відділ:</span> Доступ до фінансового блоку</li>
+            <li><span class="font-medium text-gray-700">Історія змін:</span> Логи оновлень доступні у CRM</li>
+        </ul>
+    `;
+}
+
+function activityMatchesOpportunity(activity, opportunity) {
+    if (!activity || !opportunity) {
+        return false;
+    }
+    if (activity.opportunity_id && activity.opportunity_id === opportunity.id) {
+        return true;
+    }
+    if (activity.related_to && activity.related_to === opportunity.id) {
+        return true;
+    }
+    if (activity.contact_id && opportunity.primary_contact_id && activity.contact_id === opportunity.primary_contact_id) {
+        return true;
+    }
+    if (activity.company_id && opportunity.company_id && activity.company_id === opportunity.company_id) {
+        return true;
+    }
+    return false;
+}
+
+function noteMatchesOpportunity(note, opportunity) {
+    if (!note || !opportunity) {
+        return false;
+    }
+    if (note.entity_type === 'opportunities' && note.entity_id === opportunity.id) {
+        return true;
+    }
+    if (note.entity_type === 'companies' && note.entity_id === opportunity.company_id) {
+        return true;
+    }
+    if (note.entity_type === 'contacts' && note.entity_id === opportunity.primary_contact_id) {
+        return true;
+    }
+    return false;
 }
 
 // Sales Module
@@ -16318,7 +17785,17 @@ async function showMarketing() {
 
 // Placeholder view functions for other modules
 
-async function viewOpportunity(id) { showToast('View opportunity - to be implemented', 'info'); }
+async function viewOpportunity(id) {
+    if (!id) {
+        return;
+    }
+    if (typeof currentView !== 'undefined' && currentView !== 'opportunities') {
+        await showOpportunities();
+    } else if (!opportunitiesModuleState.opportunities.length) {
+        await loadOpportunities();
+    }
+    selectOpportunity(id);
+}
 async function editOpportunity(id) { showToast('Edit opportunity - to be implemented', 'info'); }
 async function deleteOpportunity(id) { showToast('Delete opportunity - to be implemented', 'info'); }
 
@@ -16377,5 +17854,24 @@ async function deleteActivity(id) {
 }
 
 function toggleOpportunityView() {
-    showToast('Opportunity view toggle - to be implemented', 'info');
+    const boardWrapper = document.getElementById('opportunityBoardWrapper');
+    const tableWrapper = document.getElementById('opportunityTableWrapper');
+    const toggleButton = document.getElementById('viewToggle');
+
+    if (!boardWrapper || !tableWrapper || !toggleButton) {
+        showToast('Не вдалося переключити вигляд угод', 'warning');
+        return;
+    }
+
+    if (opportunitiesModuleState.viewMode === 'board') {
+        opportunitiesModuleState.viewMode = 'table';
+        boardWrapper.classList.add('hidden');
+        tableWrapper.classList.remove('hidden');
+        toggleButton.textContent = 'Повернутися до канбану';
+    } else {
+        opportunitiesModuleState.viewMode = 'board';
+        tableWrapper.classList.add('hidden');
+        boardWrapper.classList.remove('hidden');
+        toggleButton.textContent = 'Перейти до табличного вигляду';
+    }
 }
