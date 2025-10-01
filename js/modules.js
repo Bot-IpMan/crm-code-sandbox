@@ -444,61 +444,86 @@ async function showLeads() {
     );
 
     leadsView.innerHTML = `
-        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-            <div class="flex items-center justify-between mb-6">
-                <div class="flex items-center space-x-4">
-                    <h3 class="text-lg font-semibold text-gray-800" data-i18n="leads.heading">All Leads</h3>
-                    <div class="relative">
-                        <input type="text" id="leadSearch" placeholder="Search leads..." data-i18n="leads.searchPlaceholder" data-i18n-attr="placeholder"
-                               class="pl-10 pr-4 py-2 w-64 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                        <i class="fas fa-search absolute left-3 top-3 text-gray-400"></i>
+        <div class="space-y-6">
+            <section>
+                <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4" id="leadSummaryCards"></div>
+            </section>
+
+            <section class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
+                    <div class="flex flex-col md:flex-row md:items-center md:space-x-4 gap-3">
+                        <div>
+                            <h3 class="text-lg font-semibold text-gray-800" data-i18n="leads.heading">All Leads</h3>
+                            <p class="text-sm text-gray-500">Керуйте потенційними клієнтами від першого контакту до конверсії.</p>
+                        </div>
+                        <div class="relative">
+                            <input type="text" id="leadSearch" placeholder="Search leads..." data-i18n="leads.searchPlaceholder" data-i18n-attr="placeholder"
+                                   class="pl-10 pr-4 py-2 w-full md:w-64 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                            <i class="fas fa-search absolute left-3 top-3 text-gray-400"></i>
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-3">
+                        <button onclick="showLeadForm()" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                            <i class="fas fa-plus mr-2"></i><span data-i18n="leads.addLead">Add Lead</span>
+                        </button>
                     </div>
                 </div>
-                <div class="flex items-center space-x-3">
-                    <button onclick="showLeadForm()" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-                        <i class="fas fa-plus mr-2"></i><span data-i18n="leads.addLead">Add Lead</span>
-                    </button>
+
+                <div class="flex flex-col md:flex-row md:items-center md:space-x-4 gap-3 mb-6">
+                    <select id="leadStatusFilter" class="border border-gray-300 rounded-lg px-3 py-2 w-full md:w-auto">
+                        ${leadStatusOptions}
+                    </select>
+                    <select id="leadPriorityFilter" class="border border-gray-300 rounded-lg px-3 py-2 w-full md:w-auto">
+                        ${leadPriorityOptions}
+                    </select>
+                    <div class="flex-1">
+                        <div class="flex flex-wrap gap-2 text-xs text-gray-500">
+                            <span class="inline-flex items-center px-3 py-1 rounded-full bg-blue-50 text-blue-700"><i class="fas fa-filter mr-2"></i>Фільтри за статусом, джерелом та менеджером</span>
+                            <span class="inline-flex items-center px-3 py-1 rounded-full bg-emerald-50 text-emerald-700"><i class="fas fa-clock mr-2"></i>Використовуйте пошук за ключовими словами</span>
+                        </div>
+                    </div>
                 </div>
-            </div>
 
-            <div class="flex items-center space-x-4 mb-6">
-                <select id="leadStatusFilter" class="border border-gray-300 rounded-lg px-3 py-2">
-                    ${leadStatusOptions}
-                </select>
-                <select id="leadPriorityFilter" class="border border-gray-300 rounded-lg px-3 py-2">
-                    ${leadPriorityOptions}
-                </select>
-            </div>
-
-            <div class="overflow-x-auto">
-                <table class="w-full">
-                    <thead class="bg-gray-50">
-                        <tr>
-                            <th class="text-left p-3 font-medium text-gray-600" data-i18n="leads.table.title">Lead Title</th>
-                            <th class="text-left p-3 font-medium text-gray-600" data-i18n="leads.table.value">Value</th>
-                            <th class="text-left p-3 font-medium text-gray-600" data-i18n="leads.table.status">Status</th>
-                            <th class="text-left p-3 font-medium text-gray-600" data-i18n="leads.table.priority">Priority</th>
-                            <th class="text-left p-3 font-medium text-gray-600" data-i18n="leads.table.expectedClose">Expected Close</th>
-                            <th class="text-left p-3 font-medium text-gray-600" data-i18n="leads.table.assignedTo">Assigned To</th>
-                            <th class="text-left p-3 font-medium text-gray-600" data-i18n="leads.table.actions">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody id="leadsTableBody">
-                    </tbody>
-                </table>
-            </div>
-
-            <div id="leadsPagination" class="mt-6 flex items-center justify-between">
-            </div>
-
-            <div class="mt-10 space-y-4">
-                <div>
-                    <h4 class="text-lg font-semibold text-gray-800" data-i18n="leads.board.title">Lead Pipeline</h4>
-                    <p class="text-sm text-gray-500" data-i18n="leads.board.subtitle">Drag and drop leads between stages or update them inline.</p>
+                <div class="overflow-x-auto">
+                    <table class="w-full">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="text-left p-3 font-medium text-gray-600" data-i18n="leads.table.title">Lead Title</th>
+                                <th class="text-left p-3 font-medium text-gray-600" data-i18n="leads.table.value">Value</th>
+                                <th class="text-left p-3 font-medium text-gray-600" data-i18n="leads.table.status">Status</th>
+                                <th class="text-left p-3 font-medium text-gray-600" data-i18n="leads.table.priority">Priority</th>
+                                <th class="text-left p-3 font-medium text-gray-600" data-i18n="leads.table.expectedClose">Expected Close</th>
+                                <th class="text-left p-3 font-medium text-gray-600" data-i18n="leads.table.assignedTo">Assigned To</th>
+                                <th class="text-left p-3 font-medium text-gray-600" data-i18n="leads.table.actions">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="leadsTableBody">
+                        </tbody>
+                    </table>
                 </div>
-                <div id="leadKanbanBoard" class="overflow-x-auto pb-2">
+
+                <div id="leadsPagination" class="mt-6 flex items-center justify-between">
                 </div>
-            </div>
+
+                <div class="mt-10 space-y-4">
+                    <div>
+                        <h4 class="text-lg font-semibold text-gray-800" data-i18n="leads.board.title">Lead Pipeline</h4>
+                        <p class="text-sm text-gray-500" data-i18n="leads.board.subtitle">Drag and drop leads between stages or update them inline.</p>
+                    </div>
+                    <div id="leadKanbanBoard" class="overflow-x-auto pb-2">
+                    </div>
+                </div>
+            </section>
+
+            <section class="grid grid-cols-1 xl:grid-cols-3 gap-6" id="leadDetailLayout">
+                <div class="space-y-6 xl:col-span-2" id="leadDetailPrimary"></div>
+                <div class="space-y-6" id="leadDetailSidebar"></div>
+            </section>
+
+            <section class="grid grid-cols-1 xl:grid-cols-2 gap-6" id="leadAnalyticsLayout">
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6" id="leadAnalyticsPanel"></div>
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6" id="leadFilterPanel"></div>
+            </section>
         </div>
     `;
 
@@ -531,8 +556,30 @@ async function loadLeads(page = 1, search, status, priority) {
         const response = await fetch(`tables/leads?${params.toString()}`);
         const data = await response.json();
 
-        displayLeads(data.data || []);
+        const rawLeads = Array.isArray(data.data) ? data.data : [];
+        const enrichedLeads = rawLeads.map(enrichLeadRecord);
+
+        leadExperienceState.leads = enrichedLeads;
+        leadExperienceState.leadsById = new Map(
+            enrichedLeads
+                .filter(lead => lead && lead.id)
+                .map(lead => [String(lead.id), lead])
+        );
+
+        if (!leadExperienceState.selectedLeadId || !leadExperienceState.leadsById.has(leadExperienceState.selectedLeadId)) {
+            leadExperienceState.selectedLeadId = enrichedLeads.length ? String(enrichedLeads[0].id) : null;
+        }
+
+        displayLeads(enrichedLeads);
         displayPagination('leads', data, page);
+        renderLeadSummary(enrichedLeads);
+        renderLeadAnalytics(enrichedLeads);
+        renderLeadFilterPanel(enrichedLeads);
+        const selectedLead = leadExperienceState.selectedLeadId
+            ? leadExperienceState.leadsById.get(leadExperienceState.selectedLeadId)
+            : null;
+        renderLeadDetail(selectedLead || null);
+        updateLeadSelectionHighlight();
 
     } catch (error) {
         console.error('Error loading leads:', error);
@@ -589,13 +636,37 @@ function displayLeads(leads) {
             ? sanitizeText(new Date(lead.expected_close_date).toLocaleDateString(currentLanguage === 'uk' ? 'uk-UA' : undefined))
             : sanitizeText(translate('leads.notSet'));
         const assignedTo = lead.assigned_to ? sanitizeText(lead.assigned_to) : sanitizeText(translate('leads.unassigned'));
+        const profile = lead.detailProfile || buildLeadDetailProfile(lead);
+        const contactName = profile?.contact?.fullName || lead.contact_name || '';
+        const contactRole = profile?.contact?.jobTitle || '';
+        const companyName = profile?.company || lead.company_name || '';
+        const contactEmail = profile?.contact?.emails?.[0] || lead.contact_email || '';
+        const detailChips = [contactName, contactRole, companyName].filter(Boolean).slice(0, 2);
+        const chipHtml = detailChips.length
+            ? `<div class="flex flex-wrap gap-2 mt-2">${detailChips.map(text => `<span class="inline-flex items-center rounded-full bg-blue-50 text-blue-700 px-2 py-0.5 text-xs"><i class="fas fa-user-circle mr-1"></i>${sanitizeText(text)}</span>`).join('')}</div>`
+            : '';
+        const contactLinks = [];
+        if (contactEmail) {
+            const emailHref = sanitizeText(`mailto:${contactEmail}`);
+            contactLinks.push(`<a href="${emailHref}" class="text-blue-600 hover:underline"><i class="far fa-envelope mr-1"></i>${sanitizeText(contactEmail)}</a>`);
+        }
+        if (profile?.contact?.phones?.length) {
+            const firstPhone = profile.contact.phones[0];
+            const phoneHref = sanitizeText(`tel:${String(firstPhone).replace(/[^0-9+]/g, '')}`);
+            contactLinks.push(`<a href="${phoneHref}" class="text-blue-600 hover:underline"><i class="fas fa-phone mr-1"></i>${sanitizeText(firstPhone)}</a>`);
+        }
+        const contactLinksHtml = contactLinks.length
+            ? `<div class="mt-1 flex flex-wrap gap-3 text-xs text-gray-500">${contactLinks.join('')}</div>`
+            : '';
 
         return `
-            <tr class="border-b border-gray-100 hover:bg-gray-50">
+            <tr class="border-b border-gray-100 hover:bg-blue-50/40 transition-colors cursor-pointer" data-lead-row data-lead-id="${safeLeadId}">
                 <td class="p-3">
                     <div>
                         <p class="font-medium text-gray-800">${safeTitle}</p>
                         <p class="text-sm text-gray-600">${descriptionPreview}</p>
+                        ${chipHtml}
+                        ${contactLinksHtml}
                     </div>
                 </td>
                 <td class="p-3 text-gray-600">${formatCurrency(lead.value)}</td>
@@ -623,8 +694,10 @@ function displayLeads(leads) {
         `;
     }).join('');
 
+    setupLeadRowSelection();
     renderLeadKanban(leads);
     initializeLeadStatusControls();
+    updateLeadSelectionHighlight();
     applyTranslations();
 }
 
@@ -651,6 +724,1309 @@ const leadKanbanCache = {
     dragContext: null,
     leadsById: new Map()
 };
+
+const LEAD_DETAIL_LIBRARY = {
+    'lead-1': {
+        contact: {
+            fullName: 'Майкл Чен',
+            jobTitle: 'Директор з ІТ',
+            phones: ['+1 (555) 987-6543 (роб.)', '+1 (555) 123-9876 (моб.)'],
+            emails: ['michael.chen@globalmanufacturing.com'],
+            address: '250 Industrial Way, Чикаго, IL 60601, США',
+            socials: [
+                { label: 'LinkedIn', url: 'https://www.linkedin.com/in/michaelchen-it' }
+            ],
+            language: 'англійська',
+            timezone: 'America/Chicago'
+        },
+        industry: 'Виробництво',
+        sourceDetail: 'Вхідна заявка з сайту',
+        funnel: {
+            stage: 'Кваліфікація',
+            probability: 60,
+            statusLabel: 'Кваліфікований'
+        },
+        interest: {
+            products: ['Платформа аналітики для виробництва', 'Модуль інтеграції з ERP'],
+            budget: '80 000 $',
+            decisionTimeline: 'Кінець червня 2024',
+            pains: [
+                'Потрібна консолідація даних з виробничих ліній',
+                'Потрібні автоматичні звіти для топ-менеджменту'
+            ]
+        },
+        interactions: {
+            communications: [
+                {
+                    type: 'call',
+                    date: '2024-05-10T14:30:00Z',
+                    subject: 'Огляд технічних вимог',
+                    summary: 'Обговорили інтеграцію з SAP та вимоги до кібербезпеки.',
+                    owner: 'Emily Johnson',
+                    duration: '35 хв'
+                },
+                {
+                    type: 'email',
+                    date: '2024-05-07T09:10:00Z',
+                    subject: 'Надсилання презентації',
+                    summary: 'Відправлено демо-матеріали та ROI-калькулятор для фінансової команди.',
+                    owner: 'Emily Johnson'
+                },
+                {
+                    type: 'meeting',
+                    date: '2024-05-02T16:00:00Z',
+                    subject: 'Стартова демонстрація',
+                    summary: '5 учасників. Узгоджено наступні кроки та пілотний сценарій.',
+                    owner: 'Emily Johnson',
+                    participants: ['Michael Chen', 'Emily Johnson', 'Noah Patel']
+                }
+            ],
+            notes: [
+                {
+                    date: '2024-05-11T11:00:00Z',
+                    author: 'Emily Johnson',
+                    content: 'Очікують розрахунок окупності окремо для виробництва та фінансів.'
+                }
+            ]
+        },
+        tasks: {
+            upcoming: [
+                {
+                    title: 'Надіслати технічний аудит',
+                    due: '2024-05-18',
+                    owner: 'Emily Johnson',
+                    type: 'Email',
+                    priority: 'High'
+                },
+                {
+                    title: 'Погодити пілотний сценарій',
+                    due: '2024-05-22',
+                    owner: 'Michael Chen',
+                    type: 'Meeting',
+                    priority: 'Medium'
+                }
+            ],
+            reminders: [
+                {
+                    title: 'Follow-up після security review',
+                    due: '2024-05-20T09:00:00Z',
+                    channel: 'CRM-сповіщення'
+                }
+            ]
+        },
+        segmentation: {
+            tags: ['Гарячий лід', 'B2B', 'Виробництво'],
+            groups: ['Пілот 2024', 'Північна Америка'],
+            rating: 4.7
+        },
+        financial: {
+            expectedAmount: 75000,
+            currency: 'USD',
+            proposals: [
+                { name: 'Комерційна пропозиція v1', amount: 72000, status: 'Надіслано', date: '2024-05-08' },
+                { name: 'Пакет підтримки', amount: 5000, status: 'Обговорюється', date: '2024-05-12' }
+            ]
+        },
+        automation: {
+            assignment: 'Менеджер: Emily Johnson (регіон США)',
+            emailCampaigns: ['Вітальна послідовність для виробництва', 'Розсилка з кейсами клієнтів'],
+            chatbots: ['Чат-бот сайту (форма RFP)'],
+            calendarSync: ['Google Calendar'],
+            integrations: ['Azure AD Sync', 'Slack Alerts']
+        },
+        analytics: {
+            conversionProbability: 68,
+            avgResponseHours: 12,
+            sourceEffectiveness: 'Висока: 35% виграних угод з вебсайту',
+            newLeadsThisMonth: 8,
+            avgHandlingDays: 18,
+            processingTimeDays: 34
+        },
+        security: {
+            visibility: 'Доступ: команда продажів та передпродаж',
+            auditLog: [
+                { date: '2024-05-12T16:40:00Z', actor: 'Emily Johnson', action: 'Оновила статус на «Кваліфікований»' },
+                { date: '2024-05-08T10:15:00Z', actor: 'Emily Johnson', action: 'Додала нотатку щодо вимог безпеки' }
+            ]
+        }
+    },
+    'lead-2': {
+        contact: {
+            fullName: 'Прія Патель',
+            jobTitle: 'Операційний менеджер',
+            phones: ['+1 (555) 210-4422 (роб.)'],
+            emails: ['priya.patel@northwindlogistics.com'],
+            address: '425 Harbor Ave, Сіетл, WA 98101, США',
+            socials: [
+                { label: 'LinkedIn', url: 'https://www.linkedin.com/in/priya-patel-ops' }
+            ],
+            language: 'англійська',
+            timezone: 'America/Los_Angeles'
+        },
+        industry: 'Логістика та перевезення',
+        sourceDetail: 'Рекомендація від партнера',
+        funnel: {
+            stage: 'Перший контакт',
+            probability: 40,
+            statusLabel: 'На зв’язку'
+        },
+        interest: {
+            products: ['Кабінет клієнта', 'Модуль відстеження вантажів'],
+            budget: '50 000 $',
+            decisionTimeline: 'Липень 2024',
+            pains: [
+                'Потрібна прозорість для клієнтів щодо статусу доставки',
+                'Шукають автоматизацію оновлень по SLA'
+            ]
+        },
+        interactions: {
+            communications: [
+                {
+                    type: 'call',
+                    date: '2024-05-09T18:00:00Z',
+                    subject: 'Обговорення сценаріїв кабінету',
+                    summary: 'Прія наголосила на потребі інтеграції з їхнім TMS.',
+                    owner: 'Michael Chen',
+                    duration: '25 хв'
+                },
+                {
+                    type: 'email',
+                    date: '2024-05-05T15:20:00Z',
+                    subject: 'Матеріали після зустрічі',
+                    summary: 'Надіслано презентацію з прикладами UI та відео демо.',
+                    owner: 'Michael Chen'
+                }
+            ],
+            notes: [
+                {
+                    date: '2024-05-06T12:00:00Z',
+                    author: 'Michael Chen',
+                    content: 'Ключова мета — скоротити час відповіді клієнтам на 30%.'
+                }
+            ]
+        },
+        tasks: {
+            upcoming: [
+                {
+                    title: 'Підготувати драфт комерційної пропозиції',
+                    due: '2024-05-17',
+                    owner: 'Michael Chen',
+                    type: 'Document',
+                    priority: 'Medium'
+                }
+            ],
+            reminders: [
+                {
+                    title: 'Нагадати про референс-кейс',
+                    due: '2024-05-19T08:30:00Z',
+                    channel: 'Email-нагадування'
+                }
+            ]
+        },
+        segmentation: {
+            tags: ['Холодний лід', 'B2B'],
+            groups: ['Логістика', 'Західне узбережжя'],
+            rating: 3.8
+        },
+        financial: {
+            expectedAmount: 52000,
+            currency: 'USD',
+            proposals: [
+                { name: 'Пропозиція кабінету клієнта', amount: 52000, status: 'Чернетка', date: '2024-05-14' }
+            ]
+        },
+        automation: {
+            assignment: 'Менеджер: Michael Chen (логістика)',
+            emailCampaigns: ['Розсилка кейсів з логістики'],
+            chatbots: ['Бот рекомендацій для партнерів'],
+            calendarSync: ['Outlook'],
+            integrations: ['Slack Connect']
+        },
+        analytics: {
+            conversionProbability: 45,
+            avgResponseHours: 18,
+            sourceEffectiveness: 'Рекомендації конвертуються в 55% переговорів',
+            newLeadsThisMonth: 3,
+            avgHandlingDays: 12,
+            processingTimeDays: 26
+        },
+        security: {
+            visibility: 'Доступ: менеджери з продажів',
+            auditLog: [
+                { date: '2024-05-09T18:10:00Z', actor: 'Michael Chen', action: 'Додав нотатку про інтеграцію з TMS' }
+            ]
+        }
+    },
+    'lead-3': {
+        contact: {
+            fullName: 'Софія Мартінес',
+            jobTitle: 'CMO',
+            phones: ['+1 (555) 410-2233'],
+            emails: ['sofia.martinez@startupxyz.com'],
+            address: '1200 Congress Ave, Остін, TX 78701, США',
+            socials: [
+                { label: 'LinkedIn', url: 'https://www.linkedin.com/in/sofia-martinez-cmo' }
+            ],
+            language: 'іспанська',
+            timezone: 'America/Chicago'
+        },
+        industry: 'Технологічні стартапи',
+        sourceDetail: 'Конференція SaaS Growth',
+        funnel: {
+            stage: 'Пропозиція',
+            probability: 55,
+            statusLabel: 'Пропозиція'
+        },
+        interest: {
+            products: ['Маркетингові автомations', 'CRM для стартапів'],
+            budget: '30 000 $',
+            decisionTimeline: 'Травень 2024',
+            pains: [
+                'Потрібно скоротити час запуску кампаній',
+                'Шукають інтеграцію з існуючими рекламними платформами'
+            ]
+        },
+        interactions: {
+            communications: [
+                {
+                    type: 'meeting',
+                    date: '2024-05-06T15:00:00Z',
+                    subject: 'Обговорення пілоту',
+                    summary: 'Софія погодилася на 4-тижневий тест з KPI по MQL.',
+                    owner: 'Sofia Martinez',
+                    participants: ['Sofia Martinez', 'Daniel Iverson']
+                },
+                {
+                    type: 'email',
+                    date: '2024-05-04T11:45:00Z',
+                    subject: 'Перелік інтеграцій',
+                    summary: 'Надіслано список доступних конекторів та API документацію.',
+                    owner: 'Sofia Martinez'
+                }
+            ],
+            notes: [
+                {
+                    date: '2024-05-07T09:20:00Z',
+                    author: 'Sofia Martinez',
+                    content: 'Цінують швидкість запуску — потрібно показати референси стартапів.'
+                }
+            ]
+        },
+        tasks: {
+            upcoming: [
+                {
+                    title: 'Фіналізувати пропозицію по пілоту',
+                    due: '2024-05-16',
+                    owner: 'Sofia Martinez',
+                    type: 'Document',
+                    priority: 'High'
+                }
+            ],
+            reminders: [
+                {
+                    title: 'Надіслати roadmap продукту',
+                    due: '2024-05-15T10:00:00Z',
+                    channel: 'CRM-сповіщення'
+                }
+            ]
+        },
+        segmentation: {
+            tags: ['Гарячий лід', 'Стартап'],
+            groups: ['Маркетинг', 'Accelerator 2024'],
+            rating: 4.2
+        },
+        financial: {
+            expectedAmount: 28000,
+            currency: 'USD',
+            proposals: [
+                { name: 'Маркетингова автоматизація – пілот', amount: 28000, status: 'Надіслано', date: '2024-05-05' }
+            ]
+        },
+        automation: {
+            assignment: 'Менеджер: Sofia Martinez (стартапи)',
+            emailCampaigns: ['Розсилка для SaaS стартапів'],
+            chatbots: ['Бот реєстрації на демо'],
+            calendarSync: ['Google Calendar'],
+            integrations: ['Zapier Sync']
+        },
+        analytics: {
+            conversionProbability: 62,
+            avgResponseHours: 9,
+            sourceEffectiveness: 'Конференції дають 25% угод у цьому сегменті',
+            newLeadsThisMonth: 5,
+            avgHandlingDays: 10,
+            processingTimeDays: 21
+        },
+        security: {
+            visibility: 'Доступ: команда з розвитку стартапів',
+            auditLog: [
+                { date: '2024-05-06T15:45:00Z', actor: 'Sofia Martinez', action: 'Оновила етап на «Пропозиція»' }
+            ]
+        }
+    }
+};
+
+const leadExperienceState = {
+    selectedLeadId: null,
+    leads: [],
+    leadsById: new Map()
+};
+
+function enrichLeadRecord(lead = {}) {
+    if (!lead || typeof lead !== 'object') {
+        return lead;
+    }
+
+    const template = LEAD_DETAIL_LIBRARY[lead.id] || {};
+    const detailProfile = buildLeadDetailProfile(lead, template);
+
+    return {
+        ...lead,
+        contact_name: lead.contact_name || detailProfile.contact.fullName || lead.contact_email || '',
+        contact_email: lead.contact_email || (detailProfile.contact.emails[0] || ''),
+        detailProfile
+    };
+}
+
+function buildLeadDetailProfile(lead = {}, template = {}) {
+    const contactTemplate = template.contact || {};
+    const contactPhones = ensureArray(contactTemplate.phones || (lead.contact_phone ? [lead.contact_phone] : []));
+    const contactEmails = ensureArray(contactTemplate.emails || (lead.contact_email ? [lead.contact_email] : []));
+    const contactSocials = ensureArray(contactTemplate.socials).map(social => ({
+        label: social?.label || social?.url || '',
+        url: social?.url || ''
+    })).filter(item => item.label || item.url);
+
+    const funnelTemplate = template.funnel || {};
+    const interestTemplate = template.interest || {};
+    const interactionsTemplate = template.interactions || {};
+    const tasksTemplate = template.tasks || {};
+    const segmentationTemplate = template.segmentation || {};
+    const financialTemplate = template.financial || {};
+    const automationTemplate = template.automation || {};
+    const analyticsTemplate = template.analytics || {};
+    const securityTemplate = template.security || {};
+
+    return {
+        contact: {
+            fullName: contactTemplate.fullName || lead.contact_name || '',
+            jobTitle: contactTemplate.jobTitle || lead.contact_title || '',
+            phones: contactPhones,
+            emails: contactEmails,
+            address: contactTemplate.address || lead.contact_address || '',
+            socials: contactSocials,
+            language: contactTemplate.language || lead.contact_language || '',
+            timezone: contactTemplate.timezone || lead.contact_timezone || ''
+        },
+        company: template.company || lead.company_name || '',
+        industry: template.industry || lead.industry || '',
+        source: template.sourceDetail || lead.source || '',
+        funnel: {
+            stage: funnelTemplate.stage || lead.stage || lead.status || 'New',
+            probability: funnelTemplate.probability ?? lead.probability ?? null,
+            statusLabel: funnelTemplate.statusLabel || translateLeadStatus(lead.status || '') || lead.status || 'Новий'
+        },
+        interest: {
+            products: ensureArray(interestTemplate.products),
+            budget: interestTemplate.budget || (lead.budget ? formatCurrency(lead.budget) : ''),
+            decisionTimeline: interestTemplate.decisionTimeline || lead.decision_timeline || '',
+            pains: ensureArray(interestTemplate.pains)
+        },
+        interactions: {
+            communications: ensureArray(interactionsTemplate.communications),
+            notes: ensureArray(interactionsTemplate.notes)
+        },
+        tasks: {
+            upcoming: ensureArray(tasksTemplate.upcoming),
+            reminders: ensureArray(tasksTemplate.reminders)
+        },
+        segmentation: {
+            tags: ensureArray(segmentationTemplate.tags),
+            groups: ensureArray(segmentationTemplate.groups),
+            rating: segmentationTemplate.rating ?? null
+        },
+        financial: {
+            expectedAmount: financialTemplate.expectedAmount ?? lead.value ?? null,
+            currency: financialTemplate.currency || 'USD',
+            proposals: ensureArray(financialTemplate.proposals)
+        },
+        automation: {
+            assignment: automationTemplate.assignment || '',
+            emailCampaigns: ensureArray(automationTemplate.emailCampaigns),
+            chatbots: ensureArray(automationTemplate.chatbots),
+            calendarSync: ensureArray(automationTemplate.calendarSync),
+            integrations: ensureArray(automationTemplate.integrations)
+        },
+        analytics: {
+            conversionProbability: analyticsTemplate.conversionProbability ?? lead.probability ?? null,
+            avgResponseHours: analyticsTemplate.avgResponseHours ?? null,
+            sourceEffectiveness: analyticsTemplate.sourceEffectiveness || '',
+            newLeadsThisMonth: analyticsTemplate.newLeadsThisMonth ?? null,
+            avgHandlingDays: analyticsTemplate.avgHandlingDays ?? null,
+            processingTimeDays: analyticsTemplate.processingTimeDays ?? null
+        },
+        security: {
+            visibility: securityTemplate.visibility || '',
+            auditLog: ensureArray(securityTemplate.auditLog)
+        }
+    };
+}
+
+function ensureArray(value) {
+    if (!value) {
+        return [];
+    }
+    if (Array.isArray(value)) {
+        return value.filter(item => item !== undefined && item !== null);
+    }
+    return [value];
+}
+
+function selectLead(leadId) {
+    const normalizedId = leadId ? String(leadId) : '';
+    if (!normalizedId || !leadExperienceState.leadsById.has(normalizedId)) {
+        return;
+    }
+
+    leadExperienceState.selectedLeadId = normalizedId;
+    const selectedLead = leadExperienceState.leadsById.get(normalizedId) || null;
+    renderLeadDetail(selectedLead);
+    renderLeadAnalytics(leadExperienceState.leads);
+    updateLeadSelectionHighlight();
+}
+
+function setupLeadRowSelection() {
+    const rows = document.querySelectorAll('[data-lead-row]');
+    rows.forEach(row => {
+        if (row.dataset.leadRowInitialized === 'true') {
+            return;
+        }
+        row.dataset.leadRowInitialized = 'true';
+        row.addEventListener('click', event => {
+            if (event.target.closest('button') || event.target.closest('select') || event.target.closest('a')) {
+                return;
+            }
+            const leadId = row.getAttribute('data-lead-id');
+            if (leadId) {
+                selectLead(String(leadId));
+            }
+        });
+    });
+}
+
+function updateLeadSelectionHighlight() {
+    const activeId = leadExperienceState.selectedLeadId ? String(leadExperienceState.selectedLeadId) : '';
+
+    document.querySelectorAll('[data-lead-row]').forEach(row => {
+        const rowId = row.getAttribute('data-lead-id') || '';
+        const isActive = activeId && rowId === activeId;
+        row.classList.toggle('ring-2', isActive);
+        row.classList.toggle('ring-blue-300', isActive);
+        row.classList.toggle('bg-blue-50/60', isActive);
+        row.setAttribute('aria-selected', isActive ? 'true' : 'false');
+    });
+
+    document.querySelectorAll('[data-lead-kanban-card]').forEach(card => {
+        const cardId = card.getAttribute('data-lead-id') || '';
+        const isActive = activeId && cardId === activeId;
+        card.classList.toggle('ring-2', isActive);
+        card.classList.toggle('ring-blue-300', isActive);
+        card.classList.toggle('shadow-lg', isActive);
+        card.classList.toggle('shadow-sm', !isActive);
+    });
+}
+
+function renderLeadSummary(leads = []) {
+    const container = document.getElementById('leadSummaryCards');
+    if (!container) {
+        return;
+    }
+
+    if (!Array.isArray(leads) || leads.length === 0) {
+        container.innerHTML = `
+            <div class="bg-white border border-dashed border-gray-200 rounded-xl p-6 text-center text-sm text-gray-500">
+                Додайте перший лід, щоб побачити ключові показники.
+            </div>
+        `;
+        return;
+    }
+
+    const metrics = calculateLeadMetrics(leads);
+    const summaryCards = [
+        {
+            title: 'Усього лідів',
+            value: metrics.total,
+            subtitle: `+${metrics.newThisMonth} цього місяця`,
+            icon: 'fa-bullseye',
+            accent: 'bg-blue-50 text-blue-700'
+        },
+        {
+            title: 'Конверсія (виграні)',
+            value: `${metrics.conversionRate}%`,
+            subtitle: `${metrics.won} угод завершено`,
+            icon: 'fa-flag-checkered',
+            accent: 'bg-emerald-50 text-emerald-700'
+        },
+        {
+            title: 'Гарячі ліди',
+            value: metrics.hot,
+            subtitle: 'Високий та критичний пріоритет',
+            icon: 'fa-fire',
+            accent: 'bg-orange-50 text-orange-700'
+        },
+        {
+            title: 'Середня ймовірність',
+            value: `${metrics.avgProbability}%`,
+            subtitle: `Сер. час обробки ${metrics.avgHandlingDays} дн.`,
+            icon: 'fa-chart-line',
+            accent: 'bg-purple-50 text-purple-700'
+        }
+    ];
+
+    container.innerHTML = summaryCards.map(card => `
+        <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-5 flex items-center gap-4">
+            <div class="${card.accent} rounded-full h-12 w-12 flex items-center justify-center text-lg">
+                <i class="fas ${sanitizeText(card.icon)}"></i>
+            </div>
+            <div>
+                <p class="text-xs uppercase tracking-wide text-gray-500">${sanitizeText(card.title)}</p>
+                <p class="text-2xl font-semibold text-gray-800">${sanitizeText(card.value)}</p>
+                <p class="text-xs text-gray-500 mt-1">${sanitizeText(card.subtitle)}</p>
+            </div>
+        </div>
+    `).join('');
+}
+
+function calculateLeadMetrics(leads = []) {
+    const total = leads.length;
+    const won = leads.filter(lead => (lead.status || '').toLowerCase() === 'won').length;
+    const conversionRate = total ? Math.round((won / total) * 100) : 0;
+    const hot = leads.filter(lead => ['high', 'critical'].includes((lead.priority || '').toLowerCase())).length;
+
+    const probabilityValues = leads
+        .map(lead => Number(lead.probability))
+        .filter(value => Number.isFinite(value));
+    const avgProbability = probabilityValues.length
+        ? Math.round(probabilityValues.reduce((sum, value) => sum + value, 0) / probabilityValues.length)
+        : 0;
+
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+    const newThisMonth = leads.filter(lead => {
+        if (!lead.created_at) {
+            return false;
+        }
+        const created = new Date(lead.created_at);
+        if (Number.isNaN(created.getTime())) {
+            return false;
+        }
+        return created.getMonth() === currentMonth && created.getFullYear() === currentYear;
+    }).length;
+
+    const statusCounts = leads.reduce((acc, lead) => {
+        const status = lead.status || 'Невідомий';
+        acc[status] = (acc[status] || 0) + 1;
+        return acc;
+    }, {});
+
+    const sourceCounts = leads.reduce((acc, lead) => {
+        const source = lead.source || 'Невідоме джерело';
+        acc[source] = (acc[source] || 0) + 1;
+        return acc;
+    }, {});
+
+    const priorityCounts = leads.reduce((acc, lead) => {
+        const priority = lead.priority || 'Не вказано';
+        acc[priority] = (acc[priority] || 0) + 1;
+        return acc;
+    }, {});
+
+    const handlingDurations = leads.map(lead => {
+        if (!lead.created_at) {
+            return null;
+        }
+        const created = new Date(lead.created_at);
+        const referenceDate = lead.updated_at
+            ? new Date(lead.updated_at)
+            : (lead.expected_close_date ? new Date(lead.expected_close_date) : now);
+        if (Number.isNaN(created.getTime()) || Number.isNaN(referenceDate.getTime())) {
+            return null;
+        }
+        const diffMs = referenceDate.getTime() - created.getTime();
+        return Math.max(0, Math.round(diffMs / (1000 * 60 * 60 * 24)));
+    }).filter(value => Number.isFinite(value));
+    const avgHandlingDays = handlingDurations.length
+        ? Math.max(1, Math.round(handlingDurations.reduce((sum, value) => sum + value, 0) / handlingDurations.length))
+        : 0;
+
+    return {
+        total,
+        won,
+        conversionRate,
+        hot,
+        avgProbability,
+        newThisMonth,
+        statusCounts,
+        sourceCounts,
+        priorityCounts,
+        avgHandlingDays
+    };
+}
+
+function renderLeadAnalytics(leads = []) {
+    const panel = document.getElementById('leadAnalyticsPanel');
+    if (!panel) {
+        return;
+    }
+
+    if (!Array.isArray(leads) || leads.length === 0) {
+        panel.innerHTML = `
+            <div class="text-sm text-gray-500">Немає даних для побудови аналітики. Додайте ліди або зніміть фільтри.</div>
+        `;
+        if (charts.leadStatusDistribution) {
+            charts.leadStatusDistribution.destroy();
+            charts.leadStatusDistribution = null;
+        }
+        return;
+    }
+
+    const metrics = calculateLeadMetrics(leads);
+    const selectedLead = leadExperienceState.selectedLeadId
+        ? leadExperienceState.leadsById.get(leadExperienceState.selectedLeadId)
+        : null;
+    const selectedAnalytics = selectedLead?.detailProfile?.analytics || {};
+
+    const statusLabels = Object.keys(metrics.statusCounts);
+    const statusData = statusLabels.map(label => metrics.statusCounts[label]);
+
+    panel.innerHTML = `
+        <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+            <div>
+                <h3 class="text-lg font-semibold text-gray-800">Аналітика по лідах</h3>
+                <p class="text-sm text-gray-500">Відстежуйте конверсію, ефективність джерел та швидкість роботи з лідами.</p>
+            </div>
+            <div class="grid grid-cols-2 gap-4 text-sm text-gray-600">
+                <div>
+                    <p class="text-xs uppercase text-gray-400">Конверсія</p>
+                    <p class="text-lg font-semibold text-gray-800">${sanitizeText(`${metrics.conversionRate}%`)}</p>
+                </div>
+                <div>
+                    <p class="text-xs uppercase text-gray-400">Сер. час обробки</p>
+                    <p class="text-lg font-semibold text-gray-800">${sanitizeText(`${metrics.avgHandlingDays} дн.`)}</p>
+                </div>
+            </div>
+        </div>
+        <div class="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+            <div class="h-64">
+                <canvas id="leadStatusChart" height="220"></canvas>
+            </div>
+            <div class="space-y-4">
+                <div class="bg-blue-50 border border-blue-100 rounded-xl p-4">
+                    <p class="text-sm font-semibold text-blue-800">Активний лід</p>
+                    <p class="text-sm text-blue-700 mt-1">${selectedLead ? sanitizeText(selectedLead.title || selectedLead.id || '') : 'Оберіть лід зі списку або канбану.'}</p>
+                    ${selectedLead ? `
+                        <ul class="mt-3 space-y-1 text-sm text-blue-900">
+                            <li><i class="far fa-chart-bar mr-2"></i>Ймовірність: ${sanitizeText(`${selectedAnalytics.conversionProbability ?? selectedLead.probability ?? 0}%`)}</li>
+                            <li><i class="far fa-clock mr-2"></i>Середній відгук: ${sanitizeText(selectedAnalytics.avgResponseHours !== null && selectedAnalytics.avgResponseHours !== undefined ? `${selectedAnalytics.avgResponseHours} год` : '—')}</li>
+                            <li><i class="fas fa-bolt mr-2"></i>${sanitizeText(selectedAnalytics.sourceEffectiveness || `Джерело: ${selectedLead.source || '—'}`)}</li>
+                        </ul>
+                    ` : ''}
+                </div>
+                <div>
+                    <h4 class="text-sm font-semibold text-gray-700 mb-2">Найрезультативніші джерела</h4>
+                    <ul class="space-y-1 text-sm text-gray-600">
+                        ${Object.entries(metrics.sourceCounts)
+                            .sort((a, b) => b[1] - a[1])
+                            .slice(0, 4)
+                            .map(([source, count]) => `
+                                <li class="flex items-center justify-between">
+                                    <span>${sanitizeText(source || 'Невідоме джерело')}</span>
+                                    <span class="font-semibold text-gray-800">${sanitizeText(String(count))}</span>
+                                </li>
+                            `)
+                            .join('') || '<li class="text-gray-400">Дані відсутні</li>'}
+                    </ul>
+                </div>
+            </div>
+        </div>
+    `;
+
+    const chartElement = document.getElementById('leadStatusChart');
+    if (chartElement && typeof Chart !== 'undefined') {
+        if (charts.leadStatusDistribution) {
+            charts.leadStatusDistribution.destroy();
+        }
+        const palette = ['#2563eb', '#f97316', '#10b981', '#facc15', '#8b5cf6', '#ef4444', '#64748b'];
+        charts.leadStatusDistribution = new Chart(chartElement.getContext('2d'), {
+            type: 'bar',
+            data: {
+                labels: statusLabels,
+                datasets: [
+                    {
+                        label: 'Кількість лідів',
+                        data: statusData,
+                        backgroundColor: statusLabels.map((_, index) => palette[index % palette.length]),
+                        borderRadius: 8
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            precision: 0
+                        }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                }
+            }
+        });
+    }
+}
+
+function renderLeadFilterPanel(leads = []) {
+    const panel = document.getElementById('leadFilterPanel');
+    if (!panel) {
+        return;
+    }
+
+    if (!Array.isArray(leads) || leads.length === 0) {
+        panel.innerHTML = `
+            <div class="text-sm text-gray-500">Фільтри стануть доступними після додавання лідів.</div>
+        `;
+        return;
+    }
+
+    const metrics = calculateLeadMetrics(leads);
+    const topManager = getTopLeadManager(leads);
+    const dateRange = getLeadDateRange(leads);
+
+    const statusChips = Object.entries(metrics.statusCounts)
+        .map(([status, count]) => {
+            const label = translateLeadStatus(status) || status;
+            return `<span class="inline-flex items-center px-3 py-1 rounded-full bg-slate-100 text-slate-700 text-xs"><i class="fas fa-circle mr-1 text-[8px]"></i>${sanitizeText(label)}<span class="ml-2 rounded-full bg-white px-2 py-0.5 border border-slate-200 text-slate-600">${sanitizeText(String(count))}</span></span>`;
+        })
+        .join('');
+
+    const priorityChips = Object.entries(metrics.priorityCounts)
+        .map(([priority, count]) => `<span class="inline-flex items-center px-3 py-1 rounded-full bg-amber-50 text-amber-700 text-xs"><i class="fas fa-layer-group mr-1"></i>${sanitizeText(priority)}<span class="ml-2 rounded-full bg-white px-2 py-0.5 border border-amber-200 text-amber-600">${sanitizeText(String(count))}</span></span>`)
+        .join('');
+
+    panel.innerHTML = `
+        <div class="flex items-start justify-between gap-4">
+            <div>
+                <h3 class="text-lg font-semibold text-gray-800">Фільтри та пошук</h3>
+                <p class="text-sm text-gray-500">Швидко відфільтруйте ліди за статусом, джерелом або відповідальним менеджером.</p>
+            </div>
+            <div class="text-xs text-gray-400">${dateRange}</div>
+        </div>
+        <div class="mt-6 space-y-5 text-sm text-gray-600">
+            <div>
+                <p class="text-xs uppercase text-gray-500 mb-2">Статус</p>
+                <div class="flex flex-wrap gap-2">${statusChips || '<span class="text-gray-400">Дані відсутні</span>'}</div>
+            </div>
+            <div>
+                <p class="text-xs uppercase text-gray-500 mb-2">Пріоритет</p>
+                <div class="flex flex-wrap gap-2">${priorityChips || '<span class="text-gray-400">Дані відсутні</span>'}</div>
+            </div>
+            <div>
+                <p class="text-xs uppercase text-gray-500 mb-2">Рекомендований менеджер</p>
+                <div class="flex flex-wrap gap-2">
+                    ${topManager ? `<span class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs"><i class="fas fa-user-check"></i>${sanitizeText(topManager.name)}<span class="ml-2 rounded-full bg-white px-2 py-0.5 border border-emerald-200 text-emerald-600">${sanitizeText(String(topManager.count))}</span></span>` : '<span class="text-gray-400">Не призначено</span>'}
+                </div>
+            </div>
+            <div class="border border-dashed border-gray-200 rounded-lg p-4 bg-gray-50">
+                <p class="text-xs uppercase text-gray-500 mb-2">Поради з пошуку</p>
+                <ul class="space-y-2 text-sm text-gray-600 list-disc list-inside">
+                    <li>Вводьте email або телефон для швидкого пошуку конкретного контакту.</li>
+                    <li>Комбінуйте статус та джерело, щоб оцінити ефективність каналів залучення.</li>
+                    <li>Зберігайте фільтри як представлення, щоб команда працювала в одному контексті.</li>
+                </ul>
+            </div>
+        </div>
+    `;
+}
+
+function getTopLeadManager(leads = []) {
+    const counts = new Map();
+    leads.forEach(lead => {
+        if (!lead.assigned_to) {
+            return;
+        }
+        const key = String(lead.assigned_to);
+        counts.set(key, (counts.get(key) || 0) + 1);
+    });
+
+    if (!counts.size) {
+        return null;
+    }
+
+    const [name, count] = [...counts.entries()].sort((a, b) => b[1] - a[1])[0];
+    return { name, count };
+}
+
+function getLeadDateRange(leads = []) {
+    const dates = leads
+        .map(lead => new Date(lead.created_at))
+        .filter(date => date instanceof Date && !Number.isNaN(date.getTime()));
+    if (!dates.length) {
+        return '';
+    }
+    const earliest = new Date(Math.min(...dates.map(date => date.getTime())));
+    const latest = new Date(Math.max(...dates.map(date => date.getTime())));
+
+    const formatter = new Intl.DateTimeFormat(currentLanguage === 'uk' ? 'uk-UA' : undefined, {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric'
+    });
+    return `${formatter.format(earliest)} – ${formatter.format(latest)}`;
+}
+
+function renderLeadDetail(lead) {
+    const primaryContainer = document.getElementById('leadDetailPrimary');
+    const sidebarContainer = document.getElementById('leadDetailSidebar');
+    if (!primaryContainer || !sidebarContainer) {
+        return;
+    }
+
+    if (!lead) {
+        primaryContainer.innerHTML = `
+            <div class="bg-white border border-dashed border-gray-200 rounded-xl p-6 text-center text-sm text-gray-500">
+                Оберіть лід у таблиці або на канбані, щоб переглянути деталі.
+            </div>
+        `;
+        sidebarContainer.innerHTML = `
+            <div class="bg-white border border-gray-100 rounded-xl p-6 text-sm text-gray-600">
+                <p class="font-semibold text-gray-700">Порада</p>
+                <p class="mt-2">Використовуйте статуси та пріоритети, щоб сортувати ліди й планувати навантаження команди.</p>
+            </div>
+        `;
+        return;
+    }
+
+    const profile = lead.detailProfile || buildLeadDetailProfile(lead);
+
+    primaryContainer.innerHTML = [
+        buildLeadPrimaryInfoHtml(lead, profile),
+        buildLeadInterestHtml(profile),
+        buildLeadHistoryHtml(profile)
+    ].join('');
+
+    sidebarContainer.innerHTML = [
+        buildLeadTasksHtml(profile),
+        buildLeadSegmentationHtml(profile),
+        buildLeadFinancialHtml(profile),
+        buildLeadAutomationHtml(profile),
+        buildLeadSecurityHtml(profile)
+    ].join('');
+}
+
+function buildLeadPrimaryInfoHtml(lead, profile) {
+    const contact = profile.contact || {};
+    const statusClass = getStatusClass(lead.status || profile.funnel?.statusLabel || 'New');
+    const probability = profile.funnel?.probability ?? lead.probability;
+
+    const phones = ensureArray(contact.phones)
+        .map(phone => {
+            const href = `tel:${String(phone).replace(/[^0-9+]/g, '')}`;
+            return `<a href="${sanitizeText(href)}" class="text-blue-600 hover:underline">${sanitizeText(phone)}</a>`;
+        })
+        .join('<br>');
+
+    const emails = ensureArray(contact.emails)
+        .map(email => `<a href="mailto:${sanitizeText(email)}" class="text-blue-600 hover:underline">${sanitizeText(email)}</a>`)
+        .join('<br>');
+
+    const socials = ensureArray(contact.socials)
+        .map(social => social?.url
+            ? `<a href="${sanitizeText(social.url)}" target="_blank" rel="noopener" class="text-blue-600 hover:underline">${sanitizeText(social.label || social.url)}</a>`
+            : '')
+        .filter(Boolean)
+        .join('<br>');
+
+    return `
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 space-y-6">
+            <div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
+                <div>
+                    <h4 class="text-xl font-semibold text-gray-800">${sanitizeText(lead.title || 'Лід без назви')}</h4>
+                    <div class="flex flex-wrap gap-2 mt-3 text-xs font-medium">
+                        <span class="px-3 py-1 rounded-full text-white ${statusClass}">${sanitizeText(profile.funnel?.statusLabel || lead.status || 'Новий')}</span>
+                        <span class="px-3 py-1 rounded-full bg-purple-100 text-purple-700">${sanitizeText(profile.funnel?.stage || lead.status || 'Етап не вказано')}</span>
+                        ${lead.priority ? `<span class="px-3 py-1 rounded-full text-xs ${getPriorityClass(lead.priority)}">${sanitizeText(translateLeadPriority(lead.priority) || lead.priority)}</span>` : ''}
+                        ${Number.isFinite(Number(probability)) ? `<span class="px-3 py-1 rounded-full bg-blue-50 text-blue-700"><i class="fas fa-percentage mr-1"></i>${sanitizeText(`${Math.round(Number(probability))}%`)}</span>` : ''}
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-4 text-sm text-gray-600">
+                    <div>
+                        <p class="text-xs uppercase text-gray-400">Очікувана сума</p>
+                        <p class="text-sm font-semibold text-gray-800">${sanitizeText(formatCurrency(profile.financial?.expectedAmount ?? lead.value ?? 0))}</p>
+                    </div>
+                    <div>
+                        <p class="text-xs uppercase text-gray-400">Відповідальний</p>
+                        <p class="text-sm font-semibold text-gray-800">${sanitizeText(lead.assigned_to || 'Не призначено')}</p>
+                    </div>
+                    <div>
+                        <p class="text-xs uppercase text-gray-400">Джерело</p>
+                        <p class="text-sm font-semibold text-gray-800">${sanitizeText(profile.source || 'Не вказано')}</p>
+                    </div>
+                    <div>
+                        <p class="text-xs uppercase text-gray-400">Дата створення</p>
+                        <p class="text-sm font-semibold text-gray-800">${lead.created_at ? sanitizeText(formatDateLocalized(lead.created_at)) : '—'}</p>
+                    </div>
+                </div>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="space-y-4">
+                    <h5 class="text-xs uppercase tracking-wide text-gray-500">Контактні дані</h5>
+                    ${buildInfoItem('fa-user', 'ПІБ контакту', contact.fullName || 'Не вказано')}
+                    ${buildInfoItem('fa-id-badge', 'Посада', contact.jobTitle || 'Не вказано')}
+                    ${buildInfoItem('fa-phone', 'Телефони', phones || 'Не вказано', { allowHtml: true })}
+                    ${buildInfoItem('fa-envelope', 'Email', emails || 'Не вказано', { allowHtml: true })}
+                </div>
+                <div class="space-y-4">
+                    <h5 class="text-xs uppercase tracking-wide text-gray-500">Компанія та взаємодія</h5>
+                    ${buildInfoItem('fa-building', 'Компанія', profile.company || 'Не вказано')}
+                    ${buildInfoItem('fa-industry', 'Галузь', profile.industry || 'Не вказано')}
+                    ${buildInfoItem('fa-map-marker-alt', 'Адреса', contact.address || 'Не вказано')}
+                    ${buildInfoItem('fa-language', 'Мова спілкування', contact.language || 'Не вказано')}
+                    ${buildInfoItem('fa-clock', 'Часовий пояс', contact.timezone || 'Не вказано')}
+                    ${buildInfoItem('fa-share-nodes', 'Соціальні мережі', socials || 'Не вказано', { allowHtml: true })}
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function buildInfoItem(icon, label, value, options = {}) {
+    const { allowHtml = false } = options;
+    const safeLabel = sanitizeText(label);
+    const displayValue = value && value !== 'Не вказано'
+        ? (allowHtml ? value : sanitizeText(value))
+        : '<span class="text-gray-400">Не вказано</span>';
+    return `
+        <div class="flex items-start gap-3 text-sm text-gray-600">
+            <span class="mt-1 text-blue-500"><i class="fas ${sanitizeText(icon)}"></i></span>
+            <div>
+                <p class="text-xs font-semibold uppercase text-gray-500 tracking-wide">${safeLabel}</p>
+                <div class="mt-1 leading-snug">${displayValue || '<span class="text-gray-400">Не вказано</span>'}</div>
+            </div>
+        </div>
+    `;
+}
+
+function renderChipList(values = [], options = {}) {
+    const tone = options.tone || 'blue';
+    const palette = {
+        blue: 'bg-blue-50 text-blue-700 border border-blue-100',
+        emerald: 'bg-emerald-50 text-emerald-700 border border-emerald-100',
+        purple: 'bg-purple-50 text-purple-700 border border-purple-100',
+        slate: 'bg-slate-100 text-slate-700 border border-slate-200'
+    };
+    const chipClass = palette[tone] || palette.blue;
+    const normalized = ensureArray(values).filter(Boolean);
+    if (!normalized.length) {
+        return '<span class="text-gray-400">Не вказано</span>';
+    }
+    return normalized.map(value => `<span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${chipClass}">${sanitizeText(value)}</span>`).join(' ');
+}
+
+function buildLeadInterestHtml(profile) {
+    const interest = profile.interest || {};
+    return `
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 space-y-4">
+            <div>
+                <h4 class="text-lg font-semibold text-gray-800">Інтерес та потреби ліда</h4>
+                <p class="text-sm text-gray-500">Зафіксуйте ключові продукти, очікуваний бюджет та проблеми клієнта.</p>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-gray-600">
+                <div>
+                    <p class="text-xs uppercase text-gray-400">Продукт / послуга</p>
+                    <div class="mt-2">${renderChipList(interest.products)}</div>
+                </div>
+                <div>
+                    <p class="text-xs uppercase text-gray-400">Бюджет</p>
+                    <p class="mt-2 font-semibold text-gray-800">${sanitizeText(interest.budget || 'Не вказано')}</p>
+                </div>
+                <div>
+                    <p class="text-xs uppercase text-gray-400">Термін рішення</p>
+                    <p class="mt-2 font-semibold text-gray-800">${sanitizeText(interest.decisionTimeline || 'Не вказано')}</p>
+                </div>
+            </div>
+            <div>
+                <p class="text-xs uppercase text-gray-400">Потреби та болі</p>
+                <ul class="mt-2 space-y-2 text-sm text-gray-700">
+                    ${ensureArray(interest.pains).length
+                        ? ensureArray(interest.pains).map(item => `<li class="flex gap-2"><span class="text-blue-500 mt-1"><i class="fas fa-circle text-[6px]"></i></span><span>${sanitizeText(item)}</span></li>`).join('')
+                        : '<li class="text-gray-400">Дані відсутні</li>'}
+                </ul>
+            </div>
+        </div>
+    `;
+}
+
+function buildLeadHistoryHtml(profile) {
+    const interactions = profile.interactions || {};
+    const communications = ensureArray(interactions.communications);
+    const notes = ensureArray(interactions.notes);
+
+    return `
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 space-y-4">
+            <div class="flex items-start justify-between gap-4">
+                <div>
+                    <h4 class="text-lg font-semibold text-gray-800">Історія взаємодій</h4>
+                    <p class="text-sm text-gray-500">Хронологія дзвінків, листів та зустрічей допоможе не втратити контекст.</p>
+                </div>
+            </div>
+            <div class="space-y-4">
+                ${communications.length
+                    ? communications.map(item => buildLeadTimelineItem(item)).join('')
+                    : '<div class="text-sm text-gray-400">Взаємодій поки не зафіксовано.</div>'}
+            </div>
+            ${notes.length
+                ? `<div class="pt-4 border-t border-gray-100"><h5 class="text-xs uppercase text-gray-400 mb-2">Нотатки</h5>${notes.map(note => `<div class="bg-blue-50 border border-blue-100 rounded-lg p-3 text-sm text-blue-900 mb-2"><div class="flex justify-between text-xs text-blue-700"><span>${sanitizeText(note.author || 'Команда')}</span><span>${sanitizeText(formatDateLocalized(note.date, { includeTime: false }))}</span></div><p class="mt-2 leading-snug">${sanitizeText(note.content || '')}</p></div>`).join('')}</div>`
+                : ''}
+        </div>
+    `;
+}
+
+function buildLeadTimelineItem(item) {
+    const type = (item.type || 'interaction').toLowerCase();
+    const iconMap = {
+        call: 'fa-phone',
+        email: 'fa-envelope',
+        meeting: 'fa-handshake',
+        chat: 'fa-comments',
+        interaction: 'fa-circle'
+    };
+    const icon = iconMap[type] || iconMap.interaction;
+    const timestamp = formatDateLocalized(item.date, { includeTime: true });
+    const owner = item.owner ? `<span class="inline-flex items-center gap-1"><i class="fas fa-user-circle text-gray-400"></i>${sanitizeText(item.owner)}</span>` : '';
+    const duration = item.duration ? `<span class="inline-flex items-center gap-1"><i class="far fa-clock text-gray-400"></i>${sanitizeText(item.duration)}</span>` : '';
+    const participants = ensureArray(item.participants).length
+        ? `<div class="text-xs text-gray-500 mt-1">Учасники: ${sanitizeText(ensureArray(item.participants).join(', '))}</div>`
+        : '';
+
+    return `
+        <div class="border border-gray-100 rounded-lg p-4 hover:border-blue-200 transition-colors">
+            <div class="flex items-start gap-3">
+                <span class="h-8 w-8 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center"><i class="fas ${sanitizeText(icon)}"></i></span>
+                <div class="flex-1 space-y-1">
+                    <div class="flex items-center justify-between text-sm text-gray-600">
+                        <span class="font-semibold text-gray-800">${sanitizeText(item.subject || 'Взаємодія')}</span>
+                        <span>${sanitizeText(timestamp || '')}</span>
+                    </div>
+                    <p class="text-sm text-gray-600">${sanitizeText(item.summary || 'Без опису')}</p>
+                    <div class="flex flex-wrap gap-3 text-xs text-gray-500">
+                        ${owner}
+                        ${duration}
+                    </div>
+                    ${participants}
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function formatDateLocalized(value, options = {}) {
+    if (!value) {
+        return '';
+    }
+    try {
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) {
+            return '';
+        }
+        const locale = currentLanguage === 'uk' ? 'uk-UA' : undefined;
+        const formatter = new Intl.DateTimeFormat(locale, {
+            dateStyle: 'medium',
+            ...(options.includeTime ? { timeStyle: 'short' } : {})
+        });
+        return formatter.format(date);
+    } catch (error) {
+        return '';
+    }
+}
+
+function buildLeadTasksHtml(profile) {
+    const tasks = ensureArray(profile.tasks?.upcoming);
+    const reminders = ensureArray(profile.tasks?.reminders);
+
+    return `
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 space-y-4">
+            <div>
+                <h4 class="text-lg font-semibold text-gray-800">Завдання та нагадування</h4>
+                <p class="text-sm text-gray-500">Плануйте дзвінки, зустрічі та автоматичні нагадування по ліду.</p>
+            </div>
+            <div class="space-y-3">
+                ${tasks.length
+                    ? tasks.map(task => {
+                        const due = task.due ? formatDateLocalized(task.due) : '';
+                        return `<div class="border border-gray-100 rounded-lg p-3">
+                            <div class="flex items-start justify-between gap-3">
+                                <div>
+                                    <p class="text-sm font-semibold text-gray-800">${sanitizeText(task.title || 'Завдання')}</p>
+                                    <p class="text-xs text-gray-500 mt-1">${sanitizeText(task.type || '')}</p>
+                                </div>
+                                <div class="text-right text-xs text-gray-500 space-y-1">
+                                    ${due ? `<div><i class="far fa-calendar mr-1"></i>${sanitizeText(due)}</div>` : ''}
+                                    ${task.owner ? `<div><i class="fas fa-user mr-1"></i>${sanitizeText(task.owner)}</div>` : ''}
+                                </div>
+                            </div>
+                            ${task.priority ? `<span class="inline-flex items-center mt-2 px-2 py-1 rounded-full text-xs ${getPriorityClass(task.priority)}">${sanitizeText(task.priority)}</span>` : ''}
+                        </div>`;
+                    }).join('')
+                    : '<div class="text-sm text-gray-400">Активних завдань немає.</div>'}
+            </div>
+            ${reminders.length
+                ? `<div class="pt-3 border-t border-gray-100">
+                        <h5 class="text-xs uppercase text-gray-400 mb-2">Нагадування</h5>
+                        <ul class="space-y-2 text-sm text-gray-600">
+                            ${reminders.map(reminder => `<li class="flex justify-between"><span>${sanitizeText(reminder.title || '')}</span><span class="text-xs text-gray-500">${sanitizeText(formatDateLocalized(reminder.due, { includeTime: true }))}</span></li>`).join('')}
+                        </ul>
+                    </div>`
+                : ''}
+        </div>
+    `;
+}
+
+function buildLeadSegmentationHtml(profile) {
+    const segmentation = profile.segmentation || {};
+    return `
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 space-y-4">
+            <div>
+                <h4 class="text-lg font-semibold text-gray-800">Сегментація та категоризація</h4>
+                <p class="text-sm text-gray-500">Позначайте теги, групи та рейтинг ліда, щоб команда розуміла пріоритет.</p>
+            </div>
+            <div class="space-y-3 text-sm text-gray-600">
+                <div>
+                    <p class="text-xs uppercase text-gray-400 mb-1">Теги</p>
+                    <div class="flex flex-wrap gap-2">${renderChipList(segmentation.tags, { tone: 'purple' })}</div>
+                </div>
+                <div>
+                    <p class="text-xs uppercase text-gray-400 mb-1">Групи</p>
+                    <div class="flex flex-wrap gap-2">${renderChipList(segmentation.groups, { tone: 'emerald' })}</div>
+                </div>
+                <div>
+                    <p class="text-xs uppercase text-gray-400 mb-1">Рейтинг</p>
+                    ${renderRatingStars(segmentation.rating)}
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function renderRatingStars(rating) {
+    if (!rating) {
+        return '<span class="text-gray-400">Не оцінено</span>';
+    }
+    const maxStars = 5;
+    const fullStars = Math.floor(rating);
+    const halfStar = rating - fullStars >= 0.5;
+    const stars = [];
+    for (let i = 0; i < fullStars; i += 1) {
+        stars.push('<i class="fas fa-star text-amber-400"></i>');
+    }
+    if (halfStar) {
+        stars.push('<i class="fas fa-star-half-alt text-amber-400"></i>');
+    }
+    while (stars.length < maxStars) {
+        stars.push('<i class="far fa-star text-amber-200"></i>');
+    }
+    return `<div class="flex items-center gap-1 text-lg">${stars.join('')}<span class="text-sm text-gray-500 ml-2">${sanitizeText(rating.toFixed(1))}</span></div>`;
+}
+
+function buildLeadFinancialHtml(profile) {
+    const financial = profile.financial || {};
+    const proposals = ensureArray(financial.proposals);
+
+    return `
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 space-y-4">
+            <div>
+                <h4 class="text-lg font-semibold text-gray-800">Фінансова інформація</h4>
+                <p class="text-sm text-gray-500">Оцінюйте потенціал угоди та історію пропозицій.</p>
+            </div>
+            <div class="grid grid-cols-2 gap-4 text-sm text-gray-600">
+                <div>
+                    <p class="text-xs uppercase text-gray-400">Очікувана сума угоди</p>
+                    <p class="text-lg font-semibold text-gray-800">${sanitizeText(formatCurrency(financial.expectedAmount ?? 0))}</p>
+                </div>
+                <div>
+                    <p class="text-xs uppercase text-gray-400">Валюта</p>
+                    <p class="text-lg font-semibold text-gray-800">${sanitizeText(financial.currency || 'USD')}</p>
+                </div>
+            </div>
+            <div>
+                <p class="text-xs uppercase text-gray-400 mb-2">Історія пропозицій</p>
+                ${proposals.length
+                    ? `<div class="space-y-2">${proposals.map(proposal => `<div class="border border-gray-100 rounded-lg p-3 text-sm text-gray-600 flex items-center justify-between"><div><p class="font-semibold text-gray-800">${sanitizeText(proposal.name || 'Пропозиція')}</p><p class="text-xs text-gray-500 mt-1">${sanitizeText(proposal.status || '')}</p></div><div class="text-right text-sm text-gray-600"><div class="font-semibold text-gray-800">${sanitizeText(formatCurrency(proposal.amount ?? 0))}</div><div class="text-xs text-gray-500">${sanitizeText(formatDateLocalized(proposal.date))}</div></div></div>`).join('')}</div>`
+                    : '<div class="text-sm text-gray-400">Ще не було надіслано пропозицій.</div>'}
+            </div>
+        </div>
+    `;
+}
+
+function buildLeadAutomationHtml(profile) {
+    const automation = profile.automation || {};
+    return `
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 space-y-4">
+            <div>
+                <h4 class="text-lg font-semibold text-gray-800">Автоматизація та інтеграції</h4>
+                <p class="text-sm text-gray-500">Використовуйте інтеграції та робочі процеси, щоб не втрачати жоден крок.</p>
+            </div>
+            <div class="space-y-3 text-sm text-gray-600">
+                ${automation.assignment ? `<div class="flex items-start gap-2"><i class="fas fa-user-cog text-blue-500 mt-1"></i><span>${sanitizeText(automation.assignment)}</span></div>` : ''}
+                <div>
+                    <p class="text-xs uppercase text-gray-400 mb-1">Email-кампанії</p>
+                    <div class="flex flex-wrap gap-2">${renderChipList(automation.emailCampaigns, { tone: 'emerald' })}</div>
+                </div>
+                <div>
+                    <p class="text-xs uppercase text-gray-400 mb-1">Чат-боти та форми</p>
+                    <div class="flex flex-wrap gap-2">${renderChipList(automation.chatbots, { tone: 'blue' })}</div>
+                </div>
+                <div>
+                    <p class="text-xs uppercase text-gray-400 mb-1">Синхронізація календаря</p>
+                    <div class="flex flex-wrap gap-2">${renderChipList(automation.calendarSync, { tone: 'purple' })}</div>
+                </div>
+                <div>
+                    <p class="text-xs uppercase text-gray-400 mb-1">Інтеграції</p>
+                    <div class="flex flex-wrap gap-2">${renderChipList(automation.integrations, { tone: 'slate' })}</div>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function buildLeadSecurityHtml(profile) {
+    const security = profile.security || {};
+    const auditLog = ensureArray(security.auditLog);
+    return `
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 space-y-4">
+            <div>
+                <h4 class="text-lg font-semibold text-gray-800">Доступ та історія змін</h4>
+                <p class="text-sm text-gray-500">Контролюйте, хто працює з лідом, і відстежуйте важливі дії.</p>
+            </div>
+            <div class="text-sm text-gray-600">
+                <p class="text-xs uppercase text-gray-400 mb-1">Рівень доступу</p>
+                <p class="font-semibold text-gray-800">${sanitizeText(security.visibility || 'Не налаштовано')}</p>
+            </div>
+            <div>
+                <p class="text-xs uppercase text-gray-400 mb-2">Журнал змін</p>
+                ${auditLog.length
+                    ? `<ul class="space-y-2 text-sm text-gray-600">${auditLog.map(entry => `<li class="flex items-start gap-3"><span class="text-blue-500 mt-1"><i class="fas fa-history"></i></span><div><p class="font-medium text-gray-800">${sanitizeText(entry.actor || 'Система')}</p><p class="text-xs text-gray-500">${sanitizeText(formatDateLocalized(entry.date, { includeTime: true }))}</p><p class="mt-1">${sanitizeText(entry.action || '')}</p></div></li>`).join('')}</ul>`
+                    : '<div class="text-sm text-gray-400">Змін поки не зафіксовано.</div>'}
+            </div>
+        </div>
+    `;
+}
 
 function translateLeadStatus(status) {
     if (!status) {
@@ -779,7 +2155,7 @@ function renderLeadKanban(leads = []) {
                 .join(' ');
 
             return `
-                <div class="bg-white border border-gray-200 rounded-lg p-3 shadow-sm cursor-move" draggable="true" data-lead-kanban-card data-lead-id="${safeLeadId}" data-lead-status="${safeStatus}">
+                <div class="bg-white border border-gray-200 rounded-lg p-3 shadow-sm cursor-move transition-shadow" draggable="true" data-lead-kanban-card data-lead-id="${safeLeadId}" data-lead-status="${safeStatus}">
                     <div class="flex items-start justify-between gap-2">
                         <p class="text-sm font-semibold text-gray-800">${title}</p>
                         ${probabilityBadge}
@@ -875,7 +2251,18 @@ function setupLeadKanbanDragAndDrop(boardElement) {
             card.classList.remove('opacity-60');
             leadKanbanCache.dragContext = null;
         });
+        card.addEventListener('click', event => {
+            if (event.target.closest('button')) {
+                return;
+            }
+            const leadId = card.getAttribute('data-lead-id');
+            if (leadId) {
+                selectLead(String(leadId));
+            }
+        });
     });
+
+    updateLeadSelectionHighlight();
 }
 
 async function updateLeadStatus(leadId, newStatus, options = {}) {
@@ -11368,60 +12755,34 @@ async function viewLead(id) {
             throw new Error('Not found');
         }
         const lead = await response.json();
+        const enrichedLead = enrichLeadRecord(lead);
+        const profile = enrichedLead.detailProfile || buildLeadDetailProfile(enrichedLead);
 
-        const expectedClose = lead.expected_close_date
-            ? new Date(lead.expected_close_date).toLocaleDateString()
-            : 'Not set';
-
-        const detailItems = [
-            { label: 'Value', value: formatCurrency(lead.value) },
-            { label: 'Company', value: lead.company_name || '—' },
-            { label: 'Assigned To', value: lead.assigned_to || '—' },
-            { label: 'Lead Source', value: lead.source || '—' },
-            { label: 'Expected Close', value: expectedClose },
-            { label: 'Probability', value: lead.probability !== undefined ? `${lead.probability}%` : 'Not set' },
-            { label: 'Created At', value: formatDate(lead.created_at) },
-            { label: 'Last Updated', value: formatDate(lead.updated_at) }
-        ];
-
-        const detailHtml = detailItems.map(item => `
-            <div class="p-4 bg-gray-50 rounded-lg">
-                <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide">${item.label}</p>
-                <p class="mt-2 text-sm text-gray-800">${item.value}</p>
-            </div>
-        `).join('');
-
-        const badges = `
-            <div class="mt-2 flex flex-wrap gap-2 text-sm text-gray-600">
-                <span class="px-2 py-1 rounded-full ${getStatusClass(lead.status)}">${lead.status || '—'}</span>
-                <span class="px-2 py-1 rounded-full ${getPriorityClass(lead.priority)}">${lead.priority || '—'}</span>
-                ${lead.probability !== undefined ? `<span class="px-2 py-1 rounded-full bg-blue-100 text-blue-800">${lead.probability}% probability</span>` : ''}
+        const actionButtons = `
+            <div class="flex flex-wrap gap-3 justify-end">
+                <button onclick="showLeadConversionWizard('${sanitizeText(enrichedLead.id)}')" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                    <i class="fas fa-exchange-alt mr-2"></i>Конвертувати
+                </button>
+                <button onclick="showLeadForm('${sanitizeText(enrichedLead.id)}')" class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100">
+                    <i class="fas fa-edit mr-2"></i>Редагувати
+                </button>
+                <button onclick="deleteLead('${sanitizeText(enrichedLead.id)}')" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">
+                    <i class="fas fa-trash mr-2"></i>Видалити
+                </button>
             </div>
         `;
 
         showModal('Lead Details', `
-            <div class="space-y-6">
-                <div class="flex flex-col md:flex-row md:items-start md:justify-between md:space-x-6 space-y-4 md:space-y-0">
-                    <div>
-                        <h4 class="text-2xl font-semibold text-gray-800">${lead.title || 'Untitled Lead'}</h4>
-                        ${badges}
-                    </div>
-                    <div class="flex space-x-3">
-                        <button onclick="showLeadConversionWizard('${lead.id}')" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-                            Convert Lead
-                        </button>
-                        <button onclick="showLeadForm('${lead.id}')" class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100">
-                            Edit
-                        </button>
-                        <button onclick="deleteLead('${lead.id}')" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">
-                            Delete
-                        </button>
-                    </div>
-                </div>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    ${detailHtml}
-                </div>
-                ${lead.description ? `<div class="p-4 bg-gray-50 rounded-lg"><p class="text-sm text-gray-700 whitespace-pre-line">${lead.description}</p></div>` : ''}
+            <div class="space-y-6 max-h-[80vh] overflow-y-auto pr-1">
+                ${actionButtons}
+                ${buildLeadPrimaryInfoHtml(enrichedLead, profile)}
+                ${buildLeadInterestHtml(profile)}
+                ${buildLeadHistoryHtml(profile)}
+                ${buildLeadTasksHtml(profile)}
+                ${buildLeadSegmentationHtml(profile)}
+                ${buildLeadFinancialHtml(profile)}
+                ${buildLeadAutomationHtml(profile)}
+                ${buildLeadSecurityHtml(profile)}
             </div>
         `);
     } catch (error) {
