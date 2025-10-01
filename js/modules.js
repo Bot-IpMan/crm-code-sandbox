@@ -129,6 +129,150 @@ async function showCompanies() {
             <div id="companiesPagination" class="mt-6 flex items-center justify-between">
             </div>
         </div>
+        <div class="mt-10 bg-white rounded-xl shadow-sm border border-gray-100 p-8 space-y-8">
+            <div>
+                <h3 class="text-2xl font-semibold text-gray-800 mb-3">Структура розділу «Компанії»</h3>
+                <p class="text-gray-600 leading-relaxed">
+                    Вкладка «Компанії» в CRM акумулює всю важливу інформацію про партнерів, постачальників та клієнтів. Нижче наведено ключові блоки даних, які мають бути доступними менеджеру для швидкого аналізу та роботи з обліковими записами.
+                </p>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                <section class="p-5 rounded-lg border border-gray-200 bg-gray-50">
+                    <h4 class="text-lg font-semibold text-gray-800 mb-3">1. Основна інформація</h4>
+                    <ul class="space-y-2 text-gray-600 text-sm leading-relaxed">
+                        <li>• Назва (повна та скорочена), юридична форма, ІПН/ЄДРПОУ.</li>
+                        <li>• Дата реєстрації, галузь діяльності, розмір компанії.</li>
+                        <li>• Логотип та актуальні контактні адреси (юридична, фактична, доставка).</li>
+                        <li>• Телефони, email-и, вебсайт та графік роботи.</li>
+                    </ul>
+                </section>
+                <section class="p-5 rounded-lg border border-gray-200 bg-gray-50">
+                    <h4 class="text-lg font-semibold text-gray-800 mb-3">2. Контактні особи</h4>
+                    <ul class="space-y-2 text-gray-600 text-sm leading-relaxed">
+                        <li>• Ключові контакти з посадами, телефонами та email-ами.</li>
+                        <li>• Ролі контактів (наприклад, ЛПР).</li>
+                        <li>• Відповідальні менеджери з нашої команди.</li>
+                    </ul>
+                </section>
+                <section class="p-5 rounded-lg border border-gray-200 bg-gray-50">
+                    <h4 class="text-lg font-semibold text-gray-800 mb-3">3. Фінансова інформація</h4>
+                    <ul class="space-y-2 text-gray-600 text-sm leading-relaxed">
+                        <li>• Історія угод: суми, дати, статуси, найпопулярніші продукти.</li>
+                        <li>• Платіжні реквізити та умови оплати.</li>
+                        <li>• Кредитний ліміт, заборгованість, фінансові метрики (сума, середній чек, LTV).</li>
+                    </ul>
+                </section>
+                <section class="p-5 rounded-lg border border-gray-200 bg-gray-50">
+                    <h4 class="text-lg font-semibold text-gray-800 mb-3">4. Договірна база</h4>
+                    <ul class="space-y-2 text-gray-600 text-sm leading-relaxed">
+                        <li>• Перелік активних та завершених договорів із датами дії.</li>
+                        <li>• Основні умови договорів та прикріплені файли.</li>
+                    </ul>
+                </section>
+                <section class="p-5 rounded-lg border border-gray-200 bg-gray-50">
+                    <h4 class="text-lg font-semibold text-gray-800 mb-3">5. Історія взаємодій</h4>
+                    <ul class="space-y-2 text-gray-600 text-sm leading-relaxed">
+                        <li>• Журнал дзвінків, листування, зустрічей.</li>
+                        <li>• Нотатки з важливими домовленостями та ризиками.</li>
+                    </ul>
+                </section>
+                <section class="p-5 rounded-lg border border-gray-200 bg-gray-50">
+                    <h4 class="text-lg font-semibold text-gray-800 mb-3">6. Сегментація</h4>
+                    <ul class="space-y-2 text-gray-600 text-sm leading-relaxed">
+                        <li>• Теги та мітки для класифікації (VIP, партнер, постачальник тощо).</li>
+                        <li>• Групування за категоріями та джерела надходження.</li>
+                    </ul>
+                </section>
+                <section class="p-5 rounded-lg border border-gray-200 bg-gray-50">
+                    <h4 class="text-lg font-semibold text-gray-800 mb-3">7. Завдання й нагадування</h4>
+                    <ul class="space-y-2 text-gray-600 text-sm leading-relaxed">
+                        <li>• Планові активності з термінами та відповідальними.</li>
+                        <li>• Автоматичні нагадування про ключові події та статуси.</li>
+                    </ul>
+                </section>
+                <section class="p-5 rounded-lg border border-gray-200 bg-gray-50">
+                    <h4 class="text-lg font-semibold text-gray-800 mb-3">8. Аналітика</h4>
+                    <ul class="space-y-2 text-gray-600 text-sm leading-relaxed">
+                        <li>• Остання взаємодія, частота контактів, оцінка лояльності.</li>
+                        <li>• Відгуки, скарги та прогнози майбутніх продажів.</li>
+                    </ul>
+                </section>
+                <section class="p-5 rounded-lg border border-gray-200 bg-gray-50">
+                    <h4 class="text-lg font-semibold text-gray-800 mb-3">9. Інтеграції</h4>
+                    <ul class="space-y-2 text-gray-600 text-sm leading-relaxed">
+                        <li>• Синхронізація з бухгалтерією, email-маркетингом та месенджерами.</li>
+                        <li>• Автоматичні тригери для розсилок і створення завдань.</li>
+                    </ul>
+                </section>
+                <section class="p-5 rounded-lg border border-gray-200 bg-gray-50">
+                    <h4 class="text-lg font-semibold text-gray-800 mb-3">10. Документи</h4>
+                    <ul class="space-y-2 text-gray-600 text-sm leading-relaxed">
+                        <li>• Прикріплені файли, комерційні пропозиції, презентації.</li>
+                        <li>• Ведення версій документів і посилання на хмари.</li>
+                    </ul>
+                </section>
+                <section class="p-5 rounded-lg border border-gray-200 bg-gray-50">
+                    <h4 class="text-lg font-semibold text-gray-800 mb-3">11. Пошук і фільтри</h4>
+                    <ul class="space-y-2 text-gray-600 text-sm leading-relaxed">
+                        <li>• Розширений пошук за назвою, галуззю, тегами та активністю.</li>
+                        <li>• Збережені фільтри для швидкого доступу до сегментів.</li>
+                    </ul>
+                </section>
+                <section class="p-5 rounded-lg border border-gray-200 bg-gray-50">
+                    <h4 class="text-lg font-semibold text-gray-800 mb-3">12. Безпека</h4>
+                    <ul class="space-y-2 text-gray-600 text-sm leading-relaxed">
+                        <li>• Рівні доступу для різних ролей користувачів.</li>
+                        <li>• Лог змін картки компанії.</li>
+                    </ul>
+                </section>
+            </div>
+            <div class="bg-white border border-dashed border-gray-300 rounded-xl p-6">
+                <h4 class="text-lg font-semibold text-gray-800 mb-4">Приклад структури картки компанії</h4>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <tbody class="divide-y divide-gray-100 text-sm text-gray-700">
+                            <tr>
+                                <td class="py-3 font-semibold w-1/3">Основна інформація</td>
+                                <td class="py-3">ТОВ «Успіх», ЄДРПОУ 12345678, IT-галузь</td>
+                            </tr>
+                            <tr>
+                                <td class="py-3 font-semibold">Контакти</td>
+                                <td class="py-3">+380441234567, info@uspih.com.ua</td>
+                            </tr>
+                            <tr>
+                                <td class="py-3 font-semibold">Контактні особи</td>
+                                <td class="py-3">Іван Петров (Директор), +380991234567</td>
+                            </tr>
+                            <tr>
+                                <td class="py-3 font-semibold">Історія угод</td>
+                                <td class="py-3">10 угод на суму 200 000 ₴</td>
+                            </tr>
+                            <tr>
+                                <td class="py-3 font-semibold">Договори</td>
+                                <td class="py-3">Договір №5/2025, дійсний до 31.12.2025</td>
+                            </tr>
+                            <tr>
+                                <td class="py-3 font-semibold">Остання взаємодія</td>
+                                <td class="py-3">Зустріч 25.09.2025, домовленість про тендер</td>
+                            </tr>
+                            <tr>
+                                <td class="py-3 font-semibold">Завдання</td>
+                                <td class="py-3">Надіслати пропозицію до 05.10.2025</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="bg-blue-50 border border-blue-100 rounded-xl p-6">
+                <h4 class="text-lg font-semibold text-blue-900 mb-3">Чому це важливо?</h4>
+                <ul class="space-y-2 text-blue-900 text-sm leading-relaxed">
+                    <li>• Систематизує інформацію про організації-партнерів.</li>
+                    <li>• Допомагає контролювати угоди та фінансові показники.</li>
+                    <li>• Підвищує якість взаємодії завдяки історії комунікацій.</li>
+                    <li>• Автоматизує процеси та нагадування.</li>
+                </ul>
+            </div>
+        </div>
     `;
 
     applyTranslations();
