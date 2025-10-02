@@ -857,7 +857,18 @@
                 description: 'Lift-and-shift of legacy workloads to hybrid cloud.',
                 priority: 'High',
                 competitor_id: 'competitor-marketpulse',
-                obsidian_note: 'Deals/Cloud Infrastructure Migration.md'
+                obsidian_note: 'Deals/Cloud Infrastructure Migration.md',
+                sales_type: 'Проекти',
+                region: 'Північна Америка',
+                manager_team: 'Enterprise',
+                client_type: 'B2B',
+                product_line: 'Хмарна інфраструктура',
+                payment_status: 'Очікує оплату',
+                profit_margin: 0.28,
+                currency: 'USD',
+                deal_code: 'OPP-001',
+                revenue_stream: 'Підписка',
+                sales_channel: 'Прямі продажі'
             },
             {
                 id: 'opp-2',
@@ -875,7 +886,18 @@
                 description: 'Expansion of existing success platform to additional regions.',
                 priority: 'Medium',
                 competitor_id: 'competitor-insightsphere',
-                obsidian_note: 'Deals/Customer Success Platform Expansion.md'
+                obsidian_note: 'Deals/Customer Success Platform Expansion.md',
+                sales_type: 'Розгортання платформи',
+                region: 'Північна Америка',
+                manager_team: 'Enterprise',
+                client_type: 'B2B',
+                product_line: 'Customer Success Suite',
+                payment_status: 'Прострочено',
+                profit_margin: 0.34,
+                currency: 'USD',
+                deal_code: 'OPP-002',
+                revenue_stream: 'Підписка',
+                sales_channel: 'Партнерський канал'
             },
             {
                 id: 'opp-3',
@@ -893,7 +915,18 @@
                 description: 'Optimization algorithms for routing and fleet management.',
                 priority: 'High',
                 competitor_id: 'competitor-atlaslogix',
-                obsidian_note: 'Deals/Logistics Optimization Suite.md'
+                obsidian_note: 'Deals/Logistics Optimization Suite.md',
+                sales_type: 'Послуги',
+                region: 'Північна Америка',
+                manager_team: 'Mid-market',
+                client_type: 'B2B',
+                product_line: 'Оптимізація логістики',
+                payment_status: 'Очікує оплату',
+                profit_margin: 0.31,
+                currency: 'USD',
+                deal_code: 'OPP-003',
+                revenue_stream: 'Послуги',
+                sales_channel: 'Прямі продажі'
             },
             {
                 id: 'opp-4',
@@ -911,7 +944,20 @@
                 description: 'Growth advisory retainer for 12 months.',
                 priority: 'Medium',
                 competitor_id: 'competitor-insightsphere',
-                obsidian_note: 'Deals/Startup Growth Advisory.md'
+                obsidian_note: 'Deals/Startup Growth Advisory.md',
+                sales_type: 'Консалтинг',
+                region: 'Північна Америка',
+                manager_team: 'Scale-up',
+                client_type: 'B2B',
+                product_line: 'Advisory Services',
+                payment_status: 'Оплачено',
+                profit_margin: 0.45,
+                profit_amount: 17100,
+                currency: 'USD',
+                deal_code: 'OPP-004',
+                revenue_stream: 'Послуги',
+                sales_channel: 'Прямі продажі',
+                actual_close_date: '2024-04-12'
             },
             {
                 id: 'opp-5',
@@ -928,7 +974,18 @@
                 description: 'Renewal opportunity lost due to budget constraints.',
                 priority: 'Medium',
                 competitor_id: 'competitor-insightsphere',
-                obsidian_note: 'Deals/Legacy System Support Renewal.md'
+                obsidian_note: 'Deals/Legacy System Support Renewal.md',
+                sales_type: 'Підписка',
+                region: 'Північна Америка',
+                manager_team: 'Enterprise',
+                client_type: 'B2B',
+                product_line: 'Підтримка систем',
+                payment_status: 'Втрачено',
+                profit_margin: 0.25,
+                currency: 'USD',
+                deal_code: 'OPP-005',
+                revenue_stream: 'Підтримка',
+                sales_channel: 'Прямі продажі'
             }
         ],
         competitors: [
