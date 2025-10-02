@@ -338,6 +338,210 @@ const ERP_SYNC_CONNECTIONS = [
     }
 ];
 
+const AUTOMATION_TRIGGER_CATALOG = [
+    {
+        title: 'Створення нового ліда',
+        description: 'Автоматично запускати ланцюги після появи нового звернення з сайту, email чи чат-бота.'
+    },
+    {
+        title: 'Зміна статусу угоди',
+        description: 'Вмикає сценарії при переході угоди між етапами — наприклад, "Переговори" чи "Успішно".'
+    },
+    {
+        title: 'Настання визначеної дати',
+        description: 'Планує нагадування до дня народження клієнта або контрольних термінів оплат.'
+    },
+    {
+        title: 'Нове повідомлення від клієнта',
+        description: 'Реагує на вхідні email та чат-повідомлення, створюючи завдання чи відповіді.'
+    },
+    {
+        title: 'Додавання контакту чи компанії',
+        description: 'Вмикає онбординг і сегментацію щойно доданих записів.'
+    },
+    {
+        title: 'Прострочення завдання',
+        description: 'Автоматично піднімає ескалації, якщо менеджер не виконав завдання вчасно.'
+    }
+];
+
+const AUTOMATION_ACTION_CATALOG = [
+    {
+        title: 'Створення завдання',
+        description: 'Плануйте дзвінки, листи та зустрічі без ручного втручання.'
+    },
+    {
+        title: 'Відправка email або SMS',
+        description: 'Надсилайте шаблонні повідомлення одразу після події.'
+    },
+    {
+        title: 'Зміна статусу запису',
+        description: 'Переводьте ліди у "В роботі" чи угоди у "Оплату отримано".'
+    },
+    {
+        title: 'Призначення відповідального',
+        description: 'Розподіляйте звернення між менеджерами за правилами.'
+    },
+    {
+        title: 'Додавання тегів або міток',
+        description: 'Маркуйте клієнтів як "Гарячий лід" чи "VIP".'
+    },
+    {
+        title: 'Створення нотаток та логів',
+        description: 'Фіксуйте історію взаємодій автоматично.'
+    },
+    {
+        title: 'Надсилання внутрішніх сповіщень',
+        description: 'Повідомляйте команду про важливі події у Slack чи Email.'
+    }
+];
+
+const AUTOMATION_WORKFLOW_TEMPLATES = [
+    {
+        category: 'Лідогенерація',
+        items: [
+            'Створення ліда з веб-форми та миттєвий розподіл менеджеру.',
+            'Відправка вітального email із презентацією продукту.'
+        ]
+    },
+    {
+        category: 'Продажі',
+        items: [
+            'Автоматичне оновлення статусу угоди після надходження оплати.',
+            'Нагадування менеджеру про прострочені угоди.'
+        ]
+    },
+    {
+        category: 'Підтримка клієнтів',
+        items: [
+            'Відправка анкети задоволеності після закриття кейсу.',
+            'Створення завдання на зворотний дзвінок після отримання скарги.'
+        ]
+    },
+    {
+        category: 'Маркетинг',
+        items: [
+            'Розсилка email-кампаній за розкладом.',
+            'Сегментація клієнтів за активністю з персональними пропозиціями.'
+        ]
+    }
+];
+
+const AUTOMATION_CUSTOM_SCENARIO_FEATURES = [
+    'Створення власних сценаріїв на основі тригерів та дій.',
+    'Візуальний drag-and-drop редактор для швидкого налаштування.'
+];
+
+const AUTOMATION_MESSAGE_TEMPLATES = [
+    {
+        category: 'Email-шаблони',
+        items: [
+            'Вітальні листи для нових лідів.',
+            'Нагадування про оплату для клієнтів із простроченими рахунками.',
+            'Спеціальні пропозиції та акції.',
+            'Підтвердження реєстрації або оплати.'
+        ]
+    },
+    {
+        category: 'SMS-шаблони',
+        items: [
+            'Нагадування про зустріч.',
+            'Повідомлення про зміну статусу угоди.',
+            'Привітання з днем народження.'
+        ]
+    },
+    {
+        category: 'Шаблони чат-ботів',
+        items: [
+            'Автовідповіді на часті запитання.',
+            'Кваліфікація лідів у Telegram чи Viber.'
+        ]
+    }
+];
+
+const AUTOMATION_INTEGRATIONS_OVERVIEW = [
+    {
+        category: 'Email-маркетинг',
+        services: ['Mailchimp', 'SendPulse', 'UniSender']
+    },
+    {
+        category: 'Месенджери',
+        services: ['Telegram', 'Viber', 'WhatsApp', 'Facebook Messenger']
+    },
+    {
+        category: 'Платіжні системи',
+        services: ['LiqPay', 'Fondy', 'WayForPay']
+    },
+    {
+        category: 'Бухгалтерські системи',
+        services: ['1C', 'SAP', 'QuickBooks']
+    },
+    {
+        category: 'Соціальні мережі',
+        services: ['Facebook', 'Instagram', 'LinkedIn']
+    },
+    {
+        category: 'Хмарні сховища',
+        services: ['Google Drive', 'Dropbox']
+    }
+];
+
+const AUTOMATION_API_OPTIONS = [
+    'Підтримка кастомних інтеграцій через REST API.',
+    'Вебхуки для синхронізації CRM з іншими системами.'
+];
+
+const AUTOMATION_TASK_AUTOMATION = [
+    'Автоматичне створення завдань після появи нового ліда або події.',
+    'Нагадування про важливі зустрічі та терміни оплат.',
+    'Переназначення завдань при простроченні.'
+];
+
+const AUTOMATION_SEGMENTATION_RULES = [
+    'Сегментація за активністю — наприклад, "Неактивні клієнти".',
+    'Виділення VIP-клієнтів за сумою угод.',
+    'Географічне групування, як-от "Клієнти з Києва".',
+    'Персоналізовані знижки та пропозиції для кожного сегмента.'
+];
+
+const AUTOMATION_ANALYTICS_METRICS = [
+    'Звіти про ефективність сценаріїв та конверсію.',
+    'Статистика відправлених email та SMS.',
+    'Оцінка зекономленого часу команди.'
+];
+
+const AUTOMATION_LEAD_ROUTING_RULES = [
+    'Розподіл лідів за географією, галуззю або типом продукту.',
+    'Пріоритетна передача гарячих лідів досвідченим менеджерам.'
+];
+
+const AUTOMATION_TESTING_LOGGING = [
+    'Тестовий режим для перевірки логіки перед запуском.',
+    'Логи виконання для аналізу помилок та прозорості.'
+];
+
+const AUTOMATION_SECURITY_CONTROLS = [
+    'Різні рівні доступу до налаштувань автоматизації.',
+    'Історія змін та аудит усіх сценаріїв.'
+];
+
+const AUTOMATION_IMPORTANCE_POINTS = [
+    'Скорочення рутини завдяки автоматичним діям.',
+    'Швидша реакція на запити клієнтів.',
+    'Покращення сервісу за рахунок персоналізації.',
+    'Зростання конверсії завдяки своєчасним нагадуванням.'
+];
+
+const AUTOMATION_EXAMPLE_SCENARIO = {
+    trigger: 'Новий лід з форми на сайті',
+    actions: [
+        'Створити картку ліда в CRM',
+        'Призначити відповідального менеджера',
+        'Відправити вітальний email',
+        'Створити завдання на дзвінок через 1 день'
+    ]
+};
+
 const automationState = {
     workflows: [],
     runLog: WORKFLOW_RUN_LOG_SEED.map(entry => ({
@@ -400,6 +604,7 @@ function renderAutomationView() {
     const builderPanel = renderAutomationBuilderPanel(builder);
     const runLog = renderAutomationRunLog(automationState.runLog);
     const integrationGrid = renderAutomationErpGrid();
+    const knowledgeBase = renderAutomationKnowledgeBase();
 
     view.innerHTML = `
         <div class="space-y-6">
@@ -453,6 +658,8 @@ function renderAutomationView() {
                 </div>
                 ${integrationGrid}
             </div>
+
+            ${knowledgeBase}
         </div>
     `;
 
@@ -960,6 +1167,189 @@ function renderAutomationErpGrid() {
                     ${connection.notes ? `<p class="text-xs text-gray-500">${sanitizeAutomationHtml(connection.notes)}</p>` : ''}
                 </div>
             `).join('')}
+        </div>
+    `;
+}
+
+function renderAutomationKnowledgeBase() {
+    const triggerList = renderAutomationCardList(AUTOMATION_TRIGGER_CATALOG);
+    const actionList = renderAutomationCardList(AUTOMATION_ACTION_CATALOG);
+    const workflowTemplates = renderAutomationCategoryBlocks(AUTOMATION_WORKFLOW_TEMPLATES);
+    const customScenarioFeatures = renderAutomationBulletList(AUTOMATION_CUSTOM_SCENARIO_FEATURES);
+    const messageTemplates = renderAutomationCategoryBlocks(AUTOMATION_MESSAGE_TEMPLATES);
+    const integrationCatalog = renderAutomationCategoryBlocks(AUTOMATION_INTEGRATIONS_OVERVIEW, 'services');
+    const apiOptions = renderAutomationBulletList(AUTOMATION_API_OPTIONS);
+    const taskAutomation = renderAutomationBulletList(AUTOMATION_TASK_AUTOMATION);
+    const segmentation = renderAutomationBulletList(AUTOMATION_SEGMENTATION_RULES);
+    const analytics = renderAutomationBulletList(AUTOMATION_ANALYTICS_METRICS);
+    const leadRouting = renderAutomationBulletList(AUTOMATION_LEAD_ROUTING_RULES);
+    const testing = renderAutomationBulletList(AUTOMATION_TESTING_LOGGING);
+    const security = renderAutomationBulletList(AUTOMATION_SECURITY_CONTROLS);
+    const example = renderAutomationExampleScenario(AUTOMATION_EXAMPLE_SCENARIO);
+    const importance = renderAutomationBulletList(AUTOMATION_IMPORTANCE_POINTS);
+
+    return `
+        <div class="bg-white border border-gray-200 rounded-2xl p-6 space-y-8">
+            <div class="space-y-1">
+                <h3 class="text-xl font-semibold text-gray-800">Автоматизація: довідник можливостей</h3>
+                <p class="text-sm text-gray-600">Оптимізуйте бізнес-процеси, зменшуйте рутину та посилюйте взаємодію з клієнтами.</p>
+            </div>
+
+            <section class="space-y-4">
+                <h4 class="text-lg font-semibold text-gray-800">1. Правила автоматизації</h4>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <p class="text-sm font-medium text-gray-700 mb-2">Тригери</p>
+                        ${triggerList}
+                    </div>
+                    <div>
+                        <p class="text-sm font-medium text-gray-700 mb-2">Автоматичні дії</p>
+                        ${actionList}
+                    </div>
+                </div>
+            </section>
+
+            <section class="space-y-4">
+                <h4 class="text-lg font-semibold text-gray-800">2. Сценарії автоматизації (Workflows)</h4>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    ${workflowTemplates}
+                </div>
+                <div class="bg-blue-50 border border-blue-100 rounded-xl p-4">
+                    <p class="text-sm font-semibold text-blue-800 mb-2">Кастомні сценарії</p>
+                    ${customScenarioFeatures}
+                </div>
+            </section>
+
+            <section class="space-y-4">
+                <h4 class="text-lg font-semibold text-gray-800">3. Шаблони повідомлень</h4>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    ${messageTemplates}
+                </div>
+            </section>
+
+            <section class="space-y-4">
+                <h4 class="text-lg font-semibold text-gray-800">4. Інтеграції з зовнішніми сервісами</h4>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    ${integrationCatalog}
+                </div>
+                <div class="bg-gray-50 border border-gray-200 rounded-xl p-4">
+                    <p class="text-sm font-medium text-gray-700 mb-2">API та вебхуки</p>
+                    ${apiOptions}
+                </div>
+            </section>
+
+            <section class="space-y-4">
+                <h4 class="text-lg font-semibold text-gray-800">5. Автоматизація завдань та нагадувань</h4>
+                ${taskAutomation}
+            </section>
+
+            <section class="space-y-4">
+                <h4 class="text-lg font-semibold text-gray-800">6. Сегментація та персоналізація</h4>
+                ${segmentation}
+            </section>
+
+            <section class="space-y-4">
+                <h4 class="text-lg font-semibold text-gray-800">7. Аналітика автоматизації</h4>
+                ${analytics}
+            </section>
+
+            <section class="space-y-4">
+                <h4 class="text-lg font-semibold text-gray-800">8. Налаштування правил розподілу лідів</h4>
+                ${leadRouting}
+            </section>
+
+            <section class="space-y-4">
+                <h4 class="text-lg font-semibold text-gray-800">9. Тестування та логування</h4>
+                ${testing}
+            </section>
+
+            <section class="space-y-4">
+                <h4 class="text-lg font-semibold text-gray-800">10. Безпека та доступ</h4>
+                ${security}
+            </section>
+
+            <section class="space-y-4">
+                <h4 class="text-lg font-semibold text-gray-800">Приклад сценарію автоматизації</h4>
+                ${example}
+            </section>
+
+            <section class="space-y-4">
+                <h4 class="text-lg font-semibold text-gray-800">Чому це важливо?</h4>
+                ${importance}
+                <p class="text-sm text-gray-600">Потрібна допомога з налаштуванням? Зверніться до команди підтримки — ми підкажемо оптимальний сценарій.</p>
+            </section>
+        </div>
+    `;
+}
+
+function renderAutomationCardList(items = []) {
+    if (!Array.isArray(items) || !items.length) {
+        return '<p class="text-sm text-gray-500">Дані про автоматизацію тимчасово недоступні.</p>';
+    }
+    return `
+        <ul class="space-y-3">
+            ${items.map(item => `
+                <li class="border border-gray-100 rounded-xl p-3">
+                    <p class="text-sm font-semibold text-gray-800">${sanitizeAutomationHtml(item.title)}</p>
+                    ${item.description ? `<p class="text-xs text-gray-500 mt-1">${sanitizeAutomationHtml(item.description)}</p>` : ''}
+                </li>
+            `).join('')}
+        </ul>
+    `;
+}
+
+function renderAutomationCategoryBlocks(categories = [], itemsKey = 'items') {
+    if (!Array.isArray(categories) || !categories.length) {
+        return '<p class="text-sm text-gray-500">Налаштовані шаблони відсутні.</p>';
+    }
+    return categories.map(category => {
+        const values = Array.isArray(category[itemsKey]) && category[itemsKey].length ? category[itemsKey] : (Array.isArray(category.items) ? category.items : []);
+        if (!values.length) {
+            return '';
+        }
+        return `
+            <div class="border border-gray-100 rounded-xl p-4 space-y-2">
+                <p class="text-sm font-semibold text-gray-800">${sanitizeAutomationHtml(category.category)}</p>
+                <ul class="list-disc pl-4 space-y-1 text-sm text-gray-600">
+                    ${values.map(item => `<li>${sanitizeAutomationHtml(item)}</li>`).join('')}
+                </ul>
+            </div>
+        `;
+    }).join('');
+}
+
+function renderAutomationBulletList(items = []) {
+    if (!Array.isArray(items) || !items.length) {
+        return '<p class="text-sm text-gray-500">Дані відсутні.</p>';
+    }
+    return `
+        <ul class="list-disc pl-5 space-y-2 text-sm text-gray-700">
+            ${items.map(item => `<li>${sanitizeAutomationHtml(item)}</li>`).join('')}
+        </ul>
+    `;
+}
+
+function renderAutomationExampleScenario(example) {
+    if (!example) {
+        return '<p class="text-sm text-gray-500">Поки що немає прикладів сценаріїв.</p>';
+    }
+    const actions = Array.isArray(example.actions) ? example.actions : [];
+    return `
+        <div class="border border-gray-100 rounded-2xl overflow-hidden">
+            <table class="w-full text-sm">
+                <thead class="bg-gray-50 text-gray-500 uppercase text-xs">
+                    <tr>
+                        <th class="p-3 text-left">Тригер</th>
+                        <th class="p-3 text-left">Автоматичні дії</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr class="divide-x divide-gray-100">
+                        <td class="p-4 align-top text-gray-700">${sanitizeAutomationHtml(example.trigger || '')}</td>
+                        <td class="p-4 align-top">${renderAutomationBulletList(actions)}</td>
+                    </tr>
+                </tbody>
+            </table>
         </div>
     `;
 }
