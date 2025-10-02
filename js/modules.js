@@ -4046,8 +4046,22 @@ const ACCOUNTING_SYSTEMS = [
     { id: 'netsuite', name: 'Oracle NetSuite', description: 'Enterprise ERP & revenue recognition' }
 ];
 
+const SALES_FILTER_DEFAULTS = {
+    period: 'quarter',
+    start: null,
+    end: null,
+    type: 'all',
+    region: 'all',
+    manager: 'all',
+    client: 'all',
+    product: 'all'
+};
+
 const salesModuleState = {
+    allOpportunities: [],
     opportunities: [],
+    filters: { ...SALES_FILTER_DEFAULTS },
+    lastMetrics: null,
     cpq: {
         lines: [],
         opportunityId: null,
@@ -4069,6 +4083,102 @@ async function showSales() {
     const salesView = document.getElementById('salesView');
     salesView.innerHTML = `
         <div class="space-y-6">
+            <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                <div class="flex flex-wrap items-start justify-between gap-4 mb-4">
+                    <div>
+                        <h3 class="text-lg font-semibold text-gray-800">Фільтри продажів</h3>
+                        <p class="text-sm text-gray-500">Аналізуйте виручку за періодами, сегментами та командами.</p>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <button id="salesFilterReset" class="px-4 py-2 text-sm font-medium text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50">Скинути</button>
+                        <button id="salesFilterApply" class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700">Застосувати</button>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 lg:grid-cols-6 gap-4">
+                    <div>
+                        <label for="salesFilterPeriod" class="block text-xs font-semibold text-gray-500 uppercase tracking-wide">Період</label>
+                        <select id="salesFilterPeriod" class="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                            <option value="today">Сьогодні</option>
+                            <option value="week">Цей тиждень</option>
+                            <option value="month">Цей місяць</option>
+                            <option value="quarter" selected>Цей квартал</option>
+                            <option value="year">Цей рік</option>
+                            <option value="custom">Довільний діапазон</option>
+                            <option value="all">Увесь час</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="salesFilterType" class="block text-xs font-semibold text-gray-500 uppercase tracking-wide">Тип продажу</label>
+                        <select id="salesFilterType" class="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"></select>
+                    </div>
+                    <div>
+                        <label for="salesFilterRegion" class="block text-xs font-semibold text-gray-500 uppercase tracking-wide">Регіон</label>
+                        <select id="salesFilterRegion" class="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"></select>
+                    </div>
+                    <div>
+                        <label for="salesFilterManager" class="block text-xs font-semibold text-gray-500 uppercase tracking-wide">Менеджер</label>
+                        <select id="salesFilterManager" class="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"></select>
+                    </div>
+                    <div>
+                        <label for="salesFilterClient" class="block text-xs font-semibold text-gray-500 uppercase tracking-wide">Клієнт</label>
+                        <select id="salesFilterClient" class="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"></select>
+                    </div>
+                    <div>
+                        <label for="salesFilterProduct" class="block text-xs font-semibold text-gray-500 uppercase tracking-wide">Продукт / послуга</label>
+                        <select id="salesFilterProduct" class="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"></select>
+                    </div>
+                </div>
+                <div id="salesCustomRangeWrapper" class="grid grid-cols-1 md:grid-cols-4 gap-4 mt-4 hidden">
+                    <div>
+                        <label for="salesFilterStartDate" class="block text-xs font-semibold text-gray-500 uppercase tracking-wide">Початкова дата</label>
+                        <input type="date" id="salesFilterStartDate" class="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    </div>
+                    <div>
+                        <label for="salesFilterEndDate" class="block text-xs font-semibold text-gray-500 uppercase tracking-wide">Кінцева дата</label>
+                        <input type="date" id="salesFilterEndDate" class="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    </div>
+                    <div class="md:col-span-2">
+                        <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide">Поточний фільтр</label>
+                        <p id="salesFilterSummary" class="mt-1 text-sm text-gray-500">Фільтри не застосовано.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+                    <p class="text-sm text-gray-500">Загальна виручка</p>
+                    <p id="salesTotalRevenue" class="text-2xl font-semibold text-gray-800 mt-1">$0.00</p>
+                    <p id="salesRevenueHelper" class="text-xs text-gray-400 mt-2">0 угод у періоді</p>
+                </div>
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+                    <p class="text-sm text-gray-500">Кількість угод</p>
+                    <p id="salesDealsCount" class="text-2xl font-semibold text-gray-800 mt-1">0</p>
+                    <p id="salesDealsHelper" class="text-xs text-gray-400 mt-2">Активні та закриті можливості</p>
+                </div>
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+                    <p class="text-sm text-gray-500">Середній чек</p>
+                    <p id="salesAverageCheck" class="text-2xl font-semibold text-gray-800 mt-1">$0.00</p>
+                    <p id="salesAverageCheckHelper" class="text-xs text-gray-400 mt-2">Розрахунок по закритих угодах</p>
+                </div>
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+                    <p class="text-sm text-gray-500">Конверсія лідів у клієнтів</p>
+                    <p id="salesConversion" class="text-2xl font-semibold text-gray-800 mt-1">0%</p>
+                    <p id="salesConversionHelper" class="text-xs text-gray-400 mt-2">Відсоток виграних угод</p>
+                </div>
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+                    <p class="text-sm text-gray-500">Прибутковість</p>
+                    <p id="salesProfitability" class="text-2xl font-semibold text-gray-800 mt-1">0%</p>
+                    <p id="salesProfitabilityHelper" class="text-xs text-gray-400 mt-2">Маржа та чистий прибуток</p>
+                </div>
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+                    <p class="text-sm text-gray-500">Динаміка продажів</p>
+                    <div class="flex items-baseline gap-2 mt-1">
+                        <span id="salesGrowthBadge" class="inline-flex items-center rounded-full bg-emerald-50 px-2.5 py-0.5 text-sm font-medium text-emerald-600">0%</span>
+                        <span id="salesGrowthLabel" class="text-xs text-gray-400">vs попередній період</span>
+                    </div>
+                </div>
+            </div>
+
             <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
                 <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
                     <p class="text-sm text-gray-500">Pipeline Value</p>
@@ -4092,6 +4202,100 @@ async function showSales() {
                 </div>
             </div>
 
+            <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 xl:col-span-2">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-lg font-semibold text-gray-800">Графік виручки</h3>
+                        <span id="salesRevenueTrendSummary" class="text-xs text-gray-500"></span>
+                    </div>
+                    <div class="relative h-72">
+                        <canvas id="salesRevenueTrendChart" class="h-full"></canvas>
+                        <p id="salesRevenueTrendEmpty" class="absolute inset-0 hidden items-center justify-center text-sm text-gray-500">Недостатньо даних для побудови графіка.</p>
+                    </div>
+                </div>
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-lg font-semibold text-gray-800">Розподіл продажів</h3>
+                        <span id="salesCategorySummary" class="text-xs text-gray-500"></span>
+                    </div>
+                    <div class="h-60 flex items-center justify-center">
+                        <canvas id="salesCategoryDistributionChart" class="max-h-56"></canvas>
+                    </div>
+                    <div id="salesCategoryDistributionLegend" class="mt-4 space-y-2"></div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 xl:col-span-2">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-lg font-semibold text-gray-800">Топ-продавці</h3>
+                        <span id="salesTopSellersSummary" class="text-xs text-gray-500"></span>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm">
+                            <thead class="bg-gray-50 text-gray-600 uppercase text-xs">
+                                <tr>
+                                    <th class="p-3 text-left">Менеджер</th>
+                                    <th class="p-3 text-left">Команда</th>
+                                    <th class="p-3 text-left">Угод</th>
+                                    <th class="p-3 text-left">Виручка</th>
+                                    <th class="p-3 text-left">Win-rate</th>
+                                </tr>
+                            </thead>
+                            <tbody id="salesTopSellersBody" class="divide-y divide-gray-100"></tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4">Швидкі інсайти</h3>
+                    <ul id="salesInsightsList" class="space-y-3 text-sm text-gray-600"></ul>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-lg font-semibold text-gray-800">Порівняльний аналіз</h3>
+                        <span id="salesComparativeSummary" class="text-xs text-gray-500"></span>
+                    </div>
+                    <div id="salesComparativeAnalysis" class="space-y-3 text-sm text-gray-600"></div>
+                </div>
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-lg font-semibold text-gray-800">Сегментація продажів</h3>
+                        <span id="salesSegmentationSummary" class="text-xs text-gray-500"></span>
+                    </div>
+                    <div id="salesSegmentation" class="space-y-4"></div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <div>
+                        <h3 class="text-lg font-semibold text-gray-800">Деталізація продажів</h3>
+                        <p class="text-sm text-gray-500">Повний журнал угод з виручкою, статусом оплати та прибутком.</p>
+                    </div>
+                    <button id="salesExportQuick" class="px-4 py-2 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700">Експорт CSV</button>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead class="bg-gray-50 text-gray-600 uppercase text-xs">
+                            <tr>
+                                <th class="p-3 text-left">Дата</th>
+                                <th class="p-3 text-left">Угода</th>
+                                <th class="p-3 text-left">Клієнт</th>
+                                <th class="p-3 text-left">Менеджер</th>
+                                <th class="p-3 text-left">Продукт / послуга</th>
+                                <th class="p-3 text-left">Сума</th>
+                                <th class="p-3 text-left">Статус оплати</th>
+                                <th class="p-3 text-left">Прибуток</th>
+                            </tr>
+                        </thead>
+                        <tbody id="salesDetailTableBody" class="divide-y divide-gray-100"></tbody>
+                    </table>
+                </div>
+            </div>
+
             <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
                 <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
                     <div class="flex items-center justify-between mb-4">
@@ -4103,6 +4307,10 @@ async function showSales() {
                 <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
                     <div class="flex items-center justify-between mb-4">
                         <h3 class="text-lg font-semibold text-gray-800">Revenue Forecast</h3>
+                        <div class="flex items-center gap-2">
+                            <button id="salesReportRevenue" class="px-3 py-1.5 text-xs font-medium text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100">Звіт про виручку</button>
+                            <button id="salesReportConversion" class="px-3 py-1.5 text-xs font-medium text-indigo-600 bg-indigo-50 rounded-lg hover:bg-indigo-100">Звіт про конверсію</button>
+                        </div>
                     </div>
                     <div class="relative h-64">
                         <canvas id="salesForecastChart" class="h-full"></canvas>
@@ -4112,36 +4320,34 @@ async function showSales() {
                 </div>
             </div>
 
-            <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-                <div class="flex items-center justify-between mb-4">
-                    <h3 class="text-lg font-semibold text-gray-800">Pipeline Board</h3>
-                    <p id="salesPipelineStats" class="text-sm text-gray-500"></p>
+            <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4">Звіти та експорт</h3>
+                    <div class="grid grid-cols-1 gap-3 text-sm text-gray-600">
+                        <button id="salesReportProfitability" class="flex items-center justify-between rounded-lg border border-gray-200 px-4 py-2 hover:bg-gray-50">
+                            <span>Звіт про прибутковість</span>
+                            <i class="fas fa-arrow-right text-gray-400"></i>
+                        </button>
+                        <button id="salesReportOverdue" class="flex items-center justify-between rounded-lg border border-gray-200 px-4 py-2 hover:bg-gray-50">
+                            <span>Звіт про прострочені платежі</span>
+                            <i class="fas fa-arrow-right text-gray-400"></i>
+                        </button>
+                        <div class="flex items-center gap-2">
+                            <button id="salesExportCsv" class="px-3 py-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100">CSV</button>
+                            <button id="salesExportExcel" class="px-3 py-2 bg-green-50 text-green-600 rounded-lg hover:bg-green-100">Excel</button>
+                            <button id="salesExportPdf" class="px-3 py-2 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200">PDF</button>
+                        </div>
+                        <p id="salesReportsSummary" class="text-xs text-gray-500"></p>
+                    </div>
                 </div>
-                <div class="flex space-x-4 overflow-x-auto pb-4">
-                    <div class="min-w-80 bg-gray-50 rounded-lg p-4">
-                        <h4 class="font-semibold text-gray-700 mb-3">Qualification</h4>
-                        <div id="salesQualificationColumn" class="space-y-3 min-h-40"></div>
-                    </div>
-                    <div class="min-w-80 bg-blue-50 rounded-lg p-4">
-                        <h4 class="font-semibold text-blue-700 mb-3">Needs Analysis</h4>
-                        <div id="salesNeedsAnalysisColumn" class="space-y-3 min-h-40"></div>
-                    </div>
-                    <div class="min-w-80 bg-yellow-50 rounded-lg p-4">
-                        <h4 class="font-semibold text-yellow-700 mb-3">Proposal</h4>
-                        <div id="salesProposalColumn" class="space-y-3 min-h-40"></div>
-                    </div>
-                    <div class="min-w-80 bg-orange-50 rounded-lg p-4">
-                        <h4 class="font-semibold text-orange-700 mb-3">Negotiation</h4>
-                        <div id="salesNegotiationColumn" class="space-y-3 min-h-40"></div>
-                    </div>
-                    <div class="min-w-80 bg-green-50 rounded-lg p-4">
-                        <h4 class="font-semibold text-green-700 mb-3">Closed Won</h4>
-                        <div id="salesClosedWonColumn" class="space-y-3 min-h-40"></div>
-                    </div>
-                    <div class="min-w-80 bg-red-50 rounded-lg p-4">
-                        <h4 class="font-semibold text-red-700 mb-3">Closed Lost</h4>
-                        <div id="salesClosedLostColumn" class="space-y-3 min-h-40"></div>
-                    </div>
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4">Управління цілями</h3>
+                    <div id="salesGoals" class="space-y-4 text-sm text-gray-600"></div>
+                </div>
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4">Інтеграції та безпека</h3>
+                    <div id="salesIntegrationsSummary" class="space-y-3 text-sm text-gray-600"></div>
+                    <div id="salesSecuritySummary" class="mt-4 space-y-3 text-sm text-gray-600"></div>
                 </div>
             </div>
 
@@ -4271,6 +4477,7 @@ async function showSales() {
         </div>
     `;
 
+    initializeSalesActions();
     await loadSalesModuleData();
 }
 
@@ -4280,12 +4487,15 @@ async function loadSalesModuleData() {
         const response = await fetch('tables/opportunities?limit=200');
         const data = await response.json();
 
-        salesModuleState.opportunities = (data.data || []).map(opportunity => ({
+        salesModuleState.allOpportunities = (data.data || []).map(opportunity => normalizeOpportunityRecord({
             ...opportunity,
             probability: typeof opportunity.probability === 'number'
                 ? opportunity.probability
                 : (STAGE_DEFAULT_PROBABILITY[opportunity.stage] ?? 0)
         }));
+
+        initializeSalesFilters();
+        applySalesFilters({ skipRender: true });
 
         salesModuleState.cpq.lines = [];
         salesModuleState.cpq.opportunityId = null;
@@ -4302,7 +4512,498 @@ async function loadSalesModuleData() {
     }
 }
 
-function calculateSalesMetrics(opportunities) {
+function initializeSalesActions() {
+    const quickExport = document.getElementById('salesExportQuick');
+    if (quickExport) {
+        quickExport.onclick = event => {
+            event.preventDefault();
+            handleSalesExport('csv');
+        };
+    }
+
+    const csvButton = document.getElementById('salesExportCsv');
+    if (csvButton) {
+        csvButton.onclick = event => {
+            event.preventDefault();
+            handleSalesExport('csv');
+        };
+    }
+
+    const excelButton = document.getElementById('salesExportExcel');
+    if (excelButton) {
+        excelButton.onclick = event => {
+            event.preventDefault();
+            handleSalesExport('excel');
+        };
+    }
+
+    const pdfButton = document.getElementById('salesExportPdf');
+    if (pdfButton) {
+        pdfButton.onclick = event => {
+            event.preventDefault();
+            handleSalesExport('pdf');
+        };
+    }
+
+    const revenueReportBtn = document.getElementById('salesReportRevenue');
+    if (revenueReportBtn) {
+        revenueReportBtn.onclick = event => {
+            event.preventDefault();
+            handleSalesReport('revenue');
+        };
+    }
+
+    const conversionReportBtn = document.getElementById('salesReportConversion');
+    if (conversionReportBtn) {
+        conversionReportBtn.onclick = event => {
+            event.preventDefault();
+            handleSalesReport('conversion');
+        };
+    }
+
+    const profitabilityReportBtn = document.getElementById('salesReportProfitability');
+    if (profitabilityReportBtn) {
+        profitabilityReportBtn.onclick = event => {
+            event.preventDefault();
+            handleSalesReport('profitability');
+        };
+    }
+
+    const overdueReportBtn = document.getElementById('salesReportOverdue');
+    if (overdueReportBtn) {
+        overdueReportBtn.onclick = event => {
+            event.preventDefault();
+            handleSalesReport('overdue');
+        };
+    }
+}
+
+function normalizeOpportunityRecord(opportunity = {}) {
+    const normalized = { ...opportunity };
+
+    normalized.currency = opportunity.currency || 'USD';
+    normalized.sales_type = opportunity.sales_type || 'Проекти';
+    normalized.region = opportunity.region || 'Невідомий регіон';
+    normalized.manager_team = opportunity.manager_team || opportunity.team || 'Sales';
+    normalized.client_type = opportunity.client_type || 'B2B';
+    normalized.product_line = opportunity.product_line || opportunity.product || opportunity.service || 'Універсальний продукт';
+    normalized.payment_status = opportunity.payment_status || (opportunity.stage === 'Closed Won' ? 'Оплачено' : 'Очікує оплату');
+    normalized.invoice_status = opportunity.invoice_status || normalized.payment_status;
+    normalized.sales_channel = opportunity.sales_channel || 'Прямі продажі';
+    normalized.revenue_stream = opportunity.revenue_stream || 'Основний продукт';
+    normalized.deal_code = opportunity.deal_code || opportunity.reference || opportunity.id || '';
+    normalized.account_name = opportunity.company_name || opportunity.account_name || '';
+    normalized.owner = opportunity.assigned_to || opportunity.owner || '';
+    normalized.created_at = opportunity.created_at || opportunity.expected_close_date || new Date().toISOString();
+    normalized.updated_at = opportunity.updated_at || normalized.created_at;
+
+    const value = Number(opportunity.value) || 0;
+    const margin = Number.isFinite(opportunity.profit_margin) ? Number(opportunity.profit_margin) : 0.32;
+    const profitAmount = opportunity.profit_amount !== undefined
+        ? Number(opportunity.profit_amount)
+        : value * margin;
+    normalized.profit_margin = margin;
+    normalized.profit_amount = profitAmount;
+    normalized.cost_of_sale = opportunity.cost_of_sale !== undefined
+        ? Number(opportunity.cost_of_sale)
+        : Math.max(value - profitAmount, 0);
+    normalized.currency_rate = Number.isFinite(opportunity.currency_rate) ? Number(opportunity.currency_rate) : 1;
+
+    normalized.expected_close_date = opportunity.expected_close_date || null;
+    normalized.actual_close_date = opportunity.actual_close_date
+        || (opportunity.stage === 'Closed Won' ? opportunity.expected_close_date : null);
+    normalized.closed_date = normalized.actual_close_date;
+
+    normalized._typeKey = (normalized.sales_type || '').toLowerCase();
+    normalized._regionKey = (normalized.region || '').toLowerCase();
+    normalized._managerKey = (normalized.owner || '').toLowerCase();
+    normalized._clientKey = (normalized.account_name || '').toLowerCase();
+    normalized._productKey = (normalized.product_line || '').toLowerCase();
+
+    return normalized;
+}
+
+function buildSalesFilterKeys(filters = {}) {
+    return {
+        type: (filters.type || 'all').toLowerCase(),
+        region: (filters.region || 'all').toLowerCase(),
+        manager: (filters.manager || 'all').toLowerCase(),
+        client: (filters.client || 'all').toLowerCase(),
+        product: (filters.product || 'all').toLowerCase()
+    };
+}
+
+function matchesOpportunity(opportunity, filterKeys) {
+    if (!opportunity) {
+        return false;
+    }
+
+    if (filterKeys.type !== 'all' && opportunity._typeKey !== filterKeys.type) {
+        return false;
+    }
+    if (filterKeys.region !== 'all' && opportunity._regionKey !== filterKeys.region) {
+        return false;
+    }
+    if (filterKeys.manager !== 'all' && opportunity._managerKey !== filterKeys.manager) {
+        return false;
+    }
+    if (filterKeys.client !== 'all' && opportunity._clientKey !== filterKeys.client) {
+        return false;
+    }
+    if (filterKeys.product !== 'all' && opportunity._productKey !== filterKeys.product) {
+        return false;
+    }
+    return true;
+}
+
+function getOpportunityFilterDate(opportunity) {
+    if (!opportunity) {
+        return null;
+    }
+    const fallbackDate = opportunity.actual_close_date || opportunity.expected_close_date || opportunity.created_at;
+    return parseDateValue(fallbackDate);
+}
+
+function resolveSalesPeriodRange(period) {
+    if (!period || period === 'all') {
+        return { start: null, end: null };
+    }
+
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    switch (period) {
+        case 'today': {
+            return { start: startOfToday, end: endOfDay(startOfToday) };
+        }
+        case 'week': {
+            const dayOfWeek = startOfToday.getDay() || 7;
+            const weekStart = new Date(startOfToday);
+            weekStart.setDate(startOfToday.getDate() - (dayOfWeek - 1));
+            const weekEnd = new Date(weekStart);
+            weekEnd.setDate(weekStart.getDate() + 6);
+            return { start: weekStart, end: endOfDay(weekEnd) };
+        }
+        case 'month': {
+            const monthStart = new Date(startOfToday.getFullYear(), startOfToday.getMonth(), 1);
+            const monthEnd = new Date(startOfToday.getFullYear(), startOfToday.getMonth() + 1, 0);
+            return { start: monthStart, end: endOfDay(monthEnd) };
+        }
+        case 'quarter': {
+            const quarter = Math.floor(startOfToday.getMonth() / 3);
+            const quarterStart = new Date(startOfToday.getFullYear(), quarter * 3, 1);
+            const quarterEnd = new Date(startOfToday.getFullYear(), quarter * 3 + 3, 0);
+            return { start: quarterStart, end: endOfDay(quarterEnd) };
+        }
+        case 'year': {
+            const yearStart = new Date(startOfToday.getFullYear(), 0, 1);
+            const yearEnd = new Date(startOfToday.getFullYear(), 11, 31);
+            return { start: yearStart, end: endOfDay(yearEnd) };
+        }
+        default:
+            return { start: null, end: null };
+    }
+}
+
+function getSalesFilterDateRange(filters = {}) {
+    if (!filters || filters.period === 'all') {
+        return { start: null, end: null };
+    }
+
+    if (filters.period === 'custom') {
+        const start = filters.start ? parseDateValue(filters.start) : null;
+        const end = filters.end ? parseDateValue(filters.end) : null;
+        return {
+            start: start ? new Date(start.getFullYear(), start.getMonth(), start.getDate()) : null,
+            end: end ? endOfDay(end) : null
+        };
+    }
+
+    return resolveSalesPeriodRange(filters.period);
+}
+
+function calculatePreviousPeriodRange(range) {
+    if (!range || !range.start || !range.end) {
+        return null;
+    }
+
+    const duration = range.end.getTime() - range.start.getTime();
+    const previousEnd = new Date(range.start.getTime() - 1);
+    const previousStart = new Date(previousEnd.getTime() - duration);
+    return {
+        start: new Date(previousStart.getFullYear(), previousStart.getMonth(), previousStart.getDate()),
+        end: endOfDay(previousEnd)
+    };
+}
+
+function formatDateRangeDisplay(date) {
+    if (!date) {
+        return '';
+    }
+    return date.toLocaleDateString('uk-UA', { year: 'numeric', month: 'short', day: 'numeric' });
+}
+
+function updateSalesFilterSummary(range, totalCount) {
+    const summary = document.getElementById('salesFilterSummary');
+    if (!summary) {
+        return;
+    }
+
+    const periodSelect = document.getElementById('salesFilterPeriod');
+    const typeSelect = document.getElementById('salesFilterType');
+    const regionSelect = document.getElementById('salesFilterRegion');
+    const managerSelect = document.getElementById('salesFilterManager');
+    const clientSelect = document.getElementById('salesFilterClient');
+    const productSelect = document.getElementById('salesFilterProduct');
+
+    const parts = [];
+    const periodLabel = periodSelect?.selectedOptions?.[0]?.textContent || 'Увесь час';
+    parts.push(periodLabel);
+
+    if (range.start || range.end) {
+        const startLabel = formatDateRangeDisplay(range.start);
+        const endLabel = formatDateRangeDisplay(range.end);
+        if (startLabel || endLabel) {
+            parts.push(`Діапазон: ${startLabel || '—'} – ${endLabel || '—'}`);
+        }
+    }
+
+    if (salesModuleState.filters.type !== 'all' && typeSelect?.selectedOptions?.length) {
+        parts.push(`Тип: ${typeSelect.selectedOptions[0].textContent}`);
+    }
+    if (salesModuleState.filters.region !== 'all' && regionSelect?.selectedOptions?.length) {
+        parts.push(`Регіон: ${regionSelect.selectedOptions[0].textContent}`);
+    }
+    if (salesModuleState.filters.manager !== 'all' && managerSelect?.selectedOptions?.length) {
+        parts.push(`Менеджер: ${managerSelect.selectedOptions[0].textContent}`);
+    }
+    if (salesModuleState.filters.client !== 'all' && clientSelect?.selectedOptions?.length) {
+        parts.push(`Клієнт: ${clientSelect.selectedOptions[0].textContent}`);
+    }
+    if (salesModuleState.filters.product !== 'all' && productSelect?.selectedOptions?.length) {
+        parts.push(`Продукт: ${productSelect.selectedOptions[0].textContent}`);
+    }
+
+    const baseText = parts.length
+        ? `Активні фільтри: ${parts.join(' · ')}`
+        : 'Фільтри не застосовано.';
+    summary.textContent = `${baseText} · ${totalCount} угод`;
+}
+
+function initializeSalesFilters() {
+    const periodSelect = document.getElementById('salesFilterPeriod');
+    if (!periodSelect) {
+        return;
+    }
+
+    const typeSelect = document.getElementById('salesFilterType');
+    const regionSelect = document.getElementById('salesFilterRegion');
+    const managerSelect = document.getElementById('salesFilterManager');
+    const clientSelect = document.getElementById('salesFilterClient');
+    const productSelect = document.getElementById('salesFilterProduct');
+    const startInput = document.getElementById('salesFilterStartDate');
+    const endInput = document.getElementById('salesFilterEndDate');
+    const applyButton = document.getElementById('salesFilterApply');
+    const resetButton = document.getElementById('salesFilterReset');
+
+    populateSalesFilterSelect(typeSelect, getUniqueSalesValues('sales_type'), 'Усі типи');
+    populateSalesFilterSelect(regionSelect, getUniqueSalesValues('region'), 'Усі регіони');
+    populateSalesFilterSelect(managerSelect, getUniqueSalesValues('owner'), 'Усі менеджери');
+    populateSalesFilterSelect(clientSelect, getUniqueSalesValues('account_name'), 'Усі клієнти');
+    populateSalesFilterSelect(productSelect, getUniqueSalesValues('product_line'), 'Усі продукти');
+
+    periodSelect.value = salesModuleState.filters.period;
+    if (typeSelect) typeSelect.value = salesModuleState.filters.type;
+    if (regionSelect) regionSelect.value = salesModuleState.filters.region;
+    if (managerSelect) managerSelect.value = salesModuleState.filters.manager;
+    if (clientSelect) clientSelect.value = salesModuleState.filters.client;
+    if (productSelect) productSelect.value = salesModuleState.filters.product;
+    if (startInput) startInput.value = salesModuleState.filters.start || '';
+    if (endInput) endInput.value = salesModuleState.filters.end || '';
+
+    syncSalesCustomRangeVisibility();
+
+    periodSelect.onchange = event => {
+        salesModuleState.filters.period = event.target.value;
+        if (salesModuleState.filters.period !== 'custom') {
+            salesModuleState.filters.start = null;
+            salesModuleState.filters.end = null;
+            if (startInput) startInput.value = '';
+            if (endInput) endInput.value = '';
+            applySalesFilters();
+        } else {
+            syncSalesCustomRangeVisibility();
+        }
+    };
+
+    if (typeSelect) {
+        typeSelect.onchange = event => {
+            salesModuleState.filters.type = event.target.value;
+            applySalesFilters();
+        };
+    }
+
+    if (regionSelect) {
+        regionSelect.onchange = event => {
+            salesModuleState.filters.region = event.target.value;
+            applySalesFilters();
+        };
+    }
+
+    if (managerSelect) {
+        managerSelect.onchange = event => {
+            salesModuleState.filters.manager = event.target.value;
+            applySalesFilters();
+        };
+    }
+
+    if (clientSelect) {
+        clientSelect.onchange = event => {
+            salesModuleState.filters.client = event.target.value;
+            applySalesFilters();
+        };
+    }
+
+    if (productSelect) {
+        productSelect.onchange = event => {
+            salesModuleState.filters.product = event.target.value;
+            applySalesFilters();
+        };
+    }
+
+    if (startInput) {
+        startInput.onchange = event => {
+            salesModuleState.filters.start = event.target.value || null;
+        };
+    }
+
+    if (endInput) {
+        endInput.onchange = event => {
+            salesModuleState.filters.end = event.target.value || null;
+        };
+    }
+
+    if (applyButton) {
+        applyButton.onclick = event => {
+            event.preventDefault();
+            applySalesFilters();
+        };
+    }
+
+    if (resetButton) {
+        resetButton.onclick = event => {
+            event.preventDefault();
+            resetSalesFilters();
+        };
+    }
+}
+
+function populateSalesFilterSelect(select, values, placeholder) {
+    if (!select) {
+        return;
+    }
+    const options = [`<option value="all">${sanitizeText(placeholder || 'Усі')}</option>`];
+    values.forEach(value => {
+        const raw = String(value || '').trim();
+        if (!raw) {
+            return;
+        }
+        options.push(`<option value="${sanitizeText(raw.toLowerCase())}">${sanitizeText(raw)}</option>`);
+    });
+    select.innerHTML = options.join('');
+}
+
+function getUniqueSalesValues(key) {
+    const values = new Set();
+    salesModuleState.allOpportunities.forEach(opportunity => {
+        const value = opportunity[key];
+        if (value) {
+            values.add(String(value).trim());
+        }
+    });
+    return Array.from(values).sort((a, b) => a.localeCompare(b, 'uk', { sensitivity: 'base' }));
+}
+
+function syncSalesCustomRangeVisibility() {
+    const wrapper = document.getElementById('salesCustomRangeWrapper');
+    if (!wrapper) {
+        return;
+    }
+    if (salesModuleState.filters.period === 'custom') {
+        wrapper.classList.remove('hidden');
+    } else {
+        wrapper.classList.add('hidden');
+    }
+}
+
+function applySalesFilters(options = {}) {
+    const { skipRender = false } = options;
+    const filterKeys = buildSalesFilterKeys(salesModuleState.filters);
+    const range = getSalesFilterDateRange(salesModuleState.filters);
+
+    const filtered = salesModuleState.allOpportunities.filter(opportunity => {
+        if (!matchesOpportunity(opportunity, filterKeys)) {
+            return false;
+        }
+
+        const date = getOpportunityFilterDate(opportunity);
+        if (range.start && (!date || date < range.start)) {
+            return false;
+        }
+        if (range.end && (!date || date > range.end)) {
+            return false;
+        }
+        return true;
+    });
+
+    salesModuleState.opportunities = filtered;
+    updateSalesFilterSummary(range, filtered.length);
+    syncSalesCustomRangeVisibility();
+
+    if (!skipRender) {
+        refreshSalesVisuals();
+    }
+}
+
+function resetSalesFilters() {
+    salesModuleState.filters = { ...SALES_FILTER_DEFAULTS };
+
+    const periodSelect = document.getElementById('salesFilterPeriod');
+    const typeSelect = document.getElementById('salesFilterType');
+    const regionSelect = document.getElementById('salesFilterRegion');
+    const managerSelect = document.getElementById('salesFilterManager');
+    const clientSelect = document.getElementById('salesFilterClient');
+    const productSelect = document.getElementById('salesFilterProduct');
+    const startInput = document.getElementById('salesFilterStartDate');
+    const endInput = document.getElementById('salesFilterEndDate');
+
+    if (periodSelect) periodSelect.value = salesModuleState.filters.period;
+    if (typeSelect) typeSelect.value = salesModuleState.filters.type;
+    if (regionSelect) regionSelect.value = salesModuleState.filters.region;
+    if (managerSelect) managerSelect.value = salesModuleState.filters.manager;
+    if (clientSelect) clientSelect.value = salesModuleState.filters.client;
+    if (productSelect) productSelect.value = salesModuleState.filters.product;
+    if (startInput) startInput.value = '';
+    if (endInput) endInput.value = '';
+
+    applySalesFilters();
+}
+
+function formatCurrencyByCode(amount, currency = 'USD') {
+    if (!currency) {
+        return formatCurrency(amount);
+    }
+    try {
+        return new Intl.NumberFormat('uk-UA', {
+            style: 'currency',
+            currency
+        }).format(amount || 0);
+    } catch (error) {
+        return formatCurrency(amount);
+    }
+}
+
+function calculateSalesMetrics(opportunities, filters = {}, referenceOpportunities = []) {
     const stageSummary = {};
     SALES_STAGE_ORDER.forEach(stage => {
         stageSummary[stage] = { count: 0, total: 0, conversion: 0 };
@@ -4315,13 +5016,40 @@ function calculateSalesMetrics(opportunities) {
     let closedWonCount = 0;
     let closedLostCount = 0;
     let wonValue = 0;
+    let totalRevenue = 0;
+    let totalProfit = 0;
 
     const forecastBuckets = {};
+    const revenueTrendBuckets = new Map();
+    const categoryBuckets = new Map();
+    const sellerBuckets = new Map();
+    const segmentationBuckets = {
+        clientTypes: new Map(),
+        regions: new Map(),
+        products: new Map()
+    };
+    const overduePayments = [];
+    const now = new Date();
+
+    const filterRange = getSalesFilterDateRange(filters);
+    const previousRange = calculatePreviousPeriodRange(filterRange);
+    const filterKeys = buildSalesFilterKeys(filters);
+
+    const ensureSegment = (map, label) => {
+        const key = label || 'Інше';
+        if (!map.has(key)) {
+            map.set(key, { label: key, revenue: 0, pipeline: 0, deals: 0 });
+        }
+        return map.get(key);
+    };
 
     opportunities.forEach(opportunity => {
         const stage = stageSummary[opportunity.stage] ? opportunity.stage : SALES_STAGE_ORDER[0];
         const amount = Number(opportunity.value) || 0;
         const probability = Math.min(Math.max(Number(opportunity.probability) || 0, 0), 100);
+        const margin = Number.isFinite(opportunity.profit_margin) ? Number(opportunity.profit_margin) : 0.32;
+        const rawProfit = Number(opportunity.profit_amount);
+        const profitAmount = Number.isFinite(rawProfit) ? rawProfit : amount * margin;
 
         stageSummary[stage].count += 1;
         stageSummary[stage].total += amount;
@@ -4338,27 +5066,112 @@ function calculateSalesMetrics(opportunities) {
         if (stage === 'Closed Won') {
             closedWonCount += 1;
             wonValue += amount;
+            totalRevenue += amount;
+            totalProfit += profitAmount;
         }
 
         if (stage === 'Closed Lost') {
             closedLostCount += 1;
         }
 
-        if (opportunity.expected_close_date) {
-            const expectedDate = new Date(opportunity.expected_close_date);
-            if (!Number.isNaN(expectedDate.valueOf())) {
-                const key = `${expectedDate.getFullYear()}-${String(expectedDate.getMonth() + 1).padStart(2, '0')}`;
-                const label = expectedDate.toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
-                if (!forecastBuckets[key]) {
-                    forecastBuckets[key] = { label, pipeline: 0, weighted: 0 };
-                }
-                if (isOpen) {
-                    forecastBuckets[key].pipeline += amount;
-                    forecastBuckets[key].weighted += amount * (probability / 100);
-                } else if (stage === 'Closed Won') {
-                    forecastBuckets[key].weighted += amount;
-                }
+        const expectedDate = parseDateValue(opportunity.expected_close_date);
+        if (expectedDate) {
+            const key = `${expectedDate.getFullYear()}-${String(expectedDate.getMonth() + 1).padStart(2, '0')}`;
+            const label = expectedDate.toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
+            if (!forecastBuckets[key]) {
+                forecastBuckets[key] = { label, pipeline: 0, weighted: 0 };
             }
+            if (isOpen) {
+                forecastBuckets[key].pipeline += amount;
+                forecastBuckets[key].weighted += amount * (probability / 100);
+            } else if (stage === 'Closed Won') {
+                forecastBuckets[key].weighted += amount;
+            }
+        }
+
+        const revenueDate = stage === 'Closed Won'
+            ? parseDateValue(opportunity.actual_close_date || opportunity.expected_close_date)
+            : expectedDate;
+        if (revenueDate) {
+            const monthKey = `${revenueDate.getFullYear()}-${String(revenueDate.getMonth() + 1).padStart(2, '0')}`;
+            const monthLabel = revenueDate.toLocaleDateString('uk-UA', { month: 'short', year: 'numeric' });
+            if (!revenueTrendBuckets.has(monthKey)) {
+                revenueTrendBuckets.set(monthKey, { label: monthLabel, revenue: 0, pipeline: 0 });
+            }
+            const bucket = revenueTrendBuckets.get(monthKey);
+            if (stage === 'Closed Won') {
+                bucket.revenue += amount;
+            } else if (isOpen) {
+                bucket.pipeline += amount;
+            }
+        }
+
+        const productLabel = opportunity.product_line || opportunity.sales_type || 'Інше';
+        if (!categoryBuckets.has(productLabel)) {
+            categoryBuckets.set(productLabel, { label: productLabel, total: 0, deals: 0, wonRevenue: 0 });
+        }
+        const categoryEntry = categoryBuckets.get(productLabel);
+        categoryEntry.total += amount;
+        categoryEntry.deals += 1;
+        if (stage === 'Closed Won') {
+            categoryEntry.wonRevenue += amount;
+        }
+
+        const ownerLabel = opportunity.owner || 'Не призначено';
+        if (!sellerBuckets.has(ownerLabel)) {
+            sellerBuckets.set(ownerLabel, {
+                owner: ownerLabel,
+                team: opportunity.manager_team || 'Sales',
+                deals: 0,
+                wonDeals: 0,
+                lostDeals: 0,
+                revenue: 0
+            });
+        }
+        const sellerEntry = sellerBuckets.get(ownerLabel);
+        sellerEntry.deals += 1;
+        if (stage === 'Closed Won') {
+            sellerEntry.wonDeals += 1;
+            sellerEntry.revenue += amount;
+        }
+        if (stage === 'Closed Lost') {
+            sellerEntry.lostDeals += 1;
+        }
+
+        const clientSegment = ensureSegment(segmentationBuckets.clientTypes, opportunity.client_type || 'Інші клієнти');
+        clientSegment.deals += 1;
+        if (stage === 'Closed Won') {
+            clientSegment.revenue += amount;
+        } else if (isOpen) {
+            clientSegment.pipeline += amount;
+        }
+
+        const regionSegment = ensureSegment(segmentationBuckets.regions, opportunity.region || 'Інші регіони');
+        regionSegment.deals += 1;
+        if (stage === 'Closed Won') {
+            regionSegment.revenue += amount;
+        } else if (isOpen) {
+            regionSegment.pipeline += amount;
+        }
+
+        const productSegment = ensureSegment(segmentationBuckets.products, productLabel);
+        productSegment.deals += 1;
+        if (stage === 'Closed Won') {
+            productSegment.revenue += amount;
+        } else if (isOpen) {
+            productSegment.pipeline += amount;
+        }
+
+        const paymentStatus = String(opportunity.payment_status || '').toLowerCase();
+        if (paymentStatus.includes('простроч') || paymentStatus.includes('overdue')) {
+            overduePayments.push(opportunity);
+        } else if (
+            stage === 'Closed Won'
+            && paymentStatus.includes('частково')
+            && expectedDate
+            && expectedDate < now
+        ) {
+            overduePayments.push(opportunity);
         }
     });
 
@@ -4388,6 +5201,89 @@ function calculateSalesMetrics(opportunities) {
     const winRate = winRateDenominator > 0 ? (closedWonCount / winRateDenominator) * 100 : 0;
     const avgDealSize = openCount > 0 ? openValue / openCount : 0;
 
+    let previousRevenue = 0;
+    if (previousRange) {
+        previousRevenue = referenceOpportunities.reduce((sum, opportunity) => {
+            if (opportunity.stage !== 'Closed Won') {
+                return sum;
+            }
+            if (!matchesOpportunity(opportunity, filterKeys)) {
+                return sum;
+            }
+            const date = getOpportunityFilterDate(opportunity);
+            if (!date) {
+                return sum;
+            }
+            if (previousRange.start && date < previousRange.start) {
+                return sum;
+            }
+            if (previousRange.end && date > previousRange.end) {
+                return sum;
+            }
+            return sum + (Number(opportunity.value) || 0);
+        }, 0);
+    }
+
+    const averageCheck = closedWonCount > 0 ? totalRevenue / closedWonCount : 0;
+    const conversionRate = opportunities.length > 0 ? closedWonCount / opportunities.length : 0;
+    const profitMargin = totalRevenue > 0 ? totalProfit / totalRevenue : 0;
+    const growthRate = previousRevenue > 0
+        ? (totalRevenue - previousRevenue) / previousRevenue
+        : (totalRevenue > 0 ? 1 : 0);
+
+    const revenueTrendKeys = Array.from(revenueTrendBuckets.keys()).sort();
+    const revenueTrend = {
+        labels: revenueTrendKeys.map(key => revenueTrendBuckets.get(key).label),
+        revenue: revenueTrendKeys.map(key => Math.round(revenueTrendBuckets.get(key).revenue)),
+        pipeline: revenueTrendKeys.map(key => Math.round(revenueTrendBuckets.get(key).pipeline))
+    };
+
+    const categoryBreakdown = Array.from(categoryBuckets.values())
+        .map(entry => ({ ...entry }))
+        .sort((a, b) => {
+            if (b.total !== a.total) {
+                return b.total - a.total;
+            }
+            return (b.wonRevenue || 0) - (a.wonRevenue || 0);
+        });
+
+    const sellerPerformance = Array.from(sellerBuckets.values())
+        .map(entry => ({
+            ...entry,
+            winRate: entry.deals > 0 ? entry.wonDeals / entry.deals : 0
+        }))
+        .sort((a, b) => {
+            if (b.revenue !== a.revenue) {
+                return b.revenue - a.revenue;
+            }
+            return (b.wonDeals || 0) - (a.wonDeals || 0);
+        });
+
+    const convertSegmentationMap = map => Array.from(map.values())
+        .sort((a, b) => {
+            if (b.revenue !== a.revenue) {
+                return b.revenue - a.revenue;
+            }
+            if (b.pipeline !== a.pipeline) {
+                return b.pipeline - a.pipeline;
+            }
+            return b.deals - a.deals;
+        });
+
+    const segmentation = {
+        clientTypes: convertSegmentationMap(segmentationBuckets.clientTypes),
+        regions: convertSegmentationMap(segmentationBuckets.regions),
+        products: convertSegmentationMap(segmentationBuckets.products)
+    };
+
+    const insights = {
+        topProduct: categoryBreakdown[0] || null,
+        topSeller: sellerPerformance[0] || null,
+        topRegion: segmentation.regions[0] || null,
+        overdueCount: overduePayments.length,
+        range: filterRange
+    };
+
     return {
         stageSummary,
         totalPipeline,
@@ -4396,7 +5292,24 @@ function calculateSalesMetrics(opportunities) {
         avgDealSize,
         winRate,
         wonValue,
-        forecast
+        forecast,
+        kpis: {
+            totalRevenue,
+            totalProfit,
+            dealCount: closedWonCount,
+            averageCheck,
+            conversionRate,
+            profitMargin,
+            growthRate,
+            previousRevenue,
+            range: filterRange
+        },
+        revenueTrend,
+        categoryBreakdown,
+        sellerPerformance,
+        segmentation,
+        insights,
+        overduePayments
     };
 }
 
@@ -4404,23 +5317,92 @@ function renderSalesMetrics(metrics) {
     const pipelineValue = document.getElementById('salesPipelineValue');
     const pipelineCount = document.getElementById('salesPipelineCount');
     const weightedValue = document.getElementById('salesWeightedValue');
-    const winRate = document.getElementById('salesWinRate');
+    const winRateElement = document.getElementById('salesWinRate');
     const avgDealSize = document.getElementById('salesAvgDealSize');
-    const wonValue = document.getElementById('salesWonValue');
+    const wonValueElement = document.getElementById('salesWonValue');
     const pipelineStats = document.getElementById('salesPipelineStats');
     const funnelSummary = document.getElementById('salesFunnelSummary');
     const forecastSummary = document.getElementById('salesForecastSummary');
 
+    const totalRevenueElement = document.getElementById('salesTotalRevenue');
+    const revenueHelper = document.getElementById('salesRevenueHelper');
+    const dealsCountElement = document.getElementById('salesDealsCount');
+    const dealsHelper = document.getElementById('salesDealsHelper');
+    const averageCheckElement = document.getElementById('salesAverageCheck');
+    const averageCheckHelper = document.getElementById('salesAverageCheckHelper');
+    const conversionElement = document.getElementById('salesConversion');
+    const conversionHelper = document.getElementById('salesConversionHelper');
+    const profitabilityElement = document.getElementById('salesProfitability');
+    const profitabilityHelper = document.getElementById('salesProfitabilityHelper');
+    const growthBadge = document.getElementById('salesGrowthBadge');
+    const growthLabel = document.getElementById('salesGrowthLabel');
+
+    const kpis = metrics.kpis || {};
+    const totalDeals = salesModuleState.opportunities.length;
+
+    if (totalRevenueElement) totalRevenueElement.textContent = formatCurrency(kpis.totalRevenue || 0);
+
+    if (revenueHelper) {
+        const range = kpis.range || {};
+        const startLabel = range.start ? formatDateRangeDisplay(range.start) : '';
+        const endLabel = range.end ? formatDateRangeDisplay(range.end) : '';
+        const rangeFragment = startLabel || endLabel ? ` · ${startLabel || '—'} – ${endLabel || '—'}` : '';
+        revenueHelper.textContent = `${kpis.dealCount || 0} угод у періоді${rangeFragment}`;
+    }
+
+    if (dealsCountElement) dealsCountElement.textContent = String(totalDeals);
+    if (dealsHelper) dealsHelper.textContent = `Активні у воронці: ${metrics.openCount}`;
+
+    if (averageCheckElement) averageCheckElement.textContent = formatCurrency(kpis.averageCheck || 0);
+    if (averageCheckHelper) {
+        averageCheckHelper.textContent = kpis.dealCount
+            ? `Розраховано по ${kpis.dealCount} виграним угодам`
+            : 'Очікуємо виграні угоди';
+    }
+
+    if (conversionElement) conversionElement.textContent = formatPercentage(kpis.conversionRate || 0);
+    if (conversionHelper) {
+        conversionHelper.textContent = totalDeals
+            ? `${kpis.dealCount || 0} з ${totalDeals} угод виграно`
+            : 'Очікуємо дані про угоди';
+    }
+
+    if (profitabilityElement) profitabilityElement.textContent = formatPercentage(kpis.profitMargin || 0);
+    if (profitabilityHelper) {
+        profitabilityHelper.textContent = `Чистий прибуток: ${formatCurrency(kpis.totalProfit || 0)}`;
+    }
+
+    if (growthBadge) {
+        const growthValue = Number.isFinite(kpis.growthRate) ? kpis.growthRate : 0;
+        const growthPercent = growthValue * 100;
+        const formattedGrowth = `${growthPercent >= 0 ? '+' : ''}${growthPercent.toFixed(1)}%`;
+        growthBadge.textContent = formattedGrowth;
+        growthBadge.classList.remove('bg-emerald-50', 'text-emerald-600', 'bg-rose-50', 'text-rose-600', 'bg-gray-100', 'text-gray-600');
+        if (growthValue > 0) {
+            growthBadge.classList.add('bg-emerald-50', 'text-emerald-600');
+        } else if (growthValue < 0) {
+            growthBadge.classList.add('bg-rose-50', 'text-rose-600');
+        } else {
+            growthBadge.classList.add('bg-gray-100', 'text-gray-600');
+        }
+    }
+
+    if (growthLabel) {
+        growthLabel.textContent = `vs попередній період (${formatCurrency(kpis.previousRevenue || 0)})`;
+    }
+
     if (pipelineValue) pipelineValue.textContent = formatCurrency(metrics.totalPipeline);
-    if (pipelineCount) pipelineCount.textContent = `${metrics.openCount} open deals`;
+    if (pipelineCount) pipelineCount.textContent = `${metrics.openCount} активних угод`;
     if (weightedValue) weightedValue.textContent = formatCurrency(metrics.weightedPipeline);
-    if (wonValue) wonValue.textContent = `${formatCurrency(metrics.wonValue)} closed won`;
-    if (winRate) winRate.textContent = `${metrics.winRate.toFixed(1)}%`;
+    if (wonValueElement) wonValueElement.textContent = `${formatCurrency(metrics.wonValue)} closed won`;
+    if (winRateElement) winRateElement.textContent = `${metrics.winRate.toFixed(1)}%`;
     if (avgDealSize) avgDealSize.textContent = formatCurrency(metrics.avgDealSize);
-    if (pipelineStats) pipelineStats.textContent = `${metrics.openCount} open • ${formatCurrency(metrics.totalPipeline)} in pipeline`;
+    if (pipelineStats) {
+        pipelineStats.textContent = `${metrics.openCount} open • Weighted ${formatCurrency(metrics.weightedPipeline)} • Closed ${formatCurrency(kpis.totalRevenue || 0)}`;
+    }
 
     const qualificationCount = metrics.stageSummary['Qualification']?.count || 0;
-    if (funnelSummary) funnelSummary.textContent = `${qualificationCount} opportunities entering the funnel`;
+    if (funnelSummary) funnelSummary.textContent = `${qualificationCount} угод на старті воронки`;
 
     if (forecastSummary) {
         const totalWeighted = metrics.forecast.weighted.reduce((sum, value) => sum + value, 0);
@@ -4572,12 +5554,27 @@ function handleOpportunityProbabilityChange(event) {
 }
 
 function refreshSalesVisuals() {
-    const metrics = calculateSalesMetrics(salesModuleState.opportunities);
+    const metrics = calculateSalesMetrics(
+        salesModuleState.opportunities,
+        salesModuleState.filters,
+        salesModuleState.allOpportunities
+    );
+    salesModuleState.lastMetrics = metrics;
     renderSalesMetrics(metrics);
     renderSalesFunnel(metrics.stageSummary);
     renderSalesPipelineBoard();
     renderSalesOpportunityTable();
     renderSalesForecast(metrics.forecast);
+    renderSalesRevenueTrend(metrics.revenueTrend);
+    renderSalesCategoryDistribution(metrics.categoryBreakdown);
+    renderSalesTopSellers(metrics.sellerPerformance);
+    renderSalesInsights(metrics);
+    renderSalesSegmentation(metrics.segmentation);
+    renderSalesDetailTable(salesModuleState.opportunities);
+    renderSalesReportsSummary(metrics);
+    renderSalesGoals(metrics);
+    renderSalesIntegrationsSummary();
+    renderSalesSecuritySummary(metrics);
     updateCpqOpportunityOptions();
 }
 
@@ -4649,6 +5646,513 @@ function renderSalesForecast(forecast) {
             }
         }
     });
+}
+
+function renderSalesRevenueTrend(trend = { labels: [], revenue: [], pipeline: [] }) {
+    const canvas = document.getElementById('salesRevenueTrendChart');
+    const emptyState = document.getElementById('salesRevenueTrendEmpty');
+    const summary = document.getElementById('salesRevenueTrendSummary');
+    if (!canvas) {
+        return;
+    }
+
+    if (!Array.isArray(trend.labels) || trend.labels.length === 0) {
+        if (charts.salesRevenueTrend) {
+            charts.salesRevenueTrend.destroy();
+            charts.salesRevenueTrend = null;
+        }
+        canvas.classList.add('hidden');
+        if (emptyState) {
+            emptyState.classList.remove('hidden');
+            emptyState.classList.add('flex');
+        }
+        if (summary) {
+            summary.textContent = 'Недостатньо даних';
+        }
+        return;
+    }
+
+    canvas.classList.remove('hidden');
+    if (emptyState) {
+        emptyState.classList.add('hidden');
+        emptyState.classList.remove('flex');
+    }
+
+    const context = canvas.getContext('2d');
+    if (charts.salesRevenueTrend) {
+        charts.salesRevenueTrend.destroy();
+    }
+
+    charts.salesRevenueTrend = new Chart(context, {
+        type: 'line',
+        data: {
+            labels: trend.labels,
+            datasets: [
+                {
+                    label: 'Закрита виручка',
+                    data: trend.revenue,
+                    borderColor: '#2563eb',
+                    backgroundColor: 'rgba(37, 99, 235, 0.12)',
+                    tension: 0.3,
+                    fill: true,
+                    pointRadius: 3
+                },
+                {
+                    label: 'Pipeline',
+                    data: trend.pipeline,
+                    borderColor: '#22c55e',
+                    backgroundColor: 'rgba(34, 197, 94, 0.12)',
+                    tension: 0.3,
+                    fill: true,
+                    pointRadius: 3
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    ticks: {
+                        callback: value => formatCurrency(value)
+                    }
+                }
+            },
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                },
+                tooltip: {
+                    callbacks: {
+                        label: context => `${context.dataset.label}: ${formatCurrency(context.parsed.y)}`
+                    }
+                }
+            }
+        }
+    });
+
+    if (summary) {
+        const lastRevenue = trend.revenue[trend.revenue.length - 1] || 0;
+        summary.textContent = `Останній період: ${formatCurrency(lastRevenue)}`;
+    }
+}
+
+function renderSalesCategoryDistribution(breakdown = []) {
+    const canvas = document.getElementById('salesCategoryDistributionChart');
+    const legend = document.getElementById('salesCategoryDistributionLegend');
+    const summary = document.getElementById('salesCategorySummary');
+    if (!canvas) {
+        return;
+    }
+
+    if (!Array.isArray(breakdown) || breakdown.length === 0) {
+        if (charts.salesCategoryDistribution) {
+            charts.salesCategoryDistribution.destroy();
+            charts.salesCategoryDistribution = null;
+        }
+        if (legend) {
+            legend.innerHTML = '<p class="text-sm text-gray-500">Немає даних для відображення.</p>';
+        }
+        if (summary) {
+            summary.textContent = 'Очікуємо угоди';
+        }
+        return;
+    }
+
+    const labels = breakdown.map(item => item.label);
+    const values = breakdown.map(item => Math.round(item.total || 0));
+    const colors = ['#1d4ed8', '#22c55e', '#f97316', '#9333ea', '#0ea5e9', '#ef4444'];
+
+    const context = canvas.getContext('2d');
+    if (charts.salesCategoryDistribution) {
+        charts.salesCategoryDistribution.destroy();
+    }
+
+    charts.salesCategoryDistribution = new Chart(context, {
+        type: 'doughnut',
+        data: {
+            labels,
+            datasets: [
+                {
+                    data: values,
+                    backgroundColor: labels.map((_, index) => colors[index % colors.length]),
+                    borderWidth: 1,
+                    hoverOffset: 6
+                }
+            ]
+        },
+        options: {
+            cutout: '60%',
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: context => `${context.label}: ${formatCurrency(context.parsed)}`
+                    }
+                }
+            }
+        }
+    });
+
+    if (legend) {
+        legend.innerHTML = breakdown.slice(0, 6).map((item, index) => {
+            const color = colors[index % colors.length];
+            return `
+                <div class="flex items-center justify-between text-sm text-gray-600">
+                    <div class="flex items-center gap-2">
+                        <span class="inline-flex h-2.5 w-2.5 rounded-full" style="background:${color}"></span>
+                        <span>${sanitizeText(item.label)}</span>
+                    </div>
+                    <span class="font-medium text-gray-700">${formatCurrency(item.total || 0)}</span>
+                </div>
+            `;
+        }).join('');
+    }
+
+    if (summary) {
+        summary.textContent = `Топ категорія: ${sanitizeText(breakdown[0].label)} (${formatCurrency(breakdown[0].total || 0)})`;
+    }
+}
+
+function renderSalesTopSellers(sellers = []) {
+    const tbody = document.getElementById('salesTopSellersBody');
+    const summary = document.getElementById('salesTopSellersSummary');
+    if (!tbody) {
+        return;
+    }
+
+    if (!Array.isArray(sellers) || sellers.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="5" class="p-4 text-center text-sm text-gray-500">Немає даних про продавців.</td>
+            </tr>
+        `;
+        if (summary) {
+            summary.textContent = '';
+        }
+        return;
+    }
+
+    tbody.innerHTML = sellers.slice(0, 6).map(seller => {
+        const winRate = seller.winRate ? formatPercentage(seller.winRate) : '0%';
+        return `
+            <tr class="hover:bg-gray-50">
+                <td class="p-3 font-medium text-gray-800">${sanitizeText(seller.owner || 'Не призначено')}</td>
+                <td class="p-3 text-gray-600">${sanitizeText(seller.team || 'Sales')}</td>
+                <td class="p-3 text-gray-600">${sanitizeText(seller.deals || 0)}</td>
+                <td class="p-3 text-gray-700 font-medium">${formatCurrency(seller.revenue || 0)}</td>
+                <td class="p-3 text-gray-600">${winRate}</td>
+            </tr>
+        `;
+    }).join('');
+
+    if (summary) {
+        const leader = sellers[0];
+        summary.textContent = leader
+            ? `${leader.owner} закрив ${formatCurrency(leader.revenue || 0)}`
+            : '';
+    }
+}
+
+function renderSalesInsights(metrics) {
+    const list = document.getElementById('salesInsightsList');
+    if (!list) {
+        return;
+    }
+
+    const insights = [];
+    const kpis = metrics.kpis || {};
+
+    if (metrics.insights?.topProduct) {
+        insights.push(`Топ продукт: <span class="font-medium text-gray-800">${sanitizeText(metrics.insights.topProduct.label)}</span> (${formatCurrency(metrics.insights.topProduct.total || 0)})`);
+    }
+    if (metrics.insights?.topRegion) {
+        insights.push(`Найактивніший регіон: <span class="font-medium text-gray-800">${sanitizeText(metrics.insights.topRegion.label)}</span> (${formatCurrency(metrics.insights.topRegion.revenue || 0)})`);
+    }
+    if (kpis.conversionRate !== undefined) {
+        insights.push(`Конверсія угод: <span class="font-medium text-gray-800">${formatPercentage(kpis.conversionRate || 0)}</span>.`);
+    }
+    if (metrics.overduePayments?.length) {
+        insights.push(`Прострочені платежі: <span class="font-medium text-rose-600">${metrics.overduePayments.length}</span>.`);
+    }
+
+    if (!insights.length) {
+        list.innerHTML = '<li class="text-sm text-gray-500">Аналітика буде доступна після появи нових угод.</li>';
+        return;
+    }
+
+    list.innerHTML = insights.map(item => `<li class="text-sm text-gray-600">${item}</li>`).join('');
+}
+
+function renderSalesSegmentation(segmentation = { clientTypes: [], regions: [], products: [] }) {
+    const container = document.getElementById('salesSegmentation');
+    const summary = document.getElementById('salesSegmentationSummary');
+    if (!container) {
+        return;
+    }
+
+    const renderGroup = (title, items) => {
+        if (!items.length) {
+            return '';
+        }
+        const topItems = items.slice(0, 3);
+        return `
+            <div>
+                <h4 class="text-sm font-semibold text-gray-700 mb-2">${sanitizeText(title)}</h4>
+                <ul class="space-y-2">
+                    ${topItems.map(item => `
+                        <li class="flex items-center justify-between text-sm text-gray-600">
+                            <span>${sanitizeText(item.label)}</span>
+                            <span class="font-medium text-gray-700">${formatCurrency(item.revenue || item.pipeline || 0)}</span>
+                        </li>
+                    `).join('')}
+                </ul>
+            </div>
+        `;
+    };
+
+    const sections = [
+        renderGroup('Типи клієнтів', segmentation.clientTypes || []),
+        renderGroup('Регіони', segmentation.regions || []),
+        renderGroup('Продукти', segmentation.products || [])
+    ].filter(Boolean);
+
+    container.innerHTML = sections.length
+        ? sections.join('<hr class="my-3 border-gray-100">')
+        : '<p class="text-sm text-gray-500">Сегментація стане доступною після появи угод.</p>';
+
+    if (summary) {
+        const topClient = segmentation.clientTypes?.[0];
+        summary.textContent = topClient
+            ? `Лідируючий сегмент: ${sanitizeText(topClient.label)}`
+            : '';
+    }
+}
+
+function renderSalesDetailTable(opportunities) {
+    const tbody = document.getElementById('salesDetailTableBody');
+    if (!tbody) {
+        return;
+    }
+
+    if (!Array.isArray(opportunities) || opportunities.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="8" class="p-4 text-center text-sm text-gray-500">Немає даних про продажі за вибраними фільтрами.</td>
+            </tr>
+        `;
+        return;
+    }
+
+    const rows = opportunities.map(opportunity => {
+        const date = getOpportunityFilterDate(opportunity);
+        const dateLabel = date ? date.toLocaleDateString('uk-UA') : '—';
+        const amount = formatCurrencyByCode(opportunity.value || 0, opportunity.currency || 'USD');
+        const profit = formatCurrencyByCode(opportunity.profit_amount || 0, opportunity.currency || 'USD');
+        return `
+            <tr class="hover:bg-gray-50">
+                <td class="p-3 text-gray-600">${sanitizeText(dateLabel)}</td>
+                <td class="p-3 font-medium text-gray-800">${sanitizeText(opportunity.deal_code || opportunity.id || '')}</td>
+                <td class="p-3 text-gray-600">${sanitizeText(opportunity.account_name || '—')}</td>
+                <td class="p-3 text-gray-600">${sanitizeText(opportunity.owner || '—')}</td>
+                <td class="p-3 text-gray-600">${sanitizeText(opportunity.product_line || '—')}</td>
+                <td class="p-3 text-gray-700 font-medium">${amount}</td>
+                <td class="p-3 text-gray-600">${sanitizeText(opportunity.payment_status || '—')}</td>
+                <td class="p-3 text-gray-700 font-medium">${profit}</td>
+            </tr>
+        `;
+    }).join('');
+
+    tbody.innerHTML = rows;
+}
+
+function renderSalesReportsSummary(metrics) {
+    const summary = document.getElementById('salesReportsSummary');
+    if (!summary) {
+        return;
+    }
+    const kpis = metrics.kpis || {};
+    const parts = [
+        `Виручка: ${formatCurrency(kpis.totalRevenue || 0)}`,
+        `Конверсія: ${formatPercentage(kpis.conversionRate || 0)}`,
+        `Прибуток: ${formatCurrency(kpis.totalProfit || 0)}`
+    ];
+    if (metrics.overduePayments?.length) {
+        parts.push(`Прострочені платежі: ${metrics.overduePayments.length}`);
+    }
+    summary.textContent = parts.join(' · ');
+}
+
+function renderSalesGoals(metrics) {
+    const container = document.getElementById('salesGoals');
+    if (!container) {
+        return;
+    }
+
+    const kpis = metrics.kpis || {};
+    const revenueTarget = kpis.previousRevenue
+        ? Math.max(kpis.previousRevenue * 1.1, kpis.totalRevenue || 0)
+        : (kpis.totalRevenue || 50000) * 1.2;
+    const conversionTarget = 0.35;
+    const winRateTarget = 0.45;
+
+    const goals = [
+        {
+            title: 'Виконання плану виручки',
+            value: kpis.totalRevenue || 0,
+            target: revenueTarget,
+            helper: `План: ${formatCurrency(revenueTarget)}`
+        },
+        {
+            title: 'Конверсія лідів у клієнтів',
+            value: kpis.conversionRate || 0,
+            target: conversionTarget,
+            helper: `Ціль: ${formatPercentage(conversionTarget)}`,
+            isRatio: true
+        },
+        {
+            title: 'Win-rate',
+            value: (metrics.winRate || 0) / 100,
+            target: winRateTarget,
+            helper: `Поточний: ${metrics.winRate.toFixed(1)}%`,
+            isRatio: true
+        }
+    ];
+
+    container.innerHTML = goals.map(goal => {
+        const progress = goal.target ? Math.min(goal.value / goal.target, 1) : 0;
+        const percentage = goal.isRatio ? goal.value : progress;
+        const formattedProgress = goal.isRatio
+            ? formatPercentage(goal.value || 0)
+            : formatPercentage(progress);
+        return `
+            <div>
+                <div class="flex items-center justify-between text-sm text-gray-600">
+                    <span class="font-semibold text-gray-700">${sanitizeText(goal.title)}</span>
+                    <span>${formattedProgress}</span>
+                </div>
+                <div class="mt-2 h-2 w-full rounded-full bg-gray-100">
+                    <div class="h-2 rounded-full bg-blue-600" style="width: ${(progress * 100).toFixed(0)}%"></div>
+                </div>
+                <p class="mt-1 text-xs text-gray-500">${sanitizeText(goal.helper)}</p>
+            </div>
+        `;
+    }).join('');
+}
+
+function renderSalesIntegrationsSummary() {
+    const summary = document.getElementById('salesIntegrationsSummary');
+    if (!summary) {
+        return;
+    }
+
+    const paymentProviders = Array.from(salesModuleState.billing.paymentProviders || []);
+    const accountingSystems = Array.from(salesModuleState.billing.accountingSystems || []);
+    const terms = salesModuleState.billing.paymentTerms || 'Net 30';
+    const autoSend = salesModuleState.billing.autoSendInvoices ? 'увімкнено' : 'вимкнено';
+
+    const providerLabels = PAYMENT_PROVIDERS
+        .filter(provider => paymentProviders.includes(provider.id))
+        .map(provider => provider.name);
+    const accountingLabels = ACCOUNTING_SYSTEMS
+        .filter(system => accountingSystems.includes(system.id))
+        .map(system => system.name);
+
+    summary.innerHTML = `
+        <p>Платіжні системи: <span class="font-medium text-gray-800">${providerLabels.length ? sanitizeText(providerLabels.join(', ')) : 'не підключено'}</span></p>
+        <p>Бухгалтерія: <span class="font-medium text-gray-800">${accountingLabels.length ? sanitizeText(accountingLabels.join(', ')) : 'не налаштовано'}</span></p>
+        <p>Умови оплати: <span class="font-medium text-gray-800">${sanitizeText(terms)}</span> · автопостачання ${autoSend}</p>
+    `;
+}
+
+function renderSalesSecuritySummary(metrics) {
+    const summary = document.getElementById('salesSecuritySummary');
+    if (!summary) {
+        return;
+    }
+
+    const overdueCount = metrics.overduePayments?.length || 0;
+    summary.innerHTML = `
+        <p>Рівні доступу: менеджери бачать лише власні угоди, аналітики — агреговані дані.</p>
+        <p>Прострочені платежі під контролем: <span class="font-medium ${overdueCount ? 'text-rose-600' : 'text-emerald-600'}">${overdueCount}</span>.</p>
+        <p>Журнал змін зберігає історію для ${metrics.stageSummary ? Object.values(metrics.stageSummary).reduce((sum, item) => sum + (item.count || 0), 0) : 0} записів.</p>
+    `;
+}
+
+function handleSalesExport(format = 'csv') {
+    const dataset = salesModuleState.opportunities;
+    if (!Array.isArray(dataset) || dataset.length === 0) {
+        showToast('Немає даних для експорту', 'warning');
+        return;
+    }
+
+    const headers = ['Date', 'Deal', 'Client', 'Manager', 'Product', 'Amount', 'Payment Status', 'Profit'];
+    const rows = dataset.map(opportunity => {
+        const date = getOpportunityFilterDate(opportunity);
+        const dateLabel = date ? date.toISOString().split('T')[0] : '';
+        const amount = formatCurrencyByCode(opportunity.value || 0, opportunity.currency || 'USD');
+        const profit = formatCurrencyByCode(opportunity.profit_amount || 0, opportunity.currency || 'USD');
+        return [
+            dateLabel,
+            opportunity.deal_code || opportunity.id || '',
+            opportunity.account_name || '',
+            opportunity.owner || '',
+            opportunity.product_line || '',
+            amount,
+            opportunity.payment_status || '',
+            profit
+        ];
+    });
+
+    const escapeCell = value => `"${String(value).replace(/"/g, '""')}"`;
+    const csvContent = [headers, ...rows].map(row => row.map(escapeCell).join(',')).join('\n');
+
+    if (format === 'csv') {
+        downloadCSV(csvContent, 'sales_report.csv');
+        showToast('Експортовано CSV', 'success');
+        return;
+    }
+
+    if (format === 'excel') {
+        const tsvContent = [headers, ...rows].map(row => row.join('\t')).join('\n');
+        downloadCSV(tsvContent, 'sales_report.xlsx');
+        showToast('Підготовлено файл Excel (формат TSV)', 'info');
+        return;
+    }
+
+    showToast('Експорт у PDF доступний через CSV/Excel. Скористайтеся ними для генерації PDF.', 'info');
+}
+
+function handleSalesReport(type) {
+    const metrics = salesModuleState.lastMetrics;
+    const summary = document.getElementById('salesReportsSummary');
+    if (!metrics || !summary) {
+        showToast('Аналітика ще не готова', 'warning');
+        return;
+    }
+
+    const kpis = metrics.kpis || {};
+    let message;
+
+    switch (type) {
+        case 'revenue':
+            message = `Виручка: ${formatCurrency(kpis.totalRevenue || 0)} · Δ до минулого періоду ${formatCurrency((kpis.totalRevenue || 0) - (kpis.previousRevenue || 0))}`;
+            break;
+        case 'conversion':
+            message = `Конверсія: ${formatPercentage(kpis.conversionRate || 0)} · Виграно ${kpis.dealCount || 0} угод`;
+            break;
+        case 'profitability':
+            message = `Маржа: ${formatPercentage(kpis.profitMargin || 0)} · Прибуток ${formatCurrency(kpis.totalProfit || 0)}`;
+            break;
+        case 'overdue':
+            message = `Прострочені платежі: ${metrics.overduePayments?.length || 0} · Pipeline ${formatCurrency(metrics.totalPipeline || 0)}`;
+            break;
+        default:
+            message = 'Звіт оновлено.';
+    }
+
+    summary.textContent = message;
+    showToast('Звіт оновлено', 'success');
 }
 
 function initializeCpqSection() {
